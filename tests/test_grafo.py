@@ -396,26 +396,58 @@ def test_conversa_simples_responde_direto(banco, monkeypatch):
 # --- decidir/redigir usam o modelo isolado (substituível) ---
 
 
-def test_decidir_usa_saida_estruturada(monkeypatch):
-    """`decidir` pede saída estruturada `Rota` ao modelo principal (Req 3.1)."""
+_USO = {"input_tokens": 100, "output_tokens": 23, "total_tokens": 123}
+
+
+def _tokens_do_run(run_id: str, agente: str) -> int:
+    return sum(
+        a["tokens"] for a in atividades.listar()
+        if a["run_id"] == run_id and a["agente"] == agente
+    )
+
+
+def test_decidir_usa_saida_estruturada_e_registra_tokens(banco, monkeypatch):
+    """`decidir` pede saída estruturada `Rota` (Req 3.1) e registra os tokens."""
+    from langchain_core.messages import AIMessage
 
     class FakeEstruturado:
         def __init__(self, rota: Any) -> None:
             self._rota = rota
             self.modelo_saida: Any = None
+            self.include_raw = False
 
-        def with_structured_output(self, modelo: Any) -> "FakeEstruturado":
+        def with_structured_output(self, modelo: Any, include_raw: bool = False) -> "FakeEstruturado":
             self.modelo_saida = modelo
+            self.include_raw = include_raw
             return self
 
         def invoke(self, msgs: Any) -> Any:
-            return self._rota
+            bruto = AIMessage(content="", usage_metadata=_USO)
+            return {"raw": bruto, "parsed": self._rota, "parsing_error": None}
 
     fake = FakeEstruturado(_rota("tech"))
     monkeypatch.setattr(grafo.llm, "principal", lambda: fake)
 
-    rota = grafo.decidir({"pedido": "algo", "autor": "dimi"})
+    rota = grafo.decidir({"run_id": "run-dec", "pedido": "algo", "autor": "dimi"})
 
     assert isinstance(rota, grafo.Rota)
     assert rota.proximo == "tech"
     assert fake.modelo_saida is grafo.Rota
+    assert fake.include_raw is True
+    assert _tokens_do_run("run-dec", "orq") == 123
+
+
+def test_redigir_registra_tokens(banco, monkeypatch):
+    """`redigir` registra os tokens da resposta final do Orquestrador."""
+    from langchain_core.messages import AIMessage
+
+    class FakeModelo:
+        def invoke(self, msgs: Any) -> AIMessage:
+            return AIMessage(content="Resposta.", usage_metadata=_USO)
+
+    monkeypatch.setattr(grafo.llm, "principal", lambda: FakeModelo())
+
+    texto = grafo.redigir({"run_id": "run-red", "pedido": "oi", "autor": "dimi"})
+
+    assert texto == "Resposta."
+    assert _tokens_do_run("run-red", "orq") == 123

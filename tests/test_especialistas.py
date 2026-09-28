@@ -242,14 +242,21 @@ class ModeloEstruturadoFake:
         self.ultimas_msgs: list[Any] | None = None
         self.chamadas = 0
 
-    def with_structured_output(self, modelo: Any) -> "ModeloEstruturadoFake":
+    def with_structured_output(
+        self, modelo: Any, include_raw: bool = False
+    ) -> "ModeloEstruturadoFake":
         self.modelo_saida = modelo
+        self.include_raw = include_raw
         return self
 
     def invoke(self, msgs: list[Any]) -> Any:
         self.ultimas_msgs = list(msgs)
         self.chamadas += 1
-        return self._proposta
+        bruto = AIMessage(
+            content="",
+            usage_metadata={"input_tokens": 40, "output_tokens": 2, "total_tokens": 42},
+        )
+        return {"raw": bruto, "parsed": self._proposta, "parsing_error": None}
 
 
 def _proposta_fixa() -> especialistas.PropostaReuniao:
@@ -342,3 +349,28 @@ def test_propor_reuniao_emite_atividades_agenda(banco, monkeypatch):
     assert "concluiu" in tipos
     # Todas as atividades são do agente agenda.
     assert all(a["agente"] == "agenda" for a in do_run)
+
+
+def test_propor_reuniao_registra_tokens(banco, monkeypatch):
+    """A saída estruturada usa include_raw e os tokens entram no log."""
+    fake = ModeloEstruturadoFake(_proposta_fixa())
+    _instalar_modelo(monkeypatch, fake)
+
+    especialistas.propor_reuniao("marca uma call", "run-tokens-agenda")
+
+    assert fake.include_raw is True
+    gasto = sum(
+        a["tokens"] for a in atividades.listar() if a["run_id"] == "run-tokens-agenda"
+    )
+    assert gasto == 42
+
+
+def test_propor_reuniao_marca_inicio_invalido(banco, monkeypatch):
+    """`inicio` no passado volta com a chave `problema` explicando o motivo."""
+    proposta = _proposta_fixa()
+    proposta.inicio = "2020-01-07T15:00:00-03:00"
+    _instalar_modelo(monkeypatch, ModeloEstruturadoFake(proposta))
+
+    resultado = especialistas.propor_reuniao("marca pra ontem", "run-passado")
+
+    assert "já passou" in resultado["problema"]

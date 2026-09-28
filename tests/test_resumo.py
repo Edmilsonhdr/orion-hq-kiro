@@ -75,7 +75,8 @@ def test_sem_prefixo_bearer_da_401(cliente):
 def test_com_mudancas_posta_resumo(cliente, monkeypatch):
     _inserir_mudanca("Onboarding", "Novo fluxo de onboarding.")
     monkeypatch.setattr(
-        resumo, "_redigir_resumo", lambda contexto: "Resumo da semana: tudo certo."
+        resumo, "_redigir_resumo",
+        lambda contexto, run_id=None: "Resumo da semana: tudo certo.",
     )
 
     resp = cliente.get(
@@ -93,7 +94,7 @@ def test_com_mudancas_posta_resumo(cliente, monkeypatch):
 
 def test_sem_mudancas_posta_linha_unica_sem_modelo(cliente, monkeypatch):
     # Se o modelo for chamado, o teste falha (não deve haver chamada).
-    def _nao_chamar(contexto):
+    def _nao_chamar(contexto, run_id=None):
         raise AssertionError("não deveria chamar o modelo sem mudanças")
 
     monkeypatch.setattr(resumo, "_redigir_resumo", _nao_chamar)
@@ -109,3 +110,22 @@ def test_sem_mudancas_posta_linha_unica_sem_modelo(cliente, monkeypatch):
     assert len(msgs) == 1
     assert msgs[0]["autor"] == "Orquestrador"
     assert "nenhuma mudança" in msgs[0]["texto"].lower()
+
+
+def test_redigir_resumo_registra_tokens_do_worker(banco, monkeypatch):
+    """O resumo semanal registra os tokens do worker numa atividade de `work`."""
+    from langchain_core.messages import AIMessage
+
+    from _orion import atividades
+
+    class FakeWorker:
+        def invoke(self, msgs):
+            return AIMessage(
+                content="Semana tranquila.",
+                usage_metadata={"input_tokens": 30, "output_tokens": 8, "total_tokens": 38},
+            )
+
+    monkeypatch.setattr(resumo.llm, "worker", lambda: FakeWorker())
+
+    assert resumo._redigir_resumo("contexto", "resumo-teste") == "Semana tranquila."
+    assert atividades.tokens_hoje().get("work") == 38

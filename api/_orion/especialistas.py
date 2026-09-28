@@ -280,10 +280,12 @@ def propor_reuniao(instrucao: str, run_id: str | None) -> dict:
     contexto = ferramentas_mod._mudancas_recentes(7)
     sistema = _prompt_agenda(contexto)
 
-    modelo = llm.principal().with_structured_output(PropostaReuniao)
-    resultado = modelo.invoke(
-        [SystemMessage(content=sistema), HumanMessage(content=instrucao)]
+    resultado, gasto = llm.estruturado(
+        llm.principal(),
+        PropostaReuniao,
+        [SystemMessage(content=sistema), HumanMessage(content=instrucao)],
     )
+    emitir(run_id, "agenda", "pensando", tokens=gasto)
 
     proposta = resultado.model_dump()
     problema = problema_inicio(proposta.get("inicio"))

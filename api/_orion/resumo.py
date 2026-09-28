@@ -18,11 +18,13 @@ Anthropic. Só o Orquestrador escreve no chat (Requirement 3.6).
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from . import db, llm
+from . import config, db, llm
 from . import ferramentas as ferramentas_mod
+from .atividades import emitir
 
 logger = logging.getLogger("orion.resumo")
 
@@ -50,15 +52,18 @@ _PROMPT_RESUMO = (
 )
 
 
-def _redigir_resumo(contexto: str) -> str:
+def _redigir_resumo(contexto: str, run_id: Optional[str] = None) -> str:
     """Pede ao WORKER o texto do resumo semanal (Requirement 10.1).
 
     Isolada para os testes a substituírem por um fake sem chamar a Anthropic.
+    Registra os tokens gastos numa atividade `pensando` do agente `work`.
     """
     modelo = llm.worker()
     resposta = modelo.invoke(
         [SystemMessage(content=_PROMPT_RESUMO), HumanMessage(content=contexto)]
     )
+    emitir(run_id, "work", "pensando", "Resumo semanal redigido.",
+           tokens=llm.tokens(resposta))
     return llm.texto(resposta)
 
 
@@ -78,6 +83,6 @@ def resumo_semanal() -> dict:
         db.salvar_mensagem(AUTOR_ORQ, SEM_MUDANCAS)
         return {"status": "sem_mudancas", "resposta": SEM_MUDANCAS}
 
-    resumo = _redigir_resumo(contexto)
+    resumo = _redigir_resumo(contexto, f"resumo-{config.agora():%Y-%m-%d}")
     db.salvar_mensagem(AUTOR_ORQ, resumo)
     return {"status": "resumido", "resposta": resumo}

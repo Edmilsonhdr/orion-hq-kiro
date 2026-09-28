@@ -67,6 +67,20 @@ def texto(msg: Any) -> str:
     return ""
 
 
+def estruturado(modelo: Any, esquema: Any, mensagens: list[Any]) -> tuple[Any, int]:
+    """Invoca o modelo com saída estruturada e devolve (objeto, tokens).
+
+    Usa `include_raw=True` para ter acesso ao `AIMessage` bruto e ler o
+    `usage_metadata`. Se o modelo não produzir um objeto válido, lança
+    ValueError (o run trata como erro).
+    """
+    saida = modelo.with_structured_output(esquema, include_raw=True).invoke(mensagens)
+    objeto = saida.get("parsed")
+    if objeto is None:
+        raise ValueError(f"Saída estruturada inválida: {saida.get('parsing_error')}")
+    return objeto, tokens(saida.get("raw"))
+
+
 def tokens(msg: Any) -> int:
     """Total de tokens gastos numa resposta do modelo.
 

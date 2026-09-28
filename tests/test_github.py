@@ -25,6 +25,9 @@ from _orion import db, github
 _SEGREDO = "segredo-de-teste-bem-longo-para-hmac"
 _WEBHOOK_SECRET = "segredo-do-webhook-do-github"
 
+# Guardado antes do fake autouse, para testar o registro de tokens do worker.
+_RESUMIR_ORIGINAL = github._resumir
+
 
 @pytest.fixture()
 def cliente(monkeypatch, banco):
@@ -48,7 +51,9 @@ def _sem_rede(monkeypatch):
         github, "_buscar_arquivos",
         lambda pr_url: [{"filename": "app/api.py", "patch": "@@ +1 @@\n+print()"}],
     )
-    monkeypatch.setattr(github, "_resumir", lambda texto_pr: "Resumo gerado do PR.")
+    monkeypatch.setattr(
+        github, "_resumir", lambda texto_pr, run_id=None: "Resumo gerado do PR."
+    )
 
 
 def _assinar(corpo: bytes, segredo: str = _WEBHOOK_SECRET) -> str:
@@ -154,7 +159,9 @@ def test_mesmo_pr_duas_vezes_nao_duplica(cliente, monkeypatch):
     assert resp1.status_code == 200
 
     # Reentrega do MESMO PR, com título/resumo atualizados.
-    monkeypatch.setattr(github, "_resumir", lambda texto_pr: "Resumo atualizado.")
+    monkeypatch.setattr(
+        github, "_resumir", lambda texto_pr, run_id=None: "Resumo atualizado."
+    )
     resp2 = _enviar(cliente, _corpo_pr_mergeado(numero=30, titulo="Título novo"))
     assert resp2.status_code == 200
 
@@ -165,3 +172,29 @@ def test_mesmo_pr_duas_vezes_nao_duplica(cliente, monkeypatch):
     assert len(linhas) == 1
     assert linhas[0]["titulo"] == "Título novo"
     assert linhas[0]["resumo"] == "Resumo atualizado."
+
+
+# --- Tokens do worker ---
+
+
+def test_resumir_registra_tokens_do_worker(banco, monkeypatch):
+    """O resumo do PR registra os tokens do worker numa atividade de `work`."""
+    from langchain_core.messages import AIMessage
+
+    from _orion import atividades
+
+    class FakeWorker:
+        def invoke(self, msgs):
+            return AIMessage(
+                content="Resumo.",
+                usage_metadata={"input_tokens": 50, "output_tokens": 7, "total_tokens": 57},
+            )
+
+    monkeypatch.setattr(github.llm, "worker", lambda: FakeWorker())
+
+    assert _RESUMIR_ORIGINAL("texto do PR", "gh-99") == "Resumo."
+    gasto = sum(
+        a["tokens"] for a in atividades.listar()
+        if a["run_id"] == "gh-99" and a["agente"] == "work"
+    )
+    assert gasto == 57

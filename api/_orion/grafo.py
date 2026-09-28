@@ -154,13 +154,16 @@ def decidir(estado: Estado) -> Rota:
     """Decide o próximo passo com saída estruturada (Requirement 3.1).
 
     Isolada para os testes a substituírem por um fake sem chamar a Anthropic.
+    Registra os tokens gastos numa atividade `pensando` do Orquestrador.
     """
-    modelo = llm.principal().with_structured_output(Rota)
     mensagens = [
         SystemMessage(content=_prompt_supervisor()),
         HumanMessage(content=_contexto_estado(estado)),
     ]
-    return modelo.invoke(mensagens)
+    rota, gasto = llm.estruturado(llm.principal(), Rota, mensagens)
+    emitir(estado.get("run_id"), "orq", "pensando", "Decidindo o próximo passo",
+           tokens=gasto)
+    return rota
 
 
 def _prompt_redigir() -> str:
@@ -199,7 +202,10 @@ def redigir(estado: Estado) -> str:
         SystemMessage(content=_prompt_redigir()),
         HumanMessage(content=humano),
     ]
-    return llm.texto(llm.principal().invoke(mensagens))
+    ai = llm.principal().invoke(mensagens)
+    emitir(estado.get("run_id"), "orq", "pensando", "Redigindo a resposta",
+           tokens=llm.tokens(ai))
+    return llm.texto(ai)
 
 
 # --- Nós do grafo ---

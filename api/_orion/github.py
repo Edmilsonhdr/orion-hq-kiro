@@ -128,15 +128,18 @@ def _montar_texto_pr(corpo_pr: dict, arquivos: list[dict]) -> str:
     return texto
 
 
-def _resumir(texto_pr: str) -> str:
+def _resumir(texto_pr: str, run_id: Optional[str] = None) -> str:
     """Pede ao WORKER um resumo em português do PR (Requirements 5.1, 5.4).
 
     Isolada para os testes a substituírem por um fake sem chamar a Anthropic.
+    Registra os tokens gastos numa atividade `pensando` do agente `work`.
     """
     modelo = llm.worker()
     resposta = modelo.invoke(
         [SystemMessage(content=_PROMPT_RESUMO), HumanMessage(content=texto_pr)]
     )
+    emitir(run_id, "work", "pensando", "Resumo do PR gerado.",
+           tokens=llm.tokens(resposta))
     return llm.texto(resposta)
 
 
@@ -192,8 +195,7 @@ def processar_pr(corpo: dict) -> dict:
     emitir(run_id, "work", "ferramenta", f"buscar_arquivos(PR #{numero}) → {len(arquivos)} arquivo(s)")
 
     texto_pr = _montar_texto_pr(pr, arquivos)
-    resumo = _resumir(texto_pr)
-    emitir(run_id, "work", "pensando", "Resumo do PR gerado.")
+    resumo = _resumir(texto_pr, run_id)
 
     _upsert_changelog(f"PR #{numero}", titulo, resumo, url, autor)
 
