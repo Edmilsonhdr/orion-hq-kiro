@@ -17,6 +17,15 @@ def test_ler_iso_mantem_offset_explicito():
     assert lido.utcoffset() == timedelta(hours=-3)
 
 
+def test_github_token_por_dono_com_padrao(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "token-padrao")
+    monkeypatch.setenv("GITHUB_TOKEN_MINHA_ORG", "token-org")
+    assert config.github_token("minha-org") == "token-org"
+    assert config.github_token("Minha-Org") == "token-org"
+    assert config.github_token("dimi") == "token-padrao"
+    assert config.github_token() == "token-padrao"
+
+
 def test_ler_iso_invalido_lanca_value_error():
     with pytest.raises(ValueError):
         config.ler_iso("amanhã às 3")

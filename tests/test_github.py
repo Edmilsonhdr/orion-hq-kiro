@@ -51,7 +51,7 @@ def _sem_rede(monkeypatch):
     """
     monkeypatch.setattr(
         github, "_buscar_arquivos",
-        lambda pr_url: [{"filename": "app/api.py", "patch": "@@ +1 @@\n+print()"}],
+        lambda pr_url, token: [{"filename": "app/api.py", "patch": "@@ +1 @@\n+print()"}],
     )
     monkeypatch.setattr(
         github, "_resumir", lambda texto_pr, run_id=None: "Resumo gerado do PR."
@@ -65,17 +65,18 @@ def _assinar(corpo: bytes, segredo: str = _WEBHOOK_SECRET) -> str:
 
 
 def _corpo_pr_mergeado(numero=12, titulo="Onboarding novo", merged=True,
-                       action="closed"):
+                       action="closed", repo="orion/orion-back"):
     """Payload de webhook `pull_request` (mergeado por padrão)."""
     return {
         "action": action,
+        "repository": {"full_name": repo, "owner": {"login": repo.split("/")[0]}},
         "pull_request": {
             "number": numero,
             "title": titulo,
             "body": "Descrição do PR.",
             "merged": merged,
-            "url": "https://api.github.com/repos/orion/orion/pulls/%d" % numero,
-            "html_url": "https://github.com/orion/orion/pull/%d" % numero,
+            "url": f"https://api.github.com/repos/{repo}/pulls/{numero}",
+            "html_url": f"https://github.com/{repo}/pull/{numero}",
             "user": {"login": "dimi"},
         },
     }
@@ -108,14 +109,14 @@ def test_assinatura_valida_processa(cliente):
     linhas = db.consultar("select fonte, referencia, titulo, resumo from changelog")
     assert len(linhas) == 1
     assert linhas[0]["fonte"] == "github"
-    assert linhas[0]["referencia"] == "PR #12"
+    assert linhas[0]["referencia"] == "orion/orion-back PR #12"
     assert linhas[0]["resumo"] == "Resumo gerado do PR."
 
     # E o Orquestrador avisou no chat (Requirement 5.5).
     msgs = db.consultar("select autor, texto from mensagens")
     assert len(msgs) == 1
     assert msgs[0]["autor"] == "Orquestrador"
-    assert msgs[0]["texto"] == "Novo no Orion: PR #12 — Onboarding novo"
+    assert msgs[0]["texto"] == "Novo no Orion: orion/orion-back PR #12 — Onboarding novo"
 
 
 def test_assinatura_invalida_da_401(cliente):
@@ -170,7 +171,7 @@ def test_mesmo_pr_duas_vezes_nao_duplica(cliente, monkeypatch):
     assert resp2.json() == {"ok": True, "pr": 30, "duplicado": True}
 
     linhas = db.consultar(
-        "select titulo, resumo from changelog where referencia = 'PR #30'"
+        "select titulo, resumo from changelog where referencia = 'orion/orion-back PR #30'"
     )
     assert len(linhas) == 1
     assert linhas[0]["titulo"] == "Título antigo"
@@ -194,7 +195,7 @@ def test_sem_github_token_responde_200_com_aviso(cliente, monkeypatch):
 def test_falha_vira_atividade_erro_do_work(cliente, monkeypatch):
     from _orion import atividades
 
-    def _quebrar(pr_url):
+    def _quebrar(pr_url, token):
         raise RuntimeError("GitHub fora do ar")
 
     monkeypatch.setattr(github, "_buscar_arquivos", _quebrar)
@@ -207,8 +208,41 @@ def test_falha_vira_atividade_erro_do_work(cliente, monkeypatch):
         if a["agente"] == "work" and a["tipo"] == "erro"
     ]
     assert len(erros) == 1
-    assert erros[0]["run_id"] == "gh-12"
+    assert erros[0]["run_id"] == "gh-orion/orion-back-12"
     assert db.consultar("select id from changelog") == []
+
+
+# --- Dois repositórios (front e back, donos diferentes) ---
+
+
+def test_mesmo_numero_em_repos_diferentes_nao_se_confundem(cliente):
+    resp1 = _enviar(cliente, _corpo_pr_mergeado(numero=5, repo="orion/orion-back"))
+    resp2 = _enviar(cliente, _corpo_pr_mergeado(numero=5, repo="dimi/orion-front"))
+    assert resp1.json() == {"ok": True, "pr": 5}
+    assert resp2.json() == {"ok": True, "pr": 5}
+
+    referencias = [
+        linha["referencia"]
+        for linha in db.consultar("select referencia from changelog order by id")
+    ]
+    assert referencias == ["orion/orion-back PR #5", "dimi/orion-front PR #5"]
+    assert len(db.consultar("select id from mensagens")) == 2
+
+
+def test_token_escolhido_pelo_dono_do_repo(cliente, monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "token-perfil")
+    monkeypatch.setenv("GITHUB_TOKEN_MINHA_ORG", "token-org")
+    usados = []
+
+    def _buscar(pr_url, token):
+        usados.append(token)
+        return []
+
+    monkeypatch.setattr(github, "_buscar_arquivos", _buscar)
+
+    _enviar(cliente, _corpo_pr_mergeado(numero=1, repo="minha-org/orion-back"))
+    _enviar(cliente, _corpo_pr_mergeado(numero=1, repo="dimi/orion-front"))
+    assert usados == ["token-org", "token-perfil"]
 
 
 # --- Paginação dos arquivos ---
@@ -239,7 +273,7 @@ def test_buscar_arquivos_pagina_ate_pagina_incompleta(monkeypatch):
 
     monkeypatch.setattr(httpx, "get", _get)
 
-    arquivos = _BUSCAR_ORIGINAL("https://api.github.com/repos/o/o/pulls/1")
+    arquivos = _BUSCAR_ORIGINAL("https://api.github.com/repos/o/o/pulls/1", "tok")
     assert paginas_pedidas == [1, 2, 3]
     assert len(arquivos) == 205
 
@@ -257,7 +291,7 @@ def test_buscar_arquivos_para_quando_passa_do_limite_de_diff(monkeypatch):
 
     monkeypatch.setattr(httpx, "get", _get)
 
-    _BUSCAR_ORIGINAL("https://api.github.com/repos/o/o/pulls/1")
+    _BUSCAR_ORIGINAL("https://api.github.com/repos/o/o/pulls/1", "tok")
     # 100 arquivos × 200 caracteres já passam dos 12.000: uma página basta.
     assert paginas_pedidas == [1]
 

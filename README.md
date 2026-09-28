@@ -82,7 +82,8 @@ cp .env.example .env
 | `ORION_USERS` | Usuários no formato `usuario:senha` separados por vírgula. Ex.: `dimi:<senha>,jullyana:<senha>`. |
 | `ORION_APPROVERS` | Quem pode aprovar ações sensíveis (subconjunto de `ORION_USERS`). Ex.: `dimi,jullyana`. |
 | `ORION_SESSION_SECRET` | Segredo aleatório longo para assinar o cookie de sessão (HMAC). |
-| `GITHUB_TOKEN` | Token **só leitura** do repositório do Orion (para ler arquivos de PRs). |
+| `GITHUB_TOKEN` | Token **só leitura** (fine-grained: Pull requests e Contents = Read) para ler os arquivos dos PRs. Usado para qualquer repositório sem token específico. |
+| `GITHUB_TOKEN_<DONO>` | Opcional. Token de um dono específico (perfil ou organização), já que um token fine-grained só enxerga um dono. Nome em maiúsculas, com `-` virando `_`: dono `minha-org` → `GITHUB_TOKEN_MINHA_ORG`. |
 | `GITHUB_WEBHOOK_SECRET` | Segredo configurado no webhook do GitHub (valida `X-Hub-Signature-256`). |
 | `CRON_SECRET` | Segredo que a Vercel envia como `Bearer` nas chamadas de cron. |
 | `ORION_BASE_URL` | URL pública do app, para links absolutos (ex.: `.ics` da reunião). Opcional na Vercel: sem ela, usa `VERCEL_PROJECT_PRODUCTION_URL`. Local: `http://localhost:3000`. |
@@ -139,7 +140,11 @@ evento recebe **200** e é ignorado. Ao processar, busca os arquivos do PR (pagi
 (truncado em ~12.000 caracteres), grava no changelog e o Orquestrador posta uma linha curta no chat.
 
 - PR que já está no changelog (reentrega): responde **200** sem resumir de novo nem repostar no chat.
-- Sem `GITHUB_TOKEN`: responde **200** com um aviso e registra atividade `erro` do agente `work`.
+- Sem token para o dono do repositório: responde **200** com um aviso e registra atividade `erro` do agente `work`.
+
+O Orion tem front e back em repositórios separados (donos diferentes). Configure o webhook nos dois,
+com a mesma URL e o mesmo secret. A referência no changelog inclui o repositório
+(`dono/repo PR #n`), então PRs com o mesmo número em repositórios diferentes não se confundem.
 - Qualquer outra falha: atividade `erro` do agente `work` e resposta **502** (dá para reenviar pelo GitHub).
 
 ### Limitação do timeout de 10 s do GitHub

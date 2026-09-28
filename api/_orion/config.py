@@ -12,7 +12,9 @@ podem ficar no módulo, pois não dependem do ambiente.
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime
+from typing import Optional
 from zoneinfo import ZoneInfo
 
 # Fuso do projeto (America/Sao_Paulo). Determinístico, não é config de ambiente.
@@ -107,8 +109,19 @@ def session_secret() -> str:
     return os.environ.get("ORION_SESSION_SECRET", "")
 
 
-def github_token() -> str:
-    """Token só-leitura do repositório do Orion."""
+def github_token(dono: Optional[str] = None) -> str:
+    """Token só-leitura do GitHub para os repositórios de `dono`.
+
+    Um token fine-grained só enxerga repositórios de um dono (perfil ou
+    organização). Por isso, com `dono`, usa `GITHUB_TOKEN_<DONO>` se existir
+    (maiúsculas, com o que não for letra/número trocado por `_`; ex.: dono
+    `minha-org` → `GITHUB_TOKEN_MINHA_ORG`). Senão, usa `GITHUB_TOKEN`.
+    """
+    if dono:
+        chave = "GITHUB_TOKEN_" + re.sub(r"[^A-Z0-9]", "_", dono.upper())
+        especifico = os.environ.get(chave, "")
+        if especifico:
+            return especifico
     return os.environ.get("GITHUB_TOKEN", "")
 
 

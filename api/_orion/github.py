@@ -15,7 +15,9 @@ Regras que este módulo materializa:
 - Upsert por (fonte='github', referencia=número do PR): um mesmo PR NÃO gera
   duas entradas em reentregas do webhook (Requirement 5.3).
 - Aviso curto do Orquestrador no chat + atividades do agente `work` com
-  `run_id = "gh-<numero>"` (Requirements 5.5, 5.6).
+  `run_id = "gh-<dono>/<repo>-<numero>"` (Requirements 5.5, 5.6).
+- Mais de um repositório (front e back, com donos diferentes): a referência no
+  changelog inclui o repositório e o token é escolhido pelo dono.
 
 Convenções (tech.md): toda config vem de env lida DENTRO das funções; a chamada
 ao modelo e a chamada HTTP ficam isoladas em funções próprias (`_resumir`,
@@ -28,7 +30,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -51,7 +53,7 @@ POR_PAGINA_ARQUIVOS = 100
 MAX_PAGINAS_ARQUIVOS = 30
 
 # Resposta do webhook quando o GITHUB_TOKEN não está configurado.
-AVISO_SEM_TOKEN = "GITHUB_TOKEN não configurado: PR não foi resumido."
+AVISO_SEM_TOKEN = "Sem GITHUB_TOKEN para o dono do repositório: PR não foi resumido."
 
 # Prompt do worker para resumir o PR (Requirement 5.1).
 _PROMPT_RESUMO = (
@@ -90,19 +92,19 @@ def _e_pr_mergeado(evento: Optional[str], corpo: dict) -> bool:
     return bool(pr.get("merged"))
 
 
-def _buscar_arquivos(pr_url: str) -> list[dict]:
+def _buscar_arquivos(pr_url: str, token: str) -> list[dict]:
     """Busca os arquivos alterados do PR: `GET {pr_url}/files` (Requirement 5.1).
 
     Pagina com `per_page=100` até uma página vir incompleta, até o GitHub
     parar de listar (`MAX_PAGINAS_ARQUIVOS`) ou até os patches já passarem do
     limite de diff enviado ao modelo (o resto seria truncado de qualquer forma).
-    Usa `Authorization: Bearer GITHUB_TOKEN` e timeout de 15 s (httpx). Isolada
-    para os testes a substituírem sem chamar o GitHub. Import tardio de httpx
-    para não exigir a dependência em quem só importa o módulo.
+    Usa `Authorization: Bearer <token>` (o token do dono do repositório) e
+    timeout de 15 s (httpx). Isolada para os testes a substituírem sem chamar o
+    GitHub. Import tardio de httpx para não exigir a dependência em quem só
+    importa o módulo.
     """
     import httpx
 
-    token = config.github_token()
     cabecalhos = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",
@@ -204,11 +206,17 @@ def processar_pr(corpo: dict) -> dict:
 
     Passos (Requirements 5.1, 5.3, 5.5, 5.6):
     1. Se o PR já está no changelog, não resume nem reposta no chat.
-    2. Sem `GITHUB_TOKEN`, não processa: devolve um aviso (a rota responde 200).
-    3. Emite atividades do agente `work` com `run_id = "gh-<numero>"`, busca os
-       arquivos do PR (paginado) e monta o texto (truncado).
+    2. Sem token para o dono do repositório, não processa: devolve um aviso
+       (a rota responde 200).
+    3. Emite atividades do agente `work` com `run_id = "gh-<repo>-<numero>"`,
+       busca os arquivos do PR (paginado) e monta o texto (truncado).
     4. Pede o resumo ao worker e faz upsert no changelog.
-    5. Posta no chat uma linha curta do Orquestrador: "Novo no Orion: PR #n — título".
+    5. Posta no chat uma linha curta do Orquestrador:
+       "Novo no Orion: <dono>/<repo> PR #n — título".
+
+    O Orion tem mais de um repositório (perfil e organização), então a
+    referência inclui o nome do repositório (`<dono>/<repo> PR #n`) e o token
+    é escolhido pelo dono (`config.github_token(dono)`).
 
     Devolve `{"ok": true, "pr": <numero>}` (com `"duplicado": true` na
     reentrega). Qualquer falha vira atividade `erro` do agente `work` e é
@@ -216,36 +224,40 @@ def processar_pr(corpo: dict) -> dict:
     """
     pr = corpo.get("pull_request") or {}
     numero = pr.get("number")
-    run_id = f"gh-{numero}"
-    referencia = f"PR #{numero}"
+    repositorio = corpo.get("repository") or {}
+    nome_repo = str(repositorio.get("full_name") or "")
+    dono = (repositorio.get("owner") or {}).get("login") or nome_repo.split("/")[0]
+    referencia = f"{nome_repo} PR #{numero}" if nome_repo else f"PR #{numero}"
+    run_id = f"gh-{nome_repo}-{numero}" if nome_repo else f"gh-{numero}"
 
     try:
         if _ja_registrado(referencia):
             emitir(run_id, "work", "concluiu", f"{referencia} já estava no changelog.")
             return {"ok": True, "pr": numero, "duplicado": True}
 
-        if not config.github_token():
+        token = config.github_token(dono)
+        if not token:
             emitir(run_id, "work", "erro", AVISO_SEM_TOKEN)
             return {"ok": False, "pr": numero, "aviso": AVISO_SEM_TOKEN}
 
-        return _resumir_e_registrar(pr, numero, run_id, referencia)
+        return _resumir_e_registrar(pr, run_id, referencia, token)
     except Exception as erro:
         logger.exception("Falha ao processar %s", referencia)
         emitir(run_id, "work", "erro", f"Falha ao processar {referencia}: {type(erro).__name__}")
         raise
 
 
-def _resumir_e_registrar(pr: dict, numero: Any, run_id: str, referencia: str) -> dict:
+def _resumir_e_registrar(pr: dict, run_id: str, referencia: str, token: str) -> dict:
     """Busca os arquivos, resume, grava no changelog e avisa no chat."""
     titulo = str(pr.get("title") or referencia)
     url = pr.get("html_url")
     autor = (pr.get("user") or {}).get("login")
 
-    emitir(run_id, "work", "inicio", f"Resumindo PR #{numero}: {titulo}")
+    emitir(run_id, "work", "inicio", f"Resumindo {referencia}: {titulo}")
 
     pr_url = pr.get("url") or ""
-    arquivos = _buscar_arquivos(pr_url)
-    emitir(run_id, "work", "ferramenta", f"buscar_arquivos(PR #{numero}) → {len(arquivos)} arquivo(s)")
+    arquivos = _buscar_arquivos(pr_url, token)
+    emitir(run_id, "work", "ferramenta", f"buscar_arquivos({referencia}) → {len(arquivos)} arquivo(s)")
 
     texto_pr = _montar_texto_pr(pr, arquivos)
     resumo = _resumir(texto_pr, run_id)
@@ -253,8 +265,8 @@ def _resumir_e_registrar(pr: dict, numero: Any, run_id: str, referencia: str) ->
     _upsert_changelog(referencia, titulo, resumo, url, autor)
 
     # Aviso curto do Orquestrador no chat (Requirement 5.5).
-    aviso = f"Novo no Orion: PR #{numero} — {titulo}"
+    aviso = f"Novo no Orion: {referencia} — {titulo}"
     db.salvar_mensagem(AUTOR_ORQ, aviso, run_id)
 
-    emitir(run_id, "work", "concluiu", f"PR #{numero} registrado no changelog.")
-    return {"ok": True, "pr": numero}
+    emitir(run_id, "work", "concluiu", f"{referencia} registrado no changelog.")
+    return {"ok": True, "pr": pr.get("number")}
