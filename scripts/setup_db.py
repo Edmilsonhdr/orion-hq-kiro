@@ -15,6 +15,10 @@ import os
 import sys
 from pathlib import Path
 
+_API = str(Path(__file__).resolve().parent.parent / "api")
+if _API not in sys.path:
+    sys.path.insert(0, _API)
+
 
 def _url() -> str:
     """Lê a URL do banco de dentro da função (não no import)."""
@@ -36,10 +40,10 @@ def _caminho_schema() -> Path:
 
 def aplicar_schema(url: str) -> None:
     """Aplica `db/schema.sql`. Idempotente (create ... if not exists)."""
-    import psycopg
+    from _orion import db
 
     sql = _caminho_schema().read_text(encoding="utf-8")
-    with psycopg.connect(url, autocommit=True, prepare_threshold=None) as conn:
+    with db.conexao(url) as conn:
         with conn.cursor() as cur:
             cur.execute(sql)
     print("schema.sql aplicado.")
@@ -47,9 +51,9 @@ def aplicar_schema(url: str) -> None:
 
 def preparar_checkpointer(url: str) -> None:
     """Cria/atualiza as tabelas do PostgresSaver. Idempotente."""
-    from langgraph.checkpoint.postgres import PostgresSaver
+    from _orion import db
 
-    with PostgresSaver.from_conn_string(url) as cp:
+    with db.checkpointer(url) as cp:
         cp.setup()
     print("PostgresSaver.setup() concluído.")
 

@@ -20,14 +20,15 @@ Params = Optional[Sequence[Any]]
 
 
 @contextmanager
-def conexao() -> Iterator[psycopg.Connection]:
+def conexao(url: Optional[str] = None) -> Iterator[psycopg.Connection]:
     """Abre uma conexão curta com o Postgres e fecha ao sair.
 
     Usa `autocommit=True` e `prepare_threshold=None` (obrigatório com o pooler
     do Neon) e `row_factory=dict_row` para que as consultas retornem dicts.
+    Sem `url`, usa `DATABASE_URL`.
     """
     conn = psycopg.connect(
-        config.database_url(),
+        url or config.database_url(),
         autocommit=True,
         prepare_threshold=None,
         row_factory=dict_row,
@@ -36,6 +37,20 @@ def conexao() -> Iterator[psycopg.Connection]:
         yield conn
     finally:
         conn.close()
+
+
+@contextmanager
+def checkpointer(url: Optional[str] = None) -> Iterator[Any]:
+    """`PostgresSaver` do LangGraph sobre uma conexão de `conexao()`.
+
+    Não usamos `PostgresSaver.from_conn_string`, que abre a conexão com
+    `prepare_threshold=0` (prepared statements), incompatível com o pooler do
+    Neon. Import tardio para não exigir a dependência em quem só usa o banco.
+    """
+    from langgraph.checkpoint.postgres import PostgresSaver
+
+    with conexao(url) as conn:
+        yield PostgresSaver(conn)
 
 
 def consultar(sql: str, params: Params = None) -> list[dict]:

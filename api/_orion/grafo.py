@@ -514,12 +514,9 @@ def construir() -> StateGraph:
 def grafo_com_checkpoint() -> Iterator[Any]:
     """Compila o grafo com o checkpointer do Postgres (Neon).
 
-    Conexão curta (design.md, "Execução de um run"): abre o `PostgresSaver`,
-    compila e entrega o grafo pronto; fecha ao sair do contexto. Import tardio
-    do `PostgresSaver` para não exigir a dependência em quem só monta o grafo
-    (ex.: testes que compilam sem checkpointer).
+    Conexão curta (design.md, "Execução de um run"): abre o `PostgresSaver`
+    via `db.checkpointer()`, compila e entrega o grafo pronto; fecha ao sair
+    do contexto.
     """
-    from langgraph.checkpoint.postgres import PostgresSaver
-
-    with PostgresSaver.from_conn_string(config.database_url()) as checkpointer:
+    with db.checkpointer() as checkpointer:
         yield construir().compile(checkpointer=checkpointer)

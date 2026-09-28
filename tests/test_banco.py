@@ -73,3 +73,10 @@ def test_checkpointer_foi_preparado(banco):
         """
     )
     assert linha["tabela"] == "checkpoints"
+
+
+def test_checkpointer_sem_prepared_statements(banco):
+    """O checkpointer usa a conexão curta do pooler: sem prepared statements."""
+    with db.checkpointer() as cp:
+        assert cp.conn.prepare_threshold is None
+        assert cp.conn.autocommit is True
