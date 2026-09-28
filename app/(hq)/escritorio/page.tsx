@@ -94,7 +94,7 @@ export default function EscritorioPage() {
         padding: "16px",
       }}
     >
-      <Office atividades={atividades} temAprovacaoPendente={temPendente} />
+      <Office atividades={atividades} temAprovacaoPendente={temPendente} tokens={tokens} />
       <LogLateral atividades={atividades} tokens={tokens} />
     </div>
   );

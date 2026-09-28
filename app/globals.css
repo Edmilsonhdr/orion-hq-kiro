@@ -146,6 +146,37 @@ textarea {
   }
 }
 
+/* Escritorio virtual: bonequinho balanca quando o agente esta ativo e pisca
+   os olhos de tempos em tempos */
+.boneco-ativo {
+  animation: balancar-boneco 0.8s steps(2) infinite;
+}
+
+@keyframes balancar-boneco {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.olho-boneco {
+  animation: piscar-olho 4s steps(1) infinite;
+}
+
+@keyframes piscar-olho {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.2);
+  }
+}
+
 /* Escritorio virtual: envelope animado a cada `delegou` (Requirement 8.4).
    Desliza da mesa de origem ate a de destino em ~1,3s (transicao de left/top).
    A cor da borda acompanha o agente de origem (definida inline). */

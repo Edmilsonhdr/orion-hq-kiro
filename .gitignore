@@ -26,3 +26,5 @@ venv/
 # Sistema
 .DS_Store
 *.Zone.Identifier
+.env*
+!.env.example

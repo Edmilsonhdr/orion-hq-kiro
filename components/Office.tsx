@@ -202,9 +202,11 @@ function useEnvelopes(atividades: Atividade[]): Envelope[] {
 export default function Office({
   atividades,
   temAprovacaoPendente = false,
+  tokens = {},
 }: {
   atividades: Atividade[];
   temAprovacaoPendente?: boolean;
+  tokens?: Record<string, number>;
 }) {
   const estados = useMemo(
     () => derivarEstados(atividades, temAprovacaoPendente),
@@ -277,6 +279,7 @@ export default function Office({
               agente={agente}
               estado={info?.estado ?? "ocioso"}
               detalhe={info?.detalhe}
+              tokens={tokens[agente.id] ?? 0}
             />
           </div>
         );
