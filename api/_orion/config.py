@@ -141,8 +141,14 @@ def base_url() -> str:
 
 
 def ler_iso(texto: object) -> datetime:
-    """Converte um texto ISO 8601 em datetime. Lança ValueError se inválido."""
-    return datetime.fromisoformat(str(texto))
+    """Converte um texto ISO 8601 em datetime. Lança ValueError se inválido.
+
+    Aceita o sufixo `Z` (UTC), que o `fromisoformat` do Python 3.10 rejeita.
+    """
+    texto = str(texto).strip()
+    if texto[-1:] in ("Z", "z"):
+        texto = texto[:-1] + "+00:00"
+    return datetime.fromisoformat(texto)
 
 
 def agora() -> datetime:

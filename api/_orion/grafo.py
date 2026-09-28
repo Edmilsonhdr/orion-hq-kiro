@@ -308,7 +308,7 @@ def _instantes_reuniao(proposta: dict) -> tuple[datetime, datetime]:
     """Calcula (início, fim) da proposta como datetimes com tzinfo.
 
     O `inicio` da proposta é ISO 8601 com offset (ex.: `2026-09-29T15:00:00
-    -03:00`); `datetime.fromisoformat` já lida com isso no Python 3.10. O fim é
+    -03:00` ou `Z`), lido por `config.ler_iso`. O fim é
     o início mais `duracao_min` minutos (default 60 se ausente/ inválido). Se o
     início vier sem tzinfo, assumimos o fuso do projeto (America/Sao_Paulo).
     """
