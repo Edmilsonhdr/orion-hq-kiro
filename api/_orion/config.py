@@ -122,6 +122,21 @@ def cron_secret() -> str:
     return os.environ.get("CRON_SECRET", "")
 
 
+def base_url() -> str:
+    """URL pública do Orion HQ, sem barra no fim (para links absolutos).
+
+    `ORION_BASE_URL` tem prioridade; senão usa `VERCEL_PROJECT_PRODUCTION_URL`
+    (definida pela Vercel, sem o protocolo). Vazio se nenhuma existir.
+    """
+    explicita = os.environ.get("ORION_BASE_URL", "").strip()
+    if explicita:
+        return explicita.rstrip("/")
+    vercel = os.environ.get("VERCEL_PROJECT_PRODUCTION_URL", "").strip()
+    if vercel:
+        return f"https://{vercel}".rstrip("/")
+    return ""
+
+
 # --- Data e hora em PT-BR ---
 
 

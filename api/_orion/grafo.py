@@ -72,6 +72,8 @@ class Estado(TypedDict, total=False):
     # LangGraph acumula (não sobrescreve), para o supervisor contar as
     # delegações até MAX_PASSOS (Requirement 3.4, "Sem loops").
     passos: Annotated[int, operator.add]  # delegações já feitas (limite MAX_PASSOS)
+    # Links do calendário anexados por código ao fim da resposta.
+    links: Annotated[list[str], operator.add]
     resposta: str  # texto final para o chat
 
 
@@ -353,8 +355,11 @@ def link_google(proposta: dict, inicio: datetime, fim: datetime) -> str:
 
 
 def link_ics(reuniao_id: int) -> str:
-    """Link do arquivo iCalendar da reunião (gerado pela rota da task 7)."""
-    return f"/api/reunioes/{reuniao_id}.ics"
+    """Link do arquivo iCalendar da reunião (gerado pela rota da task 7).
+
+    Absoluto quando há URL pública configurada (`config.base_url()`).
+    """
+    return f"{config.base_url()}/api/reunioes/{reuniao_id}.ics"
 
 
 _CAMPOS_REUNIAO = "id, titulo, inicio, fim, participantes, pauta, criado_por, run_id, chave"
@@ -487,19 +492,25 @@ def no_aprovacao(estado: Estado) -> dict:
             dados={"google": google, "ics": ics},
         )
         relatorio = (
-            f'Reunião "{titulo}" criada (aprovada por {por}).\n'
-            f"Adicionar ao Google Agenda: {google}\n"
-            f"Arquivo .ics: {ics}"
+            f'Reunião "{titulo}" criada (aprovada por {por}). Os links do '
+            "calendário são anexados automaticamente ao fim da resposta."
         )
-    else:
-        emitir(
-            run_id,
-            "agenda",
-            "concluiu",
-            f'Reunião "{titulo}" NÃO foi criada: {por} recusou.',
-        )
-        relatorio = f'A reunião "{titulo}" NÃO foi criada: {por} recusou.'
+        return {
+            "relatorios": [{"agente": "agenda", "texto": relatorio}],
+            "links": [
+                f"Adicionar ao Google Agenda: {google}",
+                f"Arquivo .ics: {ics}",
+            ],
+            "proposta": None,
+        }
 
+    emitir(
+        run_id,
+        "agenda",
+        "concluiu",
+        f'Reunião "{titulo}" NÃO foi criada: {por} recusou.',
+    )
+    relatorio = f'A reunião "{titulo}" NÃO foi criada: {por} recusou.'
     return {
         "relatorios": [{"agente": "agenda", "texto": relatorio}],
         "proposta": None,
@@ -507,9 +518,16 @@ def no_aprovacao(estado: Estado) -> dict:
 
 
 def no_responder(estado: Estado) -> dict:
-    """Nó final: redige a resposta e emite a atividade `resposta`."""
+    """Nó final: redige a resposta e emite a atividade `resposta`.
+
+    Os links do calendário (`estado["links"]`) são anexados por código ao fim
+    da resposta, sem passar pelo modelo, para não serem alterados ou perdidos.
+    """
     run_id = estado.get("run_id")
     resposta = redigir(estado)
+    links = estado.get("links") or []
+    if links:
+        resposta = f"{resposta.rstrip()}\n\n" + "\n".join(links)
     emitir(run_id, "orq", "resposta", resposta[:200])
     return {"resposta": resposta}
 

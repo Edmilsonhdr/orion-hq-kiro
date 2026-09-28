@@ -190,11 +190,17 @@ def test_aprovacao_cria_reuniao_e_links(banco, monkeypatch):
     assert reunioes[0]["titulo"] == "Semanal Orion"
     assert reunioes[0]["criado_por"] == "dimi"
 
-    # O relatório traz os links e menciona quem aprovou.
+    # O relatório menciona quem aprovou; os links ficam fora do texto do modelo.
     textos = " ".join(r["texto"] for r in final["relatorios"])
     assert "aprovada por dimi" in textos
-    assert "calendar.google.com" in textos
-    assert f"/api/reunioes/{reunioes[0]['id']}.ics" in textos
+    assert "calendar.google.com" not in textos
+
+    # Os links são anexados por código ao fim da resposta, sem passar pelo modelo.
+    assert final["resposta"].startswith("Reunião marcada.")
+    assert "Adicionar ao Google Agenda: https://calendar.google.com/" in final["resposta"]
+    assert final["resposta"].endswith(
+        f"Arquivo .ics: /api/reunioes/{reunioes[0]['id']}.ics"
+    )
 
     # A atividade `concluiu` da Agenda leva dados.google e dados.ics.
     concluiu = [
@@ -208,7 +214,6 @@ def test_aprovacao_cria_reuniao_e_links(banco, monkeypatch):
     assert dados.get("ics", "").endswith(".ics")
 
     assert final.get("proposta") is None
-    assert final["resposta"] == "Reunião marcada."
 
 
 def test_recusa_nao_cria_reuniao(banco, monkeypatch):
@@ -372,9 +377,24 @@ def test_instantes_reuniao_calcula_fim_pela_duracao():
     assert (fim2 - inicio2).total_seconds() == 60 * 60
 
 
-def test_link_ics_referencia_a_rota():
+def test_link_ics_referencia_a_rota(monkeypatch):
     """O link .ics referencia a rota GET /api/reunioes/<id>.ics (task 7)."""
+    monkeypatch.delenv("ORION_BASE_URL", raising=False)
+    monkeypatch.delenv("VERCEL_PROJECT_PRODUCTION_URL", raising=False)
     assert grafo.link_ics(42) == "/api/reunioes/42.ics"
+
+
+def test_link_ics_absoluto_com_orion_base_url(monkeypatch):
+    """Com ORION_BASE_URL, o link .ics é absoluto."""
+    monkeypatch.setenv("ORION_BASE_URL", "https://orion-hq.exemplo.com/")
+    assert grafo.link_ics(7) == "https://orion-hq.exemplo.com/api/reunioes/7.ics"
+
+
+def test_link_ics_usa_url_de_producao_da_vercel(monkeypatch):
+    """Sem ORION_BASE_URL, usa VERCEL_PROJECT_PRODUCTION_URL (sem protocolo)."""
+    monkeypatch.delenv("ORION_BASE_URL", raising=False)
+    monkeypatch.setenv("VERCEL_PROJECT_PRODUCTION_URL", "orion-hq-kiro.vercel.app")
+    assert grafo.link_ics(7) == "https://orion-hq-kiro.vercel.app/api/reunioes/7.ics"
 
 
 # --- Conversa simples: responder direto, sem especialista ---

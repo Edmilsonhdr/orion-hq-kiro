@@ -5,6 +5,7 @@
 // - Sócios (dimi/jullyana) à direita.
 // O componente é puramente de apresentação; recebe a mensagem já pronta.
 
+import type { ReactNode } from "react";
 import { agentePorId } from "../lib/agents";
 
 export type Mensagem = {
@@ -28,6 +29,33 @@ function horario(criadoEm: string): string {
   } catch {
     return "";
   }
+}
+
+const PADRAO_URL = /(https?:\/\/[^\s<>"]+)/g;
+// Pontuação no fim de uma URL costuma ser do texto, não do link.
+const PONTUACAO_FINAL = /[.,;:!?)\]]+$/;
+
+// Quebra o texto em trechos, transformando URLs em links clicáveis. Tudo é
+// renderizado como elementos React (sem HTML cru), então o texto é escapado.
+function comLinks(texto: string): ReactNode[] {
+  const partes: ReactNode[] = [];
+  let inicio = 0;
+  for (const achado of texto.matchAll(PADRAO_URL)) {
+    const bruto = achado[0];
+    const posicao = achado.index ?? 0;
+    const sobra = bruto.match(PONTUACAO_FINAL)?.[0] ?? "";
+    const url = bruto.slice(0, bruto.length - sobra.length);
+    if (posicao > inicio) partes.push(texto.slice(inicio, posicao));
+    partes.push(
+      <a key={posicao} href={url} target="_blank" rel="noopener noreferrer">
+        {url}
+      </a>
+    );
+    if (sobra) partes.push(sobra);
+    inicio = posicao + bruto.length;
+  }
+  if (inicio < texto.length) partes.push(texto.slice(inicio));
+  return partes;
 }
 
 function iniciais(nome: string): string {
@@ -108,7 +136,7 @@ export default function ChatMessage({ mensagem }: { mensagem: Mensagem }) {
           </span>
         </div>
         <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-          {mensagem.texto}
+          {comLinks(mensagem.texto)}
         </div>
       </div>
     </div>

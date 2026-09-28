@@ -165,7 +165,9 @@ def test_aprovar_cria_reuniao_e_salva_resposta(banco, monkeypatch):
     # 2. Aprovação: retoma o grafo e cria a reunião.
     decisao = execucao.decidir_aprovacao(pendente["id"], "dimi", True)
     assert decisao["status"] == "respondido"
-    assert decisao["resposta"] == "Reunião marcada."
+    assert decisao["resposta"].startswith("Reunião marcada.")
+    assert "Adicionar ao Google Agenda: https://calendar.google.com/" in decisao["resposta"]
+    assert "Arquivo .ics: " in decisao["resposta"]
 
     # A reunião foi persistida.
     reunioes = db.consultar("select titulo, criado_por from reunioes")
@@ -181,7 +183,7 @@ def test_aprovar_cria_reuniao_e_salva_resposta(banco, monkeypatch):
     resposta = db.um(
         "select texto, run_id from mensagens where autor = %s", (execucao.AUTOR_ORQ,)
     )
-    assert resposta["texto"] == "Reunião marcada."
+    assert resposta["texto"] == decisao["resposta"]
 
 
 # --- Recusar ---
@@ -332,7 +334,8 @@ def test_retomar_de_novo_nao_duplica_reuniao(banco, monkeypatch):
     resultado = execucao.retomar_aprovacao(aprovacao_id)
 
     assert resultado["status"] == "respondido"
-    assert resultado["resposta"] == "Reunião marcada."
+    assert resultado["resposta"].startswith("Reunião marcada.")
+    assert "Arquivo .ics: " in resultado["resposta"]
     assert len(db.consultar("select id from reunioes")) == 1
     assert db.um("select status from aprovacoes")["status"] == "aprovada"
 
