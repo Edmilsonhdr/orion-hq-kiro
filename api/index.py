@@ -281,7 +281,8 @@ async def webhook_github(
     2. Só processa `pull_request` com `action=closed` e `merged=true`; qualquer
        outro evento é ignorado com 200 `{"ignorado": true}` (Requirement 5.7).
     3. Delega ao `_orion.github.processar_pr` (busca arquivos, resume no worker,
-       upsert no changelog, aviso no chat + atividades do agente `work`).
+       upsert no changelog, aviso no chat + atividades do agente `work`). PR já
+       registrado ou sem `GITHUB_TOKEN` → 200 sem resumir; falha → 502.
 
     Import tardio de `github` para não exigir httpx/modelo em quem só importa o
     app (ex.: testes de outras rotas).
@@ -306,7 +307,13 @@ async def webhook_github(
     if not github._e_pr_mergeado(x_github_event, corpo):
         return {"ignorado": True}
 
-    return github.processar_pr(corpo)
+    try:
+        return github.processar_pr(corpo)
+    except Exception:  # noqa: BLE001 — já virou atividade `erro` e log no servidor
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Falha ao processar o PR.",
+        )
 
 
 @app.get("/api/cron/resumo-semanal")

@@ -134,8 +134,12 @@ No repositório do **Orion** (não neste repositório): **Settings → Webhooks 
 
 O backend valida a assinatura `X-Hub-Signature-256` com o segredo e responde **401** se for inválida.
 Só processa eventos de **pull request fechado com merge** (`action=closed` e `merged=true`); qualquer outro
-evento recebe **200** e é ignorado. Ao processar, o worker resume o diff (truncado em ~12.000 caracteres),
-grava no changelog (upsert por `PR #<n>`, sem duplicar) e o Orquestrador posta uma linha curta no chat.
+evento recebe **200** e é ignorado. Ao processar, busca os arquivos do PR (paginado), o worker resume o diff
+(truncado em ~12.000 caracteres), grava no changelog e o Orquestrador posta uma linha curta no chat.
+
+- PR que já está no changelog (reentrega): responde **200** sem resumir de novo nem repostar no chat.
+- Sem `GITHUB_TOKEN`: responde **200** com um aviso e registra atividade `erro` do agente `work`.
+- Qualquer outra falha: atividade `erro` do agente `work` e resposta **502** (dá para reenviar pelo GitHub).
 
 ### Limitação do timeout de 10 s do GitHub
 
@@ -144,7 +148,7 @@ disso. Nesse caso o GitHub marca o envio como **timeout** na lista de entregas (
 função serverless **continua rodando** até terminar (o `maxDuration` da função é 300 s) e o changelog é
 gravado normalmente. Ou seja: o "timeout" no painel do GitHub é esperado e **aceitável nesta fase** — não
 significa que o resumo falhou. Se necessário, é possível reenviar o evento pelo botão **Redeliver** do
-GitHub; o upsert evita entradas duplicadas.
+GitHub; um PR já registrado não é resumido nem postado de novo.
 
 ## Deploy na Vercel
 

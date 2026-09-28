@@ -46,6 +46,13 @@ LIMITE_DIFF = 12_000
 # Timeout da chamada ao GitHub (design.md, "Webhook do GitHub").
 TIMEOUT_GITHUB = 15.0
 
+# Paginação de `GET /pulls/{n}/files`: o GitHub lista no máximo 3.000 arquivos.
+POR_PAGINA_ARQUIVOS = 100
+MAX_PAGINAS_ARQUIVOS = 30
+
+# Resposta do webhook quando o GITHUB_TOKEN não está configurado.
+AVISO_SEM_TOKEN = "GITHUB_TOKEN não configurado: PR não foi resumido."
+
 # Prompt do worker para resumir o PR (Requirement 5.1).
 _PROMPT_RESUMO = (
     "Você resume Pull Requests do app Orion para o histórico do projeto. "
@@ -86,6 +93,9 @@ def _e_pr_mergeado(evento: Optional[str], corpo: dict) -> bool:
 def _buscar_arquivos(pr_url: str) -> list[dict]:
     """Busca os arquivos alterados do PR: `GET {pr_url}/files` (Requirement 5.1).
 
+    Pagina com `per_page=100` até uma página vir incompleta, até o GitHub
+    parar de listar (`MAX_PAGINAS_ARQUIVOS`) ou até os patches já passarem do
+    limite de diff enviado ao modelo (o resto seria truncado de qualquer forma).
     Usa `Authorization: Bearer GITHUB_TOKEN` e timeout de 15 s (httpx). Isolada
     para os testes a substituírem sem chamar o GitHub. Import tardio de httpx
     para não exigir a dependência em quem só importa o módulo.
@@ -97,12 +107,23 @@ def _buscar_arquivos(pr_url: str) -> list[dict]:
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {token}",
     }
-    resposta = httpx.get(
-        f"{pr_url}/files", headers=cabecalhos, timeout=TIMEOUT_GITHUB
-    )
-    resposta.raise_for_status()
-    dados = resposta.json()
-    return dados if isinstance(dados, list) else []
+    arquivos: list[dict] = []
+    tamanho = 0
+    for pagina in range(1, MAX_PAGINAS_ARQUIVOS + 1):
+        resposta = httpx.get(
+            f"{pr_url}/files",
+            headers=cabecalhos,
+            params={"per_page": POR_PAGINA_ARQUIVOS, "page": pagina},
+            timeout=TIMEOUT_GITHUB,
+        )
+        resposta.raise_for_status()
+        dados = resposta.json()
+        lote = dados if isinstance(dados, list) else []
+        arquivos.extend(lote)
+        tamanho += sum(len(str(a.get("patch") or "")) for a in lote)
+        if len(lote) < POR_PAGINA_ARQUIVOS or tamanho > LIMITE_DIFF:
+            break
+    return arquivos
 
 
 def _montar_texto_pr(corpo_pr: dict, arquivos: list[dict]) -> str:
@@ -167,24 +188,56 @@ def _upsert_changelog(
     )
 
 
+def _ja_registrado(referencia: str) -> bool:
+    """Diz se o PR já tem entrada no changelog (reentrega do webhook)."""
+    return (
+        db.um(
+            "select 1 as existe from changelog where fonte = 'github' and referencia = %s",
+            (referencia,),
+        )
+        is not None
+    )
+
+
 def processar_pr(corpo: dict) -> dict:
     """Processa um PR mergeado: resume, grava no changelog e avisa no chat.
 
     Passos (Requirements 5.1, 5.3, 5.5, 5.6):
-    1. Emite atividades do agente `work` com `run_id = "gh-<numero>"`.
-    2. Busca os arquivos do PR e monta o texto (título + descrição + patches,
-       truncado).
-    3. Pede o resumo ao worker.
-    4. Faz upsert no changelog (fonte='github', referencia=número do PR).
+    1. Se o PR já está no changelog, não resume nem reposta no chat.
+    2. Sem `GITHUB_TOKEN`, não processa: devolve um aviso (a rota responde 200).
+    3. Emite atividades do agente `work` com `run_id = "gh-<numero>"`, busca os
+       arquivos do PR (paginado) e monta o texto (truncado).
+    4. Pede o resumo ao worker e faz upsert no changelog.
     5. Posta no chat uma linha curta do Orquestrador: "Novo no Orion: PR #n — título".
 
-    Devolve `{"ok": true, "pr": <numero>}`. Falha ao buscar arquivos/resumir é
-    propagada para a rota decidir o status (o GitHub reentrega em erro).
+    Devolve `{"ok": true, "pr": <numero>}` (com `"duplicado": true` na
+    reentrega). Qualquer falha vira atividade `erro` do agente `work` e é
+    propagada para a rota responder com erro (o GitHub pode reentregar).
     """
     pr = corpo.get("pull_request") or {}
     numero = pr.get("number")
     run_id = f"gh-{numero}"
-    titulo = str(pr.get("title") or f"PR #{numero}")
+    referencia = f"PR #{numero}"
+
+    try:
+        if _ja_registrado(referencia):
+            emitir(run_id, "work", "concluiu", f"{referencia} já estava no changelog.")
+            return {"ok": True, "pr": numero, "duplicado": True}
+
+        if not config.github_token():
+            emitir(run_id, "work", "erro", AVISO_SEM_TOKEN)
+            return {"ok": False, "pr": numero, "aviso": AVISO_SEM_TOKEN}
+
+        return _resumir_e_registrar(pr, numero, run_id, referencia)
+    except Exception as erro:
+        logger.exception("Falha ao processar %s", referencia)
+        emitir(run_id, "work", "erro", f"Falha ao processar {referencia}: {type(erro).__name__}")
+        raise
+
+
+def _resumir_e_registrar(pr: dict, numero: Any, run_id: str, referencia: str) -> dict:
+    """Busca os arquivos, resume, grava no changelog e avisa no chat."""
+    titulo = str(pr.get("title") or referencia)
     url = pr.get("html_url")
     autor = (pr.get("user") or {}).get("login")
 
@@ -197,7 +250,7 @@ def processar_pr(corpo: dict) -> dict:
     texto_pr = _montar_texto_pr(pr, arquivos)
     resumo = _resumir(texto_pr, run_id)
 
-    _upsert_changelog(f"PR #{numero}", titulo, resumo, url, autor)
+    _upsert_changelog(referencia, titulo, resumo, url, autor)
 
     # Aviso curto do Orquestrador no chat (Requirement 5.5).
     aviso = f"Novo no Orion: PR #{numero} — {titulo}"

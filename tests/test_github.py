@@ -25,8 +25,9 @@ from _orion import db, github
 _SEGREDO = "segredo-de-teste-bem-longo-para-hmac"
 _WEBHOOK_SECRET = "segredo-do-webhook-do-github"
 
-# Guardado antes do fake autouse, para testar o registro de tokens do worker.
+# Guardados antes dos fakes autouse, para testar as funções reais.
 _RESUMIR_ORIGINAL = github._resumir
+_BUSCAR_ORIGINAL = github._buscar_arquivos
 
 
 @pytest.fixture()
@@ -34,6 +35,7 @@ def cliente(monkeypatch, banco):
     """Cliente HTTP de teste com o segredo do webhook configurado e banco limpo."""
     monkeypatch.setenv("ORION_SESSION_SECRET", _SEGREDO)
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", _WEBHOOK_SECRET)
+    monkeypatch.setenv("GITHUB_TOKEN", "token-de-teste")
 
     import index
 
@@ -158,20 +160,106 @@ def test_mesmo_pr_duas_vezes_nao_duplica(cliente, monkeypatch):
     resp1 = _enviar(cliente, _corpo_pr_mergeado(numero=30, titulo="Título antigo"))
     assert resp1.status_code == 200
 
-    # Reentrega do MESMO PR, com título/resumo atualizados.
-    monkeypatch.setattr(
-        github, "_resumir", lambda texto_pr, run_id=None: "Resumo atualizado."
-    )
+    # Reentrega do MESMO PR: não resume de novo nem reposta no chat.
+    def _nao_resumir(texto_pr, run_id=None):
+        raise AssertionError("não deveria resumir de novo")
+
+    monkeypatch.setattr(github, "_resumir", _nao_resumir)
     resp2 = _enviar(cliente, _corpo_pr_mergeado(numero=30, titulo="Título novo"))
     assert resp2.status_code == 200
+    assert resp2.json() == {"ok": True, "pr": 30, "duplicado": True}
 
-    # Uma única linha no changelog para o PR #30, com o conteúdo atualizado.
     linhas = db.consultar(
         "select titulo, resumo from changelog where referencia = 'PR #30'"
     )
     assert len(linhas) == 1
-    assert linhas[0]["titulo"] == "Título novo"
-    assert linhas[0]["resumo"] == "Resumo atualizado."
+    assert linhas[0]["titulo"] == "Título antigo"
+    assert linhas[0]["resumo"] == "Resumo gerado do PR."
+    assert len(db.consultar("select id from mensagens")) == 1
+
+
+# --- Falhas e configuração ---
+
+
+def test_sem_github_token_responde_200_com_aviso(cliente, monkeypatch):
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    resp = _enviar(cliente, _corpo_pr_mergeado())
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": False, "pr": 12, "aviso": github.AVISO_SEM_TOKEN}
+    assert db.consultar("select id from changelog") == []
+    assert db.consultar("select id from mensagens") == []
+
+
+def test_falha_vira_atividade_erro_do_work(cliente, monkeypatch):
+    from _orion import atividades
+
+    def _quebrar(pr_url):
+        raise RuntimeError("GitHub fora do ar")
+
+    monkeypatch.setattr(github, "_buscar_arquivos", _quebrar)
+
+    resp = _enviar(cliente, _corpo_pr_mergeado())
+    assert resp.status_code == 502
+    assert "GitHub fora do ar" not in resp.text
+    erros = [
+        a for a in atividades.listar()
+        if a["agente"] == "work" and a["tipo"] == "erro"
+    ]
+    assert len(erros) == 1
+    assert erros[0]["run_id"] == "gh-12"
+    assert db.consultar("select id from changelog") == []
+
+
+# --- Paginação dos arquivos ---
+
+
+class _RespostaFake:
+    def __init__(self, dados):
+        self._dados = dados
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self._dados
+
+
+def test_buscar_arquivos_pagina_ate_pagina_incompleta(monkeypatch):
+    import httpx
+
+    paginas_pedidas = []
+
+    def _get(url, headers, params, timeout):
+        paginas_pedidas.append(params["page"])
+        quantidade = 100 if params["page"] < 3 else 5
+        return _RespostaFake(
+            [{"filename": f"f{params['page']}-{i}", "patch": "+x"} for i in range(quantidade)]
+        )
+
+    monkeypatch.setattr(httpx, "get", _get)
+
+    arquivos = _BUSCAR_ORIGINAL("https://api.github.com/repos/o/o/pulls/1")
+    assert paginas_pedidas == [1, 2, 3]
+    assert len(arquivos) == 205
+
+
+def test_buscar_arquivos_para_quando_passa_do_limite_de_diff(monkeypatch):
+    import httpx
+
+    paginas_pedidas = []
+
+    def _get(url, headers, params, timeout):
+        paginas_pedidas.append(params["page"])
+        return _RespostaFake(
+            [{"filename": f"f{i}", "patch": "+" * 200} for i in range(100)]
+        )
+
+    monkeypatch.setattr(httpx, "get", _get)
+
+    _BUSCAR_ORIGINAL("https://api.github.com/repos/o/o/pulls/1")
+    # 100 arquivos × 200 caracteres já passam dos 12.000: uma página basta.
+    assert paginas_pedidas == [1]
 
 
 # --- Tokens do worker ---
