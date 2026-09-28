@@ -85,6 +85,7 @@ cp .env.example .env
 | `GITHUB_TOKEN` | Token **só leitura** do repositório do Orion (para ler arquivos de PRs). |
 | `GITHUB_WEBHOOK_SECRET` | Segredo configurado no webhook do GitHub (valida `X-Hub-Signature-256`). |
 | `CRON_SECRET` | Segredo que a Vercel envia como `Bearer` nas chamadas de cron. |
+| `ORION_BASE_URL` | URL pública do app, para links absolutos (ex.: `.ics` da reunião). Opcional na Vercel: sem ela, usa `VERCEL_PROJECT_PRODUCTION_URL`. Local: `http://localhost:3000`. |
 
 ### Preparar o banco
 
@@ -167,7 +168,7 @@ GitHub; um PR já registrado não é resumido nem postado de novo.
 Backend (Postgres local efêmero + modelo simulado, sem chamar a API da Anthropic):
 
 ```bash
-.venv/bin/pytest
+.venv/bin/pytest -q
 ```
 
 Build do front:
@@ -176,6 +177,18 @@ Build do front:
 source ~/.nvm/nvm.sh
 npm run build
 ```
+
+## Pendências
+
+Itens conhecidos, fora desta rodada:
+
+- **Revogação de sessão:** o cookie assinado vale até expirar; não há como invalidar uma sessão antes disso
+  (exceto trocando o `ORION_SESSION_SECRET`, o que derruba todas).
+- **Rate limit no login:** não há limite de tentativas no `POST /api/login`.
+- **Teste concorrente real:** a dupla decisão de aprovação é coberta por teste sequencial; falta um teste com
+  requisições realmente simultâneas.
+- **Escape do `.ics`:** título e pauta entram no iCalendar sem escapar `,`, `;` e `\`, nem quebrar linhas longas.
+- **README para Windows:** as instruções assumem WSL/Linux; falta o passo a passo para rodar direto no Windows.
 
 ## Documentação do projeto
 
