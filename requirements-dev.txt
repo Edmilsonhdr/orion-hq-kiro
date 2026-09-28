@@ -1,0 +1,6 @@
+-r requirements.txt
+
+pytest==9.1.1
+uvicorn==0.54.0
+# Postgres local efêmero para os testes (não é usado em produção).
+pgserver==0.1.4

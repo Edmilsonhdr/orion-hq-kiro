@@ -18,7 +18,7 @@ no padrão do template oficial `nextjs-fastapi` da Vercel.
 | Banco | Postgres no **Neon** (via Vercel Marketplace). Driver `psycopg` 3 (`psycopg[binary]`). |
 | Estado do grafo | `langgraph-checkpoint-postgres` (`PostgresSaver`) no mesmo Neon. |
 | Busca | Full-text search do Postgres (`tsvector`, config `portuguese`). pgvector fica para depois. |
-| Pacotes Python | `requirements.txt` na raiz (é o que a Vercel lê). Localmente usar `uv`. |
+| Pacotes Python | `requirements.txt` na raiz, só produção e com versões fixas (é o que a Vercel lê). Local: `requirements-dev.txt`. |
 | Cron | Vercel Cron (`vercel.json`). |
 
 ## Restrições da Vercel que moldam o design

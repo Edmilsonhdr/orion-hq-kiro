@@ -1,13 +1,10 @@
-fastapi
-langgraph
-langgraph-checkpoint-postgres
-langchain-anthropic
-psycopg[binary]
-httpx
-pydantic
-
-# Dev
-pytest
-uvicorn
-# Postgres local efêmero para testes/validação (não é usado em produção).
-pgserver
+# Dependências de produção (instaladas pela Vercel). Versões fixas.
+# Para desenvolvimento local, use: pip install -r requirements-dev.txt
+fastapi==0.141.1
+langgraph==1.2.12
+langgraph-checkpoint-postgres==3.1.2
+langchain-anthropic==1.7.4
+langchain-core==1.6.5
+psycopg[binary]==3.3.6
+httpx==0.28.1
+pydantic==2.13.5

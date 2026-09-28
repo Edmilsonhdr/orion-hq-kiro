@@ -25,7 +25,10 @@ Não usar `bash -lic` nem `bash -ic`: o terminal do agente não é interativo e 
 
 - Nunca rodar `npm`, `node`, `python`, `pip` ou `pytest` direto no terminal do Windows.
 - Python: usar sempre o ambiente virtual do projeto em `.venv` (já existe e está com as dependências).
-  Instalar pacotes com `.venv/bin/python -m pip install -r requirements.txt`. Nunca usar `pip` global/`--user`.
+  Instalar pacotes com `.venv/bin/python -m pip install -r requirements-dev.txt` (inclui o
+  `requirements.txt` de produção + `pytest`, `uvicorn`, `pgserver`). Nunca usar `pip` global/`--user`.
+- `requirements.txt` fica só com o que roda em produção, com versões fixas; ferramentas de
+  desenvolvimento vão no `requirements-dev.txt`.
 - Se precisar recriar o `.venv`: o Ubuntu não tem `python3-venv`, então usar
   `python3 -m venv --without-pip .venv` e instalar o pip com `get-pip.py`, sem sudo.
 - Rodar testes com `.venv/bin/pytest`.

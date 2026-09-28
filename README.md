@@ -52,8 +52,11 @@ source ~/.nvm/nvm.sh
 npm install
 
 # Backend — sempre no virtualenv do projeto (.venv)
-.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -r requirements-dev.txt
 ```
+
+`requirements.txt` tem só o que roda em produção (é o que a Vercel instala), com versões fixas.
+`requirements-dev.txt` inclui o de produção e acrescenta `pytest`, `uvicorn` e `pgserver`.
 
 Se precisar recriar o `.venv` (o Ubuntu não tem `python3-venv`):
 
@@ -148,7 +151,7 @@ GitHub; o upsert evita entradas duplicadas.
 1. Conecte o repositório do Orion HQ a um projeto na Vercel.
 2. Configure todas as variáveis de ambiente da tabela acima em **Settings → Environment Variables**
    (o `DATABASE_URL` do Neon já entra pela integração do Marketplace; `CRON_SECRET` é gerado pela Vercel).
-3. O `requirements.txt` na raiz é o que a Vercel usa para o backend Python; o `api/index.py` vira a função
+3. O `requirements.txt` na raiz (só dependências de produção, versões fixas) é o que a Vercel usa para o backend Python; o `api/index.py` vira a função
    serverless (o prefixo `_` em `api/_orion/` impede a Vercel de tratar os módulos internos como funções).
 4. `vercel.json` define `maxDuration: 300` para `api/index.py` e o cron do resumo semanal
    (`0 12 * * 1` em UTC = segunda-feira 09:00 em São Paulo). Confira na documentação da Vercel os limites
