@@ -2,15 +2,16 @@
 
 // Chat do grupo (Requirements 2.3, 2.4, 9.3).
 // - Lista de mensagens por polling incremental (usePoll).
-// - Envio que NÃO bloqueia a tela: dispara POST /chat e segue no polling
-//   (o design pede que o front não espere o run terminar).
+// - Envio que NÃO bloqueia a tela: o POST /chat volta logo após salvar a
+//   mensagem; o run roda em segundo plano no servidor e a resposta chega pelo
+//   polling (o design pede que o front não espere o run terminar).
 // - Indicador "trabalhando…" com o detalhe da última atividade do run atual,
 //   derivado das atividades (não de estado local), para funcionar mesmo para
 //   quem abre a tela no meio de um run.
 // - Cartões de aprovação pendente no topo (Requirement 9.3).
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { enviar, obter } from "../../../lib/api";
+import { ErroApi, enviar, obter } from "../../../lib/api";
 import { usePoll } from "../../../lib/usePoll";
 import { agentePorId } from "../../../lib/agents";
 import ChatMessage, { Mensagem } from "../../../components/ChatMessage";
@@ -54,6 +55,15 @@ function indicadorTrabalho(atividades: Atividade[]): string | null {
   const nome = agentePorId(ultima.agente)?.nome ?? ultima.agente;
   const detalhe = (ultima.detalhe || "").trim();
   return detalhe ? `${nome} · ${detalhe}` : nome;
+}
+
+async function mensagemFoiSalva(desde: number, texto: string): Promise<boolean> {
+  try {
+    const novas = await obter<Mensagem[]>(`/mensagens?desde=${desde}`);
+    return Array.isArray(novas) && novas.some((m) => m.texto === texto);
+  } catch {
+    return false;
+  }
 }
 
 export default function ChatPage() {
@@ -109,18 +119,22 @@ export default function ChatPage() {
     setErroEnvio(null);
     setEnviando(true);
     setTexto("");
+    const ultimoId = mensagens.length ? mensagens[mensagens.length - 1].id : 0;
 
-    // Dispara o POST /chat mas NÃO espera o run terminar para atualizar a tela:
-    // o polling de mensagens e atividades cuida disso (design.md).
-    enviar("/chat", { texto: conteudo })
-      .catch(() => {
-        setErroEnvio(
-          "Não foi possível enviar a mensagem. Tente novamente."
-        );
-      })
-      .finally(() => {
-        setEnviando(false);
-      });
+    // O POST /chat volta assim que a mensagem é salva; o run segue no servidor
+    // e a resposta chega pelo polling de mensagens e atividades (design.md).
+    try {
+      await enviar("/chat", { texto: conteudo });
+    } catch (erro) {
+      const recusada = erro instanceof ErroApi && erro.status < 500;
+      // Timeout/erro de rede não significa que a mensagem se perdeu.
+      if (recusada || !(await mensagemFoiSalva(ultimoId, conteudo))) {
+        setErroEnvio("Não foi possível enviar a mensagem. Tente novamente.");
+        setTexto((atual) => atual || conteudo);
+      }
+    } finally {
+      setEnviando(false);
+    }
   }
 
   async function decidir(id: number, aprovado: boolean) {

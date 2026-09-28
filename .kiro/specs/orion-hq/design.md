@@ -143,19 +143,22 @@ continuidade vem do `historico` (últimas 12 mensagens).
 | POST | `/logout` | sessão | limpa cookie |
 | GET | `/me` | sessão | `{usuario, aprovador}` |
 | GET | `/mensagens?desde=<id>` | sessão | mensagens com `id > desde` (se 0: últimas 50) |
-| POST | `/chat` | sessão | `{texto}` → roda o grafo (bloqueia até terminar ou pausar) |
+| POST | `/chat` | sessão | `{texto}` → salva a mensagem e responde `processando`; o grafo roda em segundo plano |
 | GET | `/atividades?desde=<id>` | sessão | atividades com `id > desde` (se 0: últimas 80) |
 | GET | `/atividades/tokens` | sessão | `{agente: tokens}` de hoje |
 | GET | `/aprovacoes?status=pendente` | sessão | lista |
 | POST | `/aprovacoes/{id}` | sessão + aprovador | `{aprovado: bool}` → retoma o grafo |
+| POST | `/aprovacoes/{id}/retomar` | sessão + aprovador | tenta de novo a retomada (só com status `erro`; senão 409) |
 | GET | `/reunioes` | sessão | próximas reuniões |
 | GET | `/reunioes/{id}.ics` | sessão | arquivo iCalendar |
 | POST | `/webhooks/github` | assinatura | ingestão de PR mergeado |
 | GET | `/cron/resumo-semanal` | Bearer CRON_SECRET | resumo da semana |
 | GET | `/saude` | — | `{ok, banco}` |
 
-O `POST /chat` pode levar dezenas de segundos. O front **não** espera por ele para atualizar a tela: dispara a
-requisição e continua o polling de mensagens e atividades.
+Um run pode levar dezenas de segundos. Por isso o `POST /chat` só salva a mensagem e responde; o run roda como
+tarefa em segundo plano do FastAPI (`BackgroundTasks` — na Vercel a função só termina depois dela). O input do
+chat libera assim que o `POST` volta e a resposta chega pelo polling de mensagens e atividades. Em timeout ou
+erro de rede, o front confere se a mensagem já foi salva antes de mostrar "não foi possível enviar".
 
 ### Sessão
 

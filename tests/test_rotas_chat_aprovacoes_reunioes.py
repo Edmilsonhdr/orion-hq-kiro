@@ -3,8 +3,8 @@
 Cobrem os Requirements 2.1, 2.3, 6.4, 6.5, 6.6 e 9.1 com `TestClient`:
 
 - `GET /api/mensagens`: 401 sem sessão; com sessão lista e filtra por `desde`.
-- `POST /api/chat`: 401 sem sessão; com sessão chama `execucao.conversar`
-  (substituído por um fake) com (usuario, texto) e devolve o dict.
+- `POST /api/chat`: 401 sem sessão; com sessão salva via `execucao.receber`,
+  responde `processando` e roda `execucao.processar` em segundo plano.
 - `GET /api/aprovacoes`: 401 sem sessão; com sessão lista pendentes + decididas.
 - `POST /api/aprovacoes/{id}`: 401 sem sessão; 403 não-aprovador; 200 aprovador
   (com fake de `execucao.decidir_aprovacao`); caso `ja_decidida` propagado.
@@ -121,27 +121,44 @@ def test_chat_sem_sessao_da_401(cliente):
     assert cliente.post("/api/chat", json={"texto": "oi"}).status_code == 401
 
 
-def test_chat_com_sessao_chama_conversar(cliente, monkeypatch):
-    """A rota chama `execucao.conversar(usuario, texto)` e devolve o dict."""
+def test_chat_responde_ao_salvar_e_processa_em_segundo_plano(cliente, monkeypatch):
+    """A rota responde `processando` após `receber` e roda `processar` depois."""
     from _orion import execucao
 
     capturado = {}
 
-    def _fake_conversar(usuario, texto):
-        capturado["args"] = (usuario, texto)
-        return {"status": "respondido", "run_id": "abc", "resposta": "pronto"}
+    def _fake_receber(usuario, texto):
+        capturado["receber"] = (usuario, texto)
+        return {"status": "processando", "run_id": "abc"}, {"run_id": "abc"}
 
-    monkeypatch.setattr(execucao, "conversar", _fake_conversar)
+    def _fake_processar(estado_inicial):
+        capturado["processar"] = estado_inicial
+
+    monkeypatch.setattr(execucao, "receber", _fake_receber)
+    monkeypatch.setattr(execucao, "processar", _fake_processar)
 
     _logar(cliente)
     resp = cliente.post("/api/chat", json={"texto": "o que mudou?"})
     assert resp.status_code == 200
-    assert resp.json() == {
-        "status": "respondido",
-        "run_id": "abc",
-        "resposta": "pronto",
-    }
-    assert capturado["args"] == ("dimi", "o que mudou?")
+    assert resp.json() == {"status": "processando", "run_id": "abc"}
+    assert capturado["receber"] == ("dimi", "o que mudou?")
+    # O TestClient executa as tarefas em segundo plano antes de devolver.
+    assert capturado["processar"] == {"run_id": "abc"}
+
+
+def test_chat_nota_nao_agenda_processamento(cliente, monkeypatch):
+    """No atalho /nota não há run: nada vai para segundo plano."""
+    from _orion import execucao
+
+    def _falhar(estado_inicial):
+        raise AssertionError("não deveria processar")
+
+    monkeypatch.setattr(execucao, "processar", _falhar)
+
+    _logar(cliente)
+    resp = cliente.post("/api/chat", json={"texto": "/nota usar Neon"})
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "nota"
 
 
 # --- GET /api/aprovacoes ---

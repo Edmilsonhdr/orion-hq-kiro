@@ -12,6 +12,7 @@ import sys
 sys.path.append(os.path.dirname(__file__))
 
 from fastapi import (
+    BackgroundTasks,
     Depends,
     FastAPI,
     Header,
@@ -121,19 +122,24 @@ def listar_mensagens(
 
 @app.post("/api/chat")
 def chat(
-    mensagem: MensagemChat, usuario: str = Depends(auth.usuario_atual)
+    mensagem: MensagemChat,
+    tarefas: BackgroundTasks,
+    usuario: str = Depends(auth.usuario_atual),
 ) -> dict:
-    """Processa uma mensagem do chat do grupo (Requirement 2.1).
+    """Recebe uma mensagem do chat do grupo (Requirement 2.1).
 
-    Chama `execucao.conversar(usuario, texto)`, que salva a mensagem, roda o
-    grafo (ou o atalho `/nota`) e bloqueia até terminar ou pausar numa
-    aprovação. Devolve o dict de `conversar` (status/run_id/resposta). Exige
-    sessão. Import tardio de `execucao` para não exigir o grafo/checkpointer em
-    quem só importa o app.
+    Salva a mensagem (`execucao.receber`) e responde logo em seguida com
+    `{"status": "processando", "run_id": ...}`; o grafo roda como tarefa em
+    segundo plano (`execucao.processar`) e a resposta chega ao front pelo
+    polling de mensagens. Na Vercel, a função só termina depois das tarefas em
+    segundo plano. O atalho `/nota` é resolvido na hora. Exige sessão.
     """
     from _orion import execucao
 
-    return execucao.conversar(usuario, mensagem.texto)
+    resultado, estado_inicial = execucao.receber(usuario, mensagem.texto)
+    if estado_inicial is not None:
+        tarefas.add_task(execucao.processar, estado_inicial)
+    return resultado
 
 
 @app.get("/api/aprovacoes")

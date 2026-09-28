@@ -91,6 +91,37 @@ def test_conversar_gera_run_id_e_historico(banco, monkeypatch):
     assert "bom dia" in capturado["historico"]
 
 
+def test_receber_salva_sem_rodar_o_grafo(banco, monkeypatch):
+    """`receber` salva a mensagem e prepara o run; o grafo só roda em `processar`."""
+    def _explode(*args, **kwargs):
+        raise AssertionError("receber não deve rodar o grafo")
+
+    monkeypatch.setattr(grafo, "grafo_com_checkpoint", _explode)
+
+    resultado, estado_inicial = execucao.receber("dimi", "bom dia")
+
+    assert resultado == {"status": "processando", "run_id": estado_inicial["run_id"]}
+    assert estado_inicial["pedido"] == "bom dia"
+    msgs = db.consultar("select autor, texto from mensagens order by id")
+    assert [(m["autor"], m["texto"]) for m in msgs] == [("dimi", "bom dia")]
+    tipos = [a["tipo"] for a in atividades.listar(0)]
+    assert tipos == ["inicio"]
+
+
+def test_processar_roda_o_run_e_salva_a_resposta(banco, monkeypatch):
+    """`processar` roda o grafo do run preparado e salva a resposta no chat."""
+    monkeypatch.setattr(grafo, "decidir", lambda estado: _rota("responder"))
+    monkeypatch.setattr(grafo, "redigir", lambda estado: "Oi!")
+
+    _, estado_inicial = execucao.receber("dimi", "bom dia")
+    resultado = execucao.processar(estado_inicial)
+
+    assert resultado["status"] == "respondido"
+    msgs = db.consultar("select autor, texto, run_id from mensagens order by id")
+    assert msgs[-1]["autor"] == execucao.AUTOR_ORQ
+    assert msgs[-1]["run_id"] == estado_inicial["run_id"]
+
+
 # --- Atalho /nota ---
 
 

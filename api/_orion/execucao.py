@@ -127,7 +127,19 @@ def _tratar_erro(run_id: str, mensagem: str = MSG_ERRO) -> dict:
 
 
 def conversar(autor: str, texto: str) -> dict:
-    """Processa uma mensagem do chat do grupo.
+    """Processa uma mensagem do chat do grupo de ponta a ponta (bloqueante).
+
+    Equivale a `receber` seguido de `processar`. A rota `POST /chat` usa os dois
+    separados para responder logo após salvar a mensagem.
+    """
+    resultado, estado_inicial = receber(autor, texto)
+    if estado_inicial is None:
+        return resultado
+    return processar(estado_inicial)
+
+
+def receber(autor: str, texto: str) -> tuple[dict, Optional[dict]]:
+    """Salva a mensagem do chat e prepara o run, sem rodar o grafo.
 
     Fluxo (Requirements 2.1, 2.2, 2.5, 2.7, 3.6):
 
@@ -136,15 +148,13 @@ def conversar(autor: str, texto: str) -> dict:
        "Anotado no histórico do projeto." (Requirement 2.5). A mensagem do
        usuário e a confirmação são salvas no chat.
     2. Caso contrário: salva a mensagem do usuário (autor + horário), gera um
-       `run_id` novo, monta o `historico` (últimas 12 mensagens) e roda o grafo
-       com `thread_id = run_id` (Requirements 2.1, 3.6). Ao terminar, salva a
-       resposta do Orquestrador (Requirement 2.2); se o grafo pausou numa
-       aprovação, devolve `{"status": "aguardando_aprovacao"}`.
-    3. Erro em qualquer ponto do run: atividade `erro` + mensagem curta no chat,
-       sem stack trace (Requirement 2.7).
+       `run_id` novo, monta o `historico` (últimas 12 mensagens) e emite a
+       atividade `inicio` (Requirements 2.1, 3.6).
 
-    Devolve um dict com `status` (`respondido` | `aguardando_aprovacao` |
-    `nota` | `erro`), o `run_id` (quando houver) e a `resposta` textual.
+    Devolve `(resultado, estado_inicial)`. No atalho `/nota` o trabalho já está
+    feito e `estado_inicial` é None. Senão, `resultado` é
+    `{"status": "processando", "run_id": ...}` e `estado_inicial` deve ser
+    passado a `processar` (que roda o grafo e salva a resposta).
     """
     texto = texto or ""
 
@@ -159,7 +169,7 @@ def conversar(autor: str, texto: str) -> dict:
             _registrar_nota(conteudo_nota)
             resposta = "Anotado no histórico do projeto."
         db.salvar_mensagem(AUTOR_ORQ, resposta)
-        return {"status": "nota", "resposta": resposta}
+        return {"status": "nota", "resposta": resposta}, None
 
     # 2. Mensagem normal: salva, monta o histórico e roda o grafo.
     # O histórico inclui a mensagem atual (salva antes), atendendo ao contexto
@@ -175,12 +185,22 @@ def conversar(autor: str, texto: str) -> dict:
         "historico": historico,
         "passos": 0,
     }
+    emitir(run_id, "orq", "inicio", texto[:200])
+    return {"status": "processando", "run_id": run_id}, estado_inicial
+
+
+def processar(estado_inicial: dict) -> dict:
+    """Roda o grafo de um run preparado por `receber` e salva a resposta.
+
+    Devolve `{"status": "respondido" | "aguardando_aprovacao" | "erro", ...}`.
+    Nunca lança: qualquer falha vira atividade `erro` + mensagem no chat.
+    """
+    run_id = estado_inicial["run_id"]
 
     # Import tardio: evita exigir o checkpointer/Postgres em quem só importa o
     # módulo (ex.: testes que substituem `grafo_com_checkpoint`).
     from . import grafo
 
-    emitir(run_id, "orq", "inicio", texto[:200])
     try:
         with grafo.grafo_com_checkpoint() as g:
             g.invoke(estado_inicial, _config(run_id))
