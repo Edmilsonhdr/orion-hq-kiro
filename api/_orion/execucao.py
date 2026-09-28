@@ -73,18 +73,19 @@ def _config(run_id: str) -> dict:
     return {"configurable": {"thread_id": run_id}, "recursion_limit": 30}
 
 
-def _registrar_nota(texto: str) -> None:
+def _registrar_nota(texto: str, autor: str) -> None:
     """Salva uma nota no histórico do projeto (changelog, fonte 'nota').
 
     Sem referência de PR (referencia = null). O texto vira o resumo; o título é
-    uma etiqueta curta para aparecer na busca/listagem do changelog.
+    uma etiqueta curta para aparecer na busca/listagem do changelog. O autor é
+    o sócio que escreveu a nota.
     """
     db.executar(
         """
         insert into changelog (fonte, referencia, titulo, resumo, autor)
         values ('nota', null, %s, %s, %s)
         """,
-        ("Nota", texto, None),
+        ("Nota", texto, autor),
     )
 
 
@@ -166,7 +167,7 @@ def receber(autor: str, texto: str) -> tuple[dict, Optional[dict]]:
         if not conteudo_nota:
             resposta = "Nota vazia: escreva algo depois de /nota."
         else:
-            _registrar_nota(conteudo_nota)
+            _registrar_nota(conteudo_nota, autor)
             resposta = "Anotado no histórico do projeto."
         db.salvar_mensagem(AUTOR_ORQ, resposta)
         return {"status": "nota", "resposta": resposta}, None

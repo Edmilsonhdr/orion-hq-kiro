@@ -140,11 +140,12 @@ def test_conversar_nota_registra_sem_modelo(banco, monkeypatch):
 
     # A nota entrou no changelog como fonte 'nota'.
     notas = db.consultar(
-        "select fonte, referencia, resumo from changelog where fonte = 'nota'"
+        "select fonte, referencia, resumo, autor from changelog where fonte = 'nota'"
     )
     assert len(notas) == 1
     assert notas[0]["referencia"] is None
     assert notas[0]["resumo"] == "decidimos usar Neon"
+    assert notas[0]["autor"] == "dimi"
 
     # A mensagem do usuário e a confirmação do Orquestrador estão no chat.
     msgs = db.consultar("select autor, texto from mensagens order by id")
