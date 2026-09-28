@@ -47,6 +47,7 @@ _TABELAS_DOMINIO = (
     "changelog",
     "aprovacoes",
     "reunioes",
+    "incidentes",
 )
 
 

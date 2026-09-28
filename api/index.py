@@ -316,6 +316,71 @@ async def webhook_github(
         )
 
 
+@app.post("/api/webhooks/sentry")
+async def webhook_sentry(
+    request: Request,
+    sentry_hook_resource: str | None = Header(default=None),
+    sentry_hook_signature: str | None = Header(default=None),
+) -> dict:
+    """Ingestão de eventos de erro do Sentry (Vigia — Requirement 1).
+
+    Rota pública (sem sessão): a autenticidade vem da assinatura HMAC do corpo,
+    no mesmo padrão do webhook do GitHub.
+
+    Fluxo:
+    1. Lê o corpo BRUTO e valida `Sentry-Hook-Signature` com
+       `SENTRY_CLIENT_SECRET`; assinatura inválida/ausente ou segredo vazio →
+       401 (Requirements 1.1, 1.2).
+    2. Desserializa o JSON de forma tolerante: payload malformado NUNCA pode dar
+       500 (o Sentry reenviaria em loop); vira `{"ignorado": true}` (design,
+       "Error Handling").
+    3. `sentry.interpretar_payload` aplica a whitelist e a máscara. Recurso
+       desconhecido ou sem `sentry_issue_id` → 200 `{"ignorado": true}`
+       (Requirement 1.5).
+    4. `sentry.processar_evento` registra/atualiza o incidente. Ações fora de
+       `created`/`resolved`/`ignored` e do recurso `event_alert` são ignoradas
+       com 200 `{"ignorado": true}` (Requirement 1.5).
+
+    Import tardio de `sentry` para não exigir dependências pesadas em quem só
+    importa o app (ex.: testes de outras rotas).
+    """
+    from _orion import sentry
+
+    corpo_bruto = await request.body()
+
+    if not sentry.verificar_assinatura(corpo_bruto, sentry_hook_signature):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Assinatura do webhook inválida.",
+        )
+
+    import json
+
+    # Parser tolerante: payload malformado responde 200 `{"ignorado": true}`,
+    # nunca 500, para o Sentry não reenviar em loop.
+    try:
+        corpo = json.loads(corpo_bruto or b"{}")
+    except (ValueError, TypeError):
+        corpo = {}
+    if not isinstance(corpo, dict):
+        corpo = {}
+
+    campos = sentry.interpretar_payload(sentry_hook_resource, corpo)
+    if campos is None:
+        return {"ignorado": True}
+
+    resultado = sentry.processar_evento(campos)
+
+    if resultado.get("resultado") == "ignorado":
+        return {"ignorado": True}
+
+    # TODO (task 4.5): quando `resultado["resultado"] == "registrado"` e
+    # `resultado["novo"]` for True, disparar aqui o diagnóstico do Rui
+    # (`vigia.diagnosticar(resultado["id"])`), respeitando o limite por hora.
+
+    return resultado
+
+
 @app.get("/api/cron/resumo-semanal")
 def cron_resumo_semanal(
     authorization: str | None = Header(default=None),

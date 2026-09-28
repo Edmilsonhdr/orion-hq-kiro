@@ -1,0 +1,169 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "1. Banco e configuração": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571900857
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571916613
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790572193043
+      }
+    ],
+    "2.1 `api/_orion/sentry.py`: `verificar_assinatura`, `interpretar_payload` (issue e event_alert),": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571901432
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790572203164
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790572774622
+      }
+    ],
+    "2.2 Upsert com deduplicação e atualização de status por `resolved`/`ignored`": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571901908
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790572784649
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790573209016
+      }
+    ],
+    "2.3 Rota `POST /api/webhooks/sentry` em `index.py` (sem sessão, 401 na assinatura, 200 ignorado)": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571902360
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790573214018
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790573431448
+      }
+    ],
+    "3. Leitura do GitHub e do Sentry": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571902760
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790573437871
+      }
+    ],
+    "4.1 Ferramentas do Rui e `pedir_ao_tobias` com atividades `delegou` de ida e volta": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571903187
+      }
+    ],
+    "4.2 `diagnosticar()`: loop do Rui (máx. 8 voltas), `Diagnostico` estruturado, tokens registrados,": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571903602
+      }
+    ],
+    "4.3 Áreas proibidas aplicadas por código": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571904027
+      }
+    ],
+    "4.4 Limite por hora e aviso único de fila": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571904596
+      }
+    ],
+    "4.5 Ligar o webhook ao diagnóstico (só incidente novo, dentro do limite)": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571904987
+      }
+    ],
+    "5. Rota `vigia` no supervisor": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571905356
+      }
+    ],
+    "6. API de incidentes": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571905773
+      }
+    ],
+    "7. Front: tela de Incidentes": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571906193
+      }
+    ],
+    "8. Front: escritório": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571906675
+      }
+    ],
+    "9. Script de teste e documentação": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571907297
+      }
+    ],
+    "10. Verificação final": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790571907714
+      }
+    ],
+    "2. Receber e limpar eventos do Sentry": [
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790573431928
+      }
+    ]
+  }
+}

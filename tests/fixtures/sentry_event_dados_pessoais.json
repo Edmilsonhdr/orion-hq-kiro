@@ -1,0 +1,79 @@
+{
+  "action": "triggered",
+  "actor": {
+    "id": "sentry",
+    "name": "Sentry",
+    "type": "application"
+  },
+  "data": {
+    "event": {
+      "event_id": "aa11bb22cc33dd44ee55ff6600778899",
+      "issue_id": "2223334445",
+      "project": {
+        "id": "5",
+        "name": "orion-api",
+        "slug": "orion-api",
+        "platform": "node"
+      },
+      "level": "fatal",
+      "culprit": "falha ao cobrar CPF 529.982.247-25 do usuario maria@paciente.com",
+      "release": "orion-api@deadbee",
+      "environment": "production",
+      "datetime": "2026-01-17T09:15:00.000000Z",
+      "title": "Erro ao processar paciente maria@paciente.com telefone (11) 98765-4321",
+      "message": "Cobranca do CPF 52998224725 falhou para o telefone +55 11 91234-5678",
+      "metadata": {
+        "type": "PaymentError",
+        "value": "Falha no cartao do usuario id 900112233, CPF 111.222.333-44"
+      },
+      "exception": {
+        "values": [
+          {
+            "type": "PaymentError",
+            "value": "Falha no cartao",
+            "stacktrace": {
+              "frames": [
+                {
+                  "filename": "src/pagamento/cobranca.ts",
+                  "function": "cobrar",
+                  "lineno": 88,
+                  "module": "pagamento/cobranca",
+                  "in_app": true,
+                  "vars": {
+                    "email": "maria@paciente.com",
+                    "cpf": "529.982.247-25",
+                    "cartao": "4111 1111 1111 1111"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "request": {
+        "url": "https://api.orion.app/cobranca",
+        "headers": [["Authorization", "Bearer segredo"]],
+        "cookies": "session=abc",
+        "query_string": [["email", "maria@paciente.com"]],
+        "data": {"cpf": "52998224725", "email": "maria@paciente.com"}
+      },
+      "user": {
+        "id": "900112233",
+        "email": "maria@paciente.com",
+        "ip_address": "10.0.0.5",
+        "username": "maria.paciente"
+      },
+      "breadcrumbs": {
+        "values": [
+          {"message": "login de maria@paciente.com", "data": {"ip": "10.0.0.5"}}
+        ]
+      },
+      "web_url": "https://orion.sentry.io/issues/2223334445/"
+    },
+    "triggered_rule": "Erro fatal",
+    "issue_alert": {"title": "Erro fatal", "settings": []}
+  },
+  "installation": {
+    "uuid": "b9f6e48b-707d-5d65-bec6-c4f39e75d8ef"
+  }
+}

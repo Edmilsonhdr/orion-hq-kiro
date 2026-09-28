@@ -150,6 +150,89 @@ def base_url() -> str:
     return ""
 
 
+# --- Vigia / Sentry (detecção e diagnóstico de erros de produção) ---
+
+# Padrão de áreas protegidas: se o culpado ou um arquivo suspeito casar com um
+# destes globs, o diagnóstico nunca marca `corrigivel_automaticamente=True`.
+_AREAS_PROIBIDAS_PADRAO = (
+    "**/migrations/**",
+    "**/prisma/**",
+    "**/*auth*/**",
+    "**/*auth*.*",
+    "**/*revenuecat*",
+    "**/*payment*",
+    "**/*pagamento*",
+    "**/*saude*/**",
+    "**/*health*/**",
+)
+
+
+def sentry_client_secret() -> str:
+    """Segredo da integração interna do Sentry (valida Sentry-Hook-Signature)."""
+    return os.environ.get("SENTRY_CLIENT_SECRET", "")
+
+
+def sentry_auth_token() -> str:
+    """Token de API do Sentry (opcional: busca stack do último evento)."""
+    return os.environ.get("SENTRY_AUTH_TOKEN", "")
+
+
+def sentry_org() -> str:
+    """Slug da organização no Sentry (opcional, usado com o auth token)."""
+    return os.environ.get("SENTRY_ORG", "")
+
+
+def sentry_projetos() -> dict[str, str]:
+    """Mapeia slug do projeto no Sentry para `app`/`backend`.
+
+    Formato: `ORION_SENTRY_PROJETOS=orion-app:app,orion-api:backend`.
+    Retorna um dict {slug: area}. Entradas malformadas são ignoradas.
+    Dict vazio se a variável não estiver definida.
+    """
+    bruto = os.environ.get("ORION_SENTRY_PROJETOS", "")
+    resultado: dict[str, str] = {}
+    for par in bruto.split(","):
+        par = par.strip()
+        if not par or ":" not in par:
+            continue
+        slug, area = par.split(":", 1)
+        slug = slug.strip()
+        area = area.strip()
+        if slug and area:
+            resultado[slug] = area
+    return resultado
+
+
+def github_repo() -> str:
+    """Repositório do app Orion no formato `owner/orion`. Vazio se não definido."""
+    return os.environ.get("ORION_GITHUB_REPO", "")
+
+
+def areas_proibidas() -> tuple[str, ...]:
+    """Globs de áreas protegidas (`ORION_AREAS_PROIBIDAS`, separados por vírgula).
+
+    Vazio ou ausente → padrão do design (`_AREAS_PROIBIDAS_PADRAO`).
+    """
+    bruto = os.environ.get("ORION_AREAS_PROIBIDAS", "").strip()
+    if not bruto:
+        return _AREAS_PROIBIDAS_PADRAO
+    padroes = tuple(p.strip() for p in bruto.split(",") if p.strip())
+    return padroes or _AREAS_PROIBIDAS_PADRAO
+
+
+def max_diagnosticos_hora() -> int:
+    """Máximo de diagnósticos numa janela móvel de 60 min (padrão 5).
+
+    Valor inválido ou não positivo cai no padrão 5.
+    """
+    bruto = os.environ.get("ORION_MAX_DIAGNOSTICOS_HORA", "").strip()
+    try:
+        valor = int(bruto)
+    except ValueError:
+        return 5
+    return valor if valor > 0 else 5
+
+
 # --- Data e hora em PT-BR ---
 
 

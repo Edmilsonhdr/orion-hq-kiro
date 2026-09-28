@@ -1,0 +1,43 @@
+{
+  "action": "resolved",
+  "installation": {
+    "uuid": "24b397fc-a86e-43ef-9297-949e21b82480"
+  },
+  "data": {
+    "issue": {
+      "url": "https://sentry.io/api/0/organizations/orion/issues/1234567890/",
+      "web_url": "https://orion.sentry.io/issues/1234567890/",
+      "id": "1234567890",
+      "shortId": "ORION-APP-Y",
+      "title": "TypeError: Cannot read property 'nome' of undefined",
+      "culprit": "src/screens/Perfil.tsx in carregarPerfil",
+      "level": "error",
+      "status": "resolved",
+      "statusDetails": {
+        "inRelease": "latest"
+      },
+      "substatus": null,
+      "platform": "javascript",
+      "project": {
+        "id": "4509877862268928",
+        "name": "orion-app",
+        "slug": "orion-app",
+        "platform": "javascript-react-native"
+      },
+      "type": "error",
+      "metadata": {
+        "type": "TypeError",
+        "value": "Cannot read property 'nome' of undefined"
+      },
+      "count": "9",
+      "userCount": 5,
+      "firstSeen": "2026-01-15T13:20:00.100000+00:00",
+      "lastSeen": "2026-01-15T15:40:00.900000+00:00"
+    }
+  },
+  "actor": {
+    "type": "user",
+    "id": "42",
+    "name": "Dimi"
+  }
+}

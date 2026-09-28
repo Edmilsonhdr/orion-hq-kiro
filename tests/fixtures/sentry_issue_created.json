@@ -1,0 +1,48 @@
+{
+  "action": "created",
+  "installation": {
+    "uuid": "24b397fc-a86e-43ef-9297-949e21b82480"
+  },
+  "data": {
+    "issue": {
+      "url": "https://sentry.io/api/0/organizations/orion/issues/1234567890/",
+      "web_url": "https://orion.sentry.io/issues/1234567890/",
+      "project_url": "https://orion.sentry.io/issues/?project=4509877862268928",
+      "id": "1234567890",
+      "shortId": "ORION-APP-Y",
+      "title": "TypeError: Cannot read property 'nome' of undefined",
+      "culprit": "src/screens/Perfil.tsx in carregarPerfil",
+      "permalink": "https://orion.sentry.io/issues/1234567890/",
+      "logger": "react-native",
+      "level": "error",
+      "status": "unresolved",
+      "substatus": "new",
+      "platform": "javascript",
+      "project": {
+        "id": "4509877862268928",
+        "name": "orion-app",
+        "slug": "orion-app",
+        "platform": "javascript-react-native"
+      },
+      "type": "error",
+      "metadata": {
+        "type": "TypeError",
+        "value": "Cannot read property 'nome' of undefined",
+        "filename": "src/screens/Perfil.tsx"
+      },
+      "issueType": "error",
+      "issueCategory": "error",
+      "priority": "high",
+      "isUnhandled": true,
+      "count": "7",
+      "userCount": 4,
+      "firstSeen": "2026-01-15T13:20:00.100000+00:00",
+      "lastSeen": "2026-01-15T14:05:00.500000+00:00"
+    }
+  },
+  "actor": {
+    "type": "application",
+    "id": "orion-hq",
+    "name": "Orion HQ"
+  }
+}

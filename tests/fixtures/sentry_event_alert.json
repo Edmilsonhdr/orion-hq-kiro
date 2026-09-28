@@ -1,0 +1,123 @@
+{
+  "action": "triggered",
+  "actor": {
+    "id": "sentry",
+    "name": "Sentry",
+    "type": "application"
+  },
+  "data": {
+    "event": {
+      "event_id": "e4874d664c3540c1a32eab185f12c5ab",
+      "issue_id": "1117540176",
+      "issue_url": "https://sentry.io/api/0/issues/1117540176/",
+      "project": 1,
+      "platform": "node",
+      "level": "error",
+      "culprit": "src/rotas/assinatura.ts in criarAssinatura",
+      "release": "orion-api@a1b2c3d",
+      "environment": "production",
+      "datetime": "2026-01-16T21:06:17.677000Z",
+      "title": "ReferenceError: cobranca is not defined",
+      "message": "",
+      "metadata": {
+        "type": "ReferenceError",
+        "value": "cobranca is not defined",
+        "filename": "src/rotas/assinatura.ts"
+      },
+      "exception": {
+        "values": [
+          {
+            "type": "ReferenceError",
+            "value": "cobranca is not defined",
+            "mechanism": {
+              "type": "onerror",
+              "handled": false
+            },
+            "stacktrace": {
+              "frames": [
+                {
+                  "filename": "src/servidor.ts",
+                  "function": "bootstrap",
+                  "lineno": 12,
+                  "module": "servidor",
+                  "in_app": true,
+                  "context_line": "const app = fastify()",
+                  "vars": {
+                    "senha": "supersecreta",
+                    "token": "abc123"
+                  }
+                },
+                {
+                  "filename": "node_modules/fastify/lib/route.js",
+                  "function": "handleRequest",
+                  "lineno": 300,
+                  "module": "fastify/route",
+                  "in_app": false,
+                  "vars": {
+                    "req": "objeto-com-headers"
+                  }
+                },
+                {
+                  "filename": "src/rotas/assinatura.ts",
+                  "function": "criarAssinatura",
+                  "lineno": 45,
+                  "module": "rotas/assinatura",
+                  "in_app": true,
+                  "context_line": "return cobranca.total",
+                  "vars": {
+                    "usuario": "maria@paciente.com"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "request": {
+        "url": "https://api.orion.app/assinaturas",
+        "method": "POST",
+        "headers": [
+          ["Authorization", "Bearer token-secreto-do-usuario"],
+          ["User-Agent", "Mozilla/5.0"]
+        ],
+        "cookies": "session=abc; auth=xyz",
+        "query_string": [["cpf", "529.982.247-25"]],
+        "data": {
+          "email": "maria@paciente.com",
+          "cpf": "52998224725"
+        }
+      },
+      "tags": [
+        ["level", "error"],
+        ["environment", "production"],
+        ["user", "ip:162.217.75.90"],
+        ["server_name", "railway-prod-1"]
+      ],
+      "user": {
+        "id": "9987",
+        "email": "maria@paciente.com",
+        "ip_address": "162.218.85.90",
+        "username": "maria"
+      },
+      "breadcrumbs": {
+        "values": [
+          {
+            "category": "navigation",
+            "message": "usuário maria@paciente.com abriu /perfil",
+            "data": {"cpf": "529.982.247-25"}
+          }
+        ]
+      },
+      "url": "https://sentry.io/api/0/projects/orion/orion-api/events/e4874d664c3540c1a32eab185f12c5ab/",
+      "web_url": "https://orion.sentry.io/issues/1117540176/events/e4874d664c3540c1a32eab185f12c5ab/"
+    },
+    "triggered_rule": "Erro em produção",
+    "issue_alert": {
+      "title": "Erro em produção",
+      "settings": []
+    }
+  },
+  "installation": {
+    "uuid": "a8e5d37a-696c-4c54-adb5-b3f28d64c7de"
+  }
+}

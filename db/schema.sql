@@ -79,3 +79,27 @@ create table if not exists reunioes (
 -- Mesma chave da aprovação (run_id:passo): retomar o run não duplica a reunião.
 alter table reunioes add column if not exists chave text;
 create unique index if not exists reunioes_chave_idx on reunioes (chave);
+-- Incidentes: erros de produção do Orion detectados pelo Vigia (Rui) via Sentry.
+-- Deduplicados por sentry_issue_id; o diagnóstico do Rui fica em `diagnostico`.
+create table if not exists incidentes (
+  id                      bigserial primary key,
+  sentry_issue_id         text not null unique,
+  projeto                 text not null,            -- app | backend | desconhecido
+  titulo                  text not null,
+  nivel                   text,                     -- error | fatal | warning
+  culpado                 text,
+  release                 text,
+  ambiente                text,
+  url                     text,
+  stack                   jsonb,                    -- frames já filtrados pela whitelist
+  ocorrencias             integer not null default 1,
+  usuarios_afetados       integer not null default 0,
+  primeira_vez            timestamptz not null default now(),
+  ultima_vez              timestamptz not null default now(),
+  status                  text not null default 'aberto',  -- aberto | diagnosticado | resolvido | ignorado
+  diagnostico             jsonb,
+  diagnostico_iniciado_em timestamptz,
+  diagnosticado_em        timestamptz,
+  criado_em               timestamptz not null default now()
+);
+create index if not exists incidentes_status_idx on incidentes (status);

@@ -84,6 +84,62 @@ def test_modelos_tem_padrao(monkeypatch):
     assert config.worker_model() == "claude-haiku-4-5"
 
 
+def test_sentry_segredos_vazios_quando_nao_definidos(monkeypatch):
+    for var in ("SENTRY_CLIENT_SECRET", "SENTRY_AUTH_TOKEN", "SENTRY_ORG"):
+        monkeypatch.delenv(var, raising=False)
+    assert config.sentry_client_secret() == ""
+    assert config.sentry_auth_token() == ""
+    assert config.sentry_org() == ""
+
+
+def test_sentry_projetos_faz_parse_do_env(monkeypatch):
+    monkeypatch.setenv("ORION_SENTRY_PROJETOS", "orion-app:app, orion-api:backend")
+    assert config.sentry_projetos() == {"orion-app": "app", "orion-api": "backend"}
+
+
+def test_sentry_projetos_ignora_entradas_malformadas(monkeypatch):
+    monkeypatch.setenv("ORION_SENTRY_PROJETOS", " orion-app:app , lixo , ,x: ")
+    assert config.sentry_projetos() == {"orion-app": "app"}
+
+
+def test_sentry_projetos_vazio_quando_nao_definido(monkeypatch):
+    monkeypatch.delenv("ORION_SENTRY_PROJETOS", raising=False)
+    assert config.sentry_projetos() == {}
+
+
+def test_github_repo_vazio_quando_nao_definido(monkeypatch):
+    monkeypatch.delenv("ORION_GITHUB_REPO", raising=False)
+    assert config.github_repo() == ""
+    monkeypatch.setenv("ORION_GITHUB_REPO", "owner/orion")
+    assert config.github_repo() == "owner/orion"
+
+
+def test_areas_proibidas_usa_padrao_quando_vazio(monkeypatch):
+    monkeypatch.delenv("ORION_AREAS_PROIBIDAS", raising=False)
+    assert config.areas_proibidas() == config._AREAS_PROIBIDAS_PADRAO
+    # String só com espaços/vírgulas também cai no padrão.
+    monkeypatch.setenv("ORION_AREAS_PROIBIDAS", "  , ,  ")
+    assert config.areas_proibidas() == config._AREAS_PROIBIDAS_PADRAO
+
+
+def test_areas_proibidas_faz_parse_do_env(monkeypatch):
+    monkeypatch.setenv("ORION_AREAS_PROIBIDAS", "**/prisma/**, **/*auth*.* ")
+    assert config.areas_proibidas() == ("**/prisma/**", "**/*auth*.*")
+
+
+def test_max_diagnosticos_hora_padrao_e_parse(monkeypatch):
+    monkeypatch.delenv("ORION_MAX_DIAGNOSTICOS_HORA", raising=False)
+    assert config.max_diagnosticos_hora() == 5
+    monkeypatch.setenv("ORION_MAX_DIAGNOSTICOS_HORA", "12")
+    assert config.max_diagnosticos_hora() == 12
+
+
+@pytest.mark.parametrize("valor", ["abc", "0", "-3", ""])
+def test_max_diagnosticos_hora_invalido_cai_no_padrao(monkeypatch, valor):
+    monkeypatch.setenv("ORION_MAX_DIAGNOSTICOS_HORA", valor)
+    assert config.max_diagnosticos_hora() == 5
+
+
 def test_agora_tem_fuso_de_sao_paulo():
     momento = config.agora()
     assert momento.tzinfo is not None
