@@ -266,10 +266,28 @@ def no_agenda(estado: Estado) -> dict:
 
     A proposta segue para o nó `aprovacao`. Somamos o passo aqui (a delegação
     para a Agenda), e a aprovação em si não conta como nova delegação.
+    Se o `inicio` for inválido, a Agenda devolve um relatório explicando e o
+    grafo volta ao supervisor sem pausar (`proposta = None`).
     """
     run_id = estado.get("run_id")
     instrucao = estado.get("instrucao") or estado.get("pedido", "")
     proposta = especialistas.propor_reuniao(instrucao, run_id)
+    problema = proposta.get("problema") or especialistas.problema_inicio(
+        proposta.get("inicio")
+    )
+    if problema:
+        titulo = proposta.get("titulo", "reunião")
+        emitir(run_id, "agenda", "delegou", "Proposta inválida",
+               dados={"de": "agenda", "para": "orq"})
+        relatorio = (
+            f'Não propus a reunião "{titulo}": {problema}. '
+            "É preciso pedir outra data aos sócios."
+        )
+        return {
+            "relatorios": [{"agente": "agenda", "texto": relatorio}],
+            "proposta": None,
+            "passos": 1,
+        }
     emitir(run_id, "agenda", "delegou", "Proposta para aprovação",
            dados={"de": "agenda", "para": "orq"})
     return {"proposta": proposta, "passos": 1}
@@ -286,7 +304,7 @@ def _instantes_reuniao(proposta: dict) -> tuple[datetime, datetime]:
     o início mais `duracao_min` minutos (default 60 se ausente/ inválido). Se o
     início vier sem tzinfo, assumimos o fuso do projeto (America/Sao_Paulo).
     """
-    inicio = datetime.fromisoformat(str(proposta.get("inicio")))
+    inicio = config.ler_iso(proposta.get("inicio"))
     if inicio.tzinfo is None:
         inicio = inicio.replace(tzinfo=config.TZ)
 
@@ -333,23 +351,34 @@ def link_ics(reuniao_id: int) -> str:
     return f"/api/reunioes/{reuniao_id}.ics"
 
 
-def _criar_reuniao(proposta: dict, criado_por: str, run_id: Optional[str]) -> dict:
-    """Persiste a reunião aprovada em `reunioes` e devolve a linha inserida.
+_CAMPOS_REUNIAO = "id, titulo, inicio, fim, participantes, pauta, criado_por, run_id, chave"
 
-    Converte a proposta (título, início/fim, participantes, pauta) para as
-    colunas do schema. `participantes` e `pauta` são `text[]` no Postgres; o
-    psycopg mapeia listas Python para arrays automaticamente.
+
+def _criar_reuniao(
+    proposta: dict,
+    criado_por: str,
+    run_id: Optional[str],
+    chave: str,
+    inicio: datetime,
+    fim: datetime,
+) -> dict:
+    """Persiste a reunião aprovada em `reunioes` e devolve a linha.
+
+    Idempotente pela `chave` (a mesma da aprovação): se o run for retomado de
+    novo depois de uma falha, reaproveita a reunião já criada em vez de
+    duplicar. `participantes` e `pauta` são `text[]` no Postgres; o psycopg
+    mapeia listas Python para arrays automaticamente.
     """
-    inicio, fim = _instantes_reuniao(proposta)
     participantes = list(proposta.get("participantes") or [])
     pauta = list(proposta.get("pauta") or [])
 
     linha = db.um(
-        """
+        f"""
         insert into reunioes
-            (titulo, inicio, fim, participantes, pauta, criado_por, run_id)
-        values (%s, %s, %s, %s, %s, %s, %s)
-        returning id, titulo, inicio, fim, participantes, pauta, criado_por, run_id
+            (titulo, inicio, fim, participantes, pauta, criado_por, run_id, chave)
+        values (%s, %s, %s, %s, %s, %s, %s, %s)
+        on conflict (chave) do nothing
+        returning {_CAMPOS_REUNIAO}
         """,
         (
             str(proposta.get("titulo", "Reunião")),
@@ -359,8 +388,13 @@ def _criar_reuniao(proposta: dict, criado_por: str, run_id: Optional[str]) -> di
             pauta,
             criado_por,
             run_id,
+            chave,
         ),
     )
+    if linha is None:
+        linha = db.um(
+            f"select {_CAMPOS_REUNIAO} from reunioes where chave = %s", (chave,)
+        )
     assert linha is not None
     return linha
 
@@ -421,8 +455,22 @@ def no_aprovacao(estado: Estado) -> dict:
 
     # 3. Efeito da decisão.
     if aprovado:
-        reuniao = _criar_reuniao(proposta, por, run_id)
-        inicio, fim = _instantes_reuniao(proposta)
+        try:
+            inicio, fim = _instantes_reuniao(proposta)
+        except (TypeError, ValueError):
+            detalhe = (
+                f'A reunião "{titulo}" foi aprovada por {por}, mas NÃO foi '
+                f'criada: a data de início "{proposta.get("inicio")}" é inválida.'
+            )
+            emitir(run_id, "agenda", "erro", detalhe)
+            return {
+                "relatorios": [{
+                    "agente": "agenda",
+                    "texto": f"{detalhe} É preciso pedir outra data aos sócios.",
+                }],
+                "proposta": None,
+            }
+        reuniao = _criar_reuniao(proposta, por, run_id, chave, inicio, fim)
         google = link_google(proposta, inicio, fim)
         ics = link_ics(reuniao["id"])
         emitir(
@@ -472,6 +520,11 @@ def _rota_supervisor(estado: Estado) -> Destino:
     return proxima  # type: ignore[return-value]
 
 
+def _rota_agenda(estado: Estado) -> str:
+    """Depois da Agenda: aprovação se há proposta válida; senão, supervisor."""
+    return "aprovacao" if estado.get("proposta") else "supervisor"
+
+
 # --- Construção e compilação ---
 
 
@@ -479,7 +532,8 @@ def construir() -> StateGraph:
     """Monta o `StateGraph` (sem compilar).
 
     Arestas: START→supervisor; supervisor→(tech|negocios|agenda|responder);
-    tech/negocios→supervisor; agenda→aprovacao→supervisor; responder→END.
+    tech/negocios→supervisor; agenda→(aprovacao|supervisor);
+    aprovacao→supervisor; responder→END.
     """
     grafo = StateGraph(Estado)
 
@@ -503,7 +557,11 @@ def construir() -> StateGraph:
     )
     grafo.add_edge("tech", "supervisor")
     grafo.add_edge("negocios", "supervisor")
-    grafo.add_edge("agenda", "aprovacao")
+    grafo.add_conditional_edges(
+        "agenda",
+        _rota_agenda,
+        {"aprovacao": "aprovacao", "supervisor": "supervisor"},
+    )
     grafo.add_edge("aprovacao", "supervisor")
     grafo.add_edge("responder", END)
 

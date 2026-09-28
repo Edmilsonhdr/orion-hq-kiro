@@ -125,6 +125,11 @@ def cron_secret() -> str:
 # --- Data e hora em PT-BR ---
 
 
+def ler_iso(texto: object) -> datetime:
+    """Converte um texto ISO 8601 em datetime. Lança ValueError se inválido."""
+    return datetime.fromisoformat(str(texto))
+
+
 def agora() -> datetime:
     """Datetime atual no fuso de São Paulo (com tzinfo)."""
     return datetime.now(TZ)

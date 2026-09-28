@@ -16,12 +16,13 @@ Cobrem:
 - atividades `delegou` (de/para) e `resposta` (Requirements 3.2, 3.5).
 """
 
+from datetime import timedelta
 from typing import Any
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
-from _orion import atividades, db, grafo
+from _orion import atividades, config, db, grafo
 
 
 def _compilar():
@@ -120,11 +121,16 @@ def test_limite_de_quatro_passos(banco, monkeypatch):
 # --- Roteamento agenda → aprovacao → supervisor ---
 
 
-def _proposta(titulo: str = "Semanal Orion") -> dict:
+def _inicio_futuro() -> str:
+    """Amanhã, mesmo horário, em ISO 8601 com o offset de São Paulo."""
+    return (config.agora() + timedelta(days=1)).replace(microsecond=0).isoformat()
+
+
+def _proposta(titulo: str = "Semanal Orion", inicio: str | None = None) -> dict:
     """Proposta de reunião de exemplo (início ISO com offset de São Paulo)."""
     return {
         "titulo": titulo,
-        "inicio": "2026-09-29T15:00:00-03:00",
+        "inicio": inicio or _inicio_futuro(),
         "duracao_min": 30,
         "participantes": ["Dimi", "Jullyana"],
         "pauta": ["Onboarding", "Custos"],
@@ -256,12 +262,91 @@ def test_registro_aprovacao_e_idempotente(banco, monkeypatch):
     assert len(aguardando) == 1, "atividade aguardando_aprovacao não pode duplicar"
 
 
+# --- Proposta inválida e idempotência da reunião ---
+
+
+def _fluxo_agenda_invalida(monkeypatch, inicio: str, run_id: str):
+    """Roda um pedido de reunião cuja proposta tem `inicio` inválido."""
+    decisoes = iter([_rota("agenda", "marca a semanal"), _rota("responder")])
+    monkeypatch.setattr(grafo, "decidir", lambda estado: next(decisoes))
+    monkeypatch.setattr(grafo, "redigir", lambda estado: "Preciso de outra data.")
+    monkeypatch.setattr(
+        grafo.especialistas, "propor_reuniao", lambda i, r: _proposta(inicio=inicio)
+    )
+    g = _compilar()
+    final = g.invoke(_entrada(run_id, "marca reunião"), _config(run_id))
+    return g, final
+
+
+def test_data_invalida_nao_pausa(banco, monkeypatch):
+    """`inicio` fora do ISO 8601: a Agenda explica e o grafo NÃO pausa."""
+    g, final = _fluxo_agenda_invalida(monkeypatch, "terça às 15h", "run-invalida")
+
+    assert not g.get_state(_config("run-invalida")).next
+    assert db.consultar("select id from aprovacoes") == []
+    assert final["resposta"] == "Preciso de outra data."
+    textos = " ".join(r["texto"] for r in final["relatorios"])
+    assert "Não propus" in textos and "ISO 8601" in textos
+
+
+def test_data_passada_nao_pausa(banco, monkeypatch):
+    """`inicio` no passado também não vai para aprovação."""
+    g, final = _fluxo_agenda_invalida(
+        monkeypatch, "2020-01-07T15:00:00-03:00", "run-passada"
+    )
+
+    assert not g.get_state(_config("run-passada")).next
+    assert db.consultar("select id from aprovacoes") == []
+    assert "já passou" in " ".join(r["texto"] for r in final["relatorios"])
+
+
+def test_data_sem_fuso_nao_pausa(banco, monkeypatch):
+    """`inicio` sem offset de fuso é recusado antes da aprovação."""
+    g, final = _fluxo_agenda_invalida(monkeypatch, "2099-01-07T15:00:00", "run-sem-fuso")
+
+    assert not g.get_state(_config("run-sem-fuso")).next
+    assert "fuso" in " ".join(r["texto"] for r in final["relatorios"])
+
+
+def test_aprovacao_com_data_invalida_explica_sem_criar(banco, monkeypatch):
+    """Se a data chegar inválida à aprovação, o relatório explica e nada é criado."""
+    decisoes = iter([_rota("agenda", "marca a semanal"), _rota("responder")])
+    monkeypatch.setattr(grafo, "decidir", lambda estado: next(decisoes))
+    monkeypatch.setattr(grafo, "redigir", lambda estado: "ok")
+    monkeypatch.setattr(
+        grafo.especialistas, "propor_reuniao", lambda i, r: _proposta(inicio="lixo")
+    )
+    monkeypatch.setattr(grafo.especialistas, "problema_inicio", lambda inicio: None)
+
+    g = _compilar()
+    g.invoke(_entrada("run-lixo", "marca reunião"), _config("run-lixo"))
+    final = g.invoke(
+        Command(resume={"aprovado": True, "por": "dimi"}), _config("run-lixo")
+    )
+
+    assert db.consultar("select id from reunioes") == []
+    textos = " ".join(r["texto"] for r in final["relatorios"])
+    assert "NÃO foi criada" in textos and "inválida" in textos
+
+
+def test_criar_reuniao_e_idempotente_pela_chave(banco):
+    """Criar a reunião duas vezes com a mesma chave reaproveita a primeira."""
+    proposta = _proposta()
+    inicio, fim = grafo._instantes_reuniao(proposta)
+
+    primeira = grafo._criar_reuniao(proposta, "dimi", "run-x", "run-x:1", inicio, fim)
+    segunda = grafo._criar_reuniao(proposta, "dimi", "run-x", "run-x:1", inicio, fim)
+
+    assert primeira["id"] == segunda["id"]
+    assert len(db.consultar("select id from reunioes")) == 1
+
+
 # --- Links de calendário (unit, sem banco nem modelo) ---
 
 
 def test_link_google_formata_datas_utc_e_encode():
     """O link do Google usa datas UTC (YYYYMMDDTHHMMSSZ) e faz URL-encode."""
-    proposta = _proposta(titulo="Reunião & Pauta")
+    proposta = _proposta(titulo="Reunião & Pauta", inicio="2026-09-29T15:00:00-03:00")
     inicio, fim = grafo._instantes_reuniao(proposta)
     url = grafo.link_google(proposta, inicio, fim)
 

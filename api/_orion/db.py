@@ -165,7 +165,7 @@ def listar_aprovacoes(status: Optional[str] = None) -> list[dict]:
     decidido_por, criado_em, decidido_em.
     """
     campos = (
-        "id, tipo, proposta, pedido_por, status, decidido_por, "
+        "id, tipo, proposta, pedido_por, status, aprovado, decidido_por, "
         "criado_em, decidido_em"
     )
     if status is not None:

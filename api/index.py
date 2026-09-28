@@ -167,6 +167,27 @@ def decidir_aprovacao(
     return execucao.decidir_aprovacao(aprovacao_id, usuario, decisao.aprovado)
 
 
+@app.post("/api/aprovacoes/{aprovacao_id}/retomar")
+def retomar_aprovacao(
+    aprovacao_id: int,
+    usuario: str = Depends(auth.exigir_aprovador),
+) -> dict:
+    """Tenta de novo uma aprovação cuja retomada falhou (status `erro`).
+
+    Só aprovadores. Usa a decisão já gravada. Se a aprovação não estiver com
+    `erro`, responde 409.
+    """
+    from _orion import execucao
+
+    resultado = execucao.retomar_aprovacao(aprovacao_id)
+    if resultado.get("status") == "nao_retomavel":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Só dá para tentar de novo aprovações que falharam.",
+        )
+    return resultado
+
+
 @app.get("/api/reunioes")
 def listar_reunioes(
     usuario: str = Depends(auth.usuario_atual),

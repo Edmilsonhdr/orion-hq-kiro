@@ -254,9 +254,14 @@ class ModeloEstruturadoFake:
 
 def _proposta_fixa() -> especialistas.PropostaReuniao:
     """Proposta de reunião fixa (não depende do modelo real)."""
+    from datetime import timedelta
+
+    from _orion import config
+
+    inicio = (config.agora() + timedelta(days=1)).replace(microsecond=0)
     return especialistas.PropostaReuniao(
         titulo="Semanal Orion",
-        inicio="2026-09-29T15:00:00-03:00",
+        inicio=inicio.isoformat(),
         duracao_min=45,
         participantes=["Dimi", "Jullyana"],
         pauta=["Revisar mudanças recentes", "Próximos passos"],

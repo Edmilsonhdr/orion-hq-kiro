@@ -55,11 +55,14 @@ create table if not exists aprovacoes (
   tipo text not null,
   proposta jsonb not null,
   pedido_por text,
-  status text not null default 'pendente', -- pendente | aprovada | recusada
+  status text not null default 'pendente', -- pendente | aprovada | recusada | erro
   decidido_por text,
   criado_em timestamptz not null default now(),
   decidido_em timestamptz
 );
+-- Decisão gravada (true = aprovar), para retomar o run se a retomada falhar
+-- (status 'erro').
+alter table aprovacoes add column if not exists aprovado boolean;
 
 -- Reuniões: criadas somente após aprovação humana.
 create table if not exists reunioes (
@@ -73,3 +76,6 @@ create table if not exists reunioes (
   run_id text,
   criado_em timestamptz not null default now()
 );
+-- Mesma chave da aprovação (run_id:passo): retomar o run não duplica a reunião.
+alter table reunioes add column if not exists chave text;
+create unique index if not exists reunioes_chave_idx on reunioes (chave);

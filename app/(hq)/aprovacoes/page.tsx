@@ -10,7 +10,7 @@
 //   visível, no mesmo padrão do chat e do cabeçalho.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { obter, enviar } from "../../../lib/api";
+import { obter, enviar, ErroApi } from "../../../lib/api";
 import ApprovalCard, { Aprovacao } from "../../../components/ApprovalCard";
 
 // Intervalo do polling da lista completa (~3 s: leve, não é tempo real).
@@ -84,6 +84,30 @@ export default function AprovacoesPage() {
     }
   }
 
+  // Tenta de novo uma aprovação cuja ação falhou (status "erro").
+  async function retomar(id: number) {
+    if (decidindo !== null) return;
+    setDecidindo(id);
+    setAviso(null);
+    try {
+      const resposta = await enviar<{ status?: string }>(
+        `/aprovacoes/${id}/retomar`
+      );
+      if (resposta?.status === "erro") {
+        setAviso("Ainda não deu certo. Tente de novo em instantes.");
+      }
+    } catch (erro) {
+      setAviso(
+        erro instanceof ErroApi && erro.status === 409
+          ? "Essa aprovação já foi retomada."
+          : "Não foi possível tentar de novo agora."
+      );
+    } finally {
+      setDecidindo(null);
+      await buscar();
+    }
+  }
+
   return (
     <div
       style={{
@@ -143,7 +167,14 @@ export default function AprovacoesPage() {
             Nenhuma aprovação decidida ainda.
           </p>
         ) : (
-          historico.map((a) => <ApprovalCard key={a.id} aprovacao={a} />)
+          historico.map((a) => (
+            <ApprovalCard
+              key={a.id}
+              aprovacao={a}
+              onRetomar={retomar}
+              ocupado={decidindo === a.id}
+            />
+          ))
         )}
       </section>
     </div>

@@ -252,6 +252,44 @@ def test_decidir_ja_decidida_propaga(cliente, monkeypatch):
     assert resp.json() == {"status": "ja_decidida"}
 
 
+# --- POST /api/aprovacoes/{id}/retomar ---
+
+
+def test_retomar_sem_sessao_da_401(cliente):
+    assert cliente.post("/api/aprovacoes/1/retomar").status_code == 401
+
+
+def test_retomar_nao_aprovador_da_403(cliente):
+    _logar(cliente, usuario="estranho", senha="senha-x")
+    assert cliente.post("/api/aprovacoes/1/retomar").status_code == 403
+
+
+def test_retomar_sem_erro_da_409(cliente):
+    """Aprovação que não está com `erro` não pode ser retomada."""
+    aprovacao_id = _inserir_aprovacao("run-x:0", {"titulo": "A"}, "dimi")
+    _logar(cliente)
+    resp = cliente.post(f"/api/aprovacoes/{aprovacao_id}/retomar")
+    assert resp.status_code == 409
+
+
+def test_retomar_aprovador_chama_execucao(cliente, monkeypatch):
+    from _orion import execucao
+
+    capturado = {}
+
+    def _fake(aprovacao_id):
+        capturado["id"] = aprovacao_id
+        return {"status": "respondido", "run_id": "r1", "resposta": "feito"}
+
+    monkeypatch.setattr(execucao, "retomar_aprovacao", _fake)
+
+    _logar(cliente, usuario="jullyana", senha="senha-jully")
+    resp = cliente.post("/api/aprovacoes/5/retomar")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "respondido"
+    assert capturado["id"] == 5
+
+
 # --- GET /api/reunioes ---
 
 

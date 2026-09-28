@@ -48,6 +48,12 @@ MSG_ERRO = (
     "Pode tentar de novo em instantes?"
 )
 
+# Aviso no chat quando a retomada de uma aprovação falha.
+MSG_ERRO_APROVACAO = (
+    "Registrei a decisão, mas tive um problema para concluir a ação. "
+    'Use "Tentar de novo" na tela de Aprovações.'
+)
+
 
 def _novo_run_id() -> str:
     """Gera um `run_id` curto e único para um run do grafo.
@@ -104,7 +110,7 @@ def _finalizar(grafo_compilado: Any, run_id: str) -> dict:
     return {"status": "respondido", "run_id": run_id, "resposta": resposta}
 
 
-def _tratar_erro(run_id: str) -> dict:
+def _tratar_erro(run_id: str, mensagem: str = MSG_ERRO) -> dict:
     """Lida com uma falha no run: atividade `erro` + mensagem amigável no chat.
 
     Não expõe stack trace ao usuário (Requirement 2.7); o traceback completo já
@@ -114,10 +120,10 @@ def _tratar_erro(run_id: str) -> dict:
     """
     emitir(run_id, "orq", "erro", "Falha ao processar o pedido.")
     try:
-        db.salvar_mensagem(AUTOR_ORQ, MSG_ERRO, run_id)
+        db.salvar_mensagem(AUTOR_ORQ, mensagem, run_id)
     except Exception:  # noqa: BLE001 — não deixa o tratamento de erro derrubar o fluxo
         logger.exception("Falha ao salvar mensagem de erro no chat (run_id=%s)", run_id)
-    return {"status": "erro", "run_id": run_id, "resposta": MSG_ERRO}
+    return {"status": "erro", "run_id": run_id, "resposta": mensagem}
 
 
 def conversar(autor: str, texto: str) -> dict:
@@ -199,8 +205,9 @@ def decidir_aprovacao(aprovacao_id: int, usuario: str, aprovado: bool) -> dict:
        horas depois (Requirement 6.7).
     3. Finaliza igual a uma conversa: salva a resposta do Orquestrador no chat.
 
-    Erros no resume seguem o mesmo tratamento amigável de `conversar`
-    (atividade `erro` + mensagem curta, sem stack trace).
+    A decisão fica gravada em `aprovado`. Se a retomada falhar, a aprovação vai
+    para o status `erro` (atividade `erro` + aviso no chat) e pode ser
+    retomada depois com `retomar_aprovacao`.
     """
     novo_status = "aprovada" if aprovado else "recusada"
 
@@ -208,29 +215,70 @@ def decidir_aprovacao(aprovacao_id: int, usuario: str, aprovado: bool) -> dict:
     linha = db.um(
         """
         update aprovacoes
-           set status = %s, decidido_por = %s, decidido_em = now()
+           set status = %s, aprovado = %s, decidido_por = %s, decidido_em = now()
          where id = %s and status = 'pendente'
         returning run_id
         """,
-        (novo_status, usuario, aprovacao_id),
+        (novo_status, aprovado, usuario, aprovacao_id),
     )
     if linha is None:
         # Já decidida por alguém (ou id inexistente): a segunda decisão perde.
         return {"status": "ja_decidida"}
 
-    run_id = linha["run_id"]
+    # 2 e 3. Retoma o grafo com a decisão humana (Requirement 6.7) e finaliza.
+    return _retomar(aprovacao_id, linha["run_id"], aprovado, usuario)
 
-    # 2. Retoma o grafo com a decisão humana (Requirement 6.7).
+
+def retomar_aprovacao(aprovacao_id: int) -> dict:
+    """Tenta de novo a retomada de uma aprovação que ficou com status `erro`.
+
+    Usa a decisão já gravada (`aprovado` e `decidido_por`). A troca de `erro`
+    para o status final é atômica, então duas tentativas simultâneas não
+    retomam o run duas vezes. Se a aprovação não estiver em `erro`, devolve
+    `{"status": "nao_retomavel"}`.
+    """
+    linha = db.um(
+        """
+        update aprovacoes
+           set status = case when aprovado then 'aprovada' else 'recusada' end
+         where id = %s and status = 'erro' and aprovado is not null
+        returning run_id, aprovado, decidido_por
+        """,
+        (aprovacao_id,),
+    )
+    if linha is None:
+        return {"status": "nao_retomavel"}
+    return _retomar(
+        aprovacao_id, linha["run_id"], bool(linha["aprovado"]), linha["decidido_por"] or ""
+    )
+
+
+def _retomar(aprovacao_id: int, run_id: str, aprovado: bool, por: str) -> dict:
+    """Retoma o run pausado e finaliza; em falha, marca a aprovação com `erro`.
+
+    Se o run ainda está parado no `interrupt()`, retoma com
+    `Command(resume=...)`. Se a falha anterior aconteceu depois do interrupt
+    (ex.: ao redigir a resposta), continua do último checkpoint. Se o run já
+    terminou, só finaliza. A reunião é idempotente pela `chave`, então retomar
+    de novo nunca a duplica.
+    """
     from . import grafo
 
     try:
         with grafo.grafo_com_checkpoint() as g:
-            g.invoke(
-                Command(resume={"aprovado": aprovado, "por": usuario}),
-                _config(run_id),
-            )
-            # 3. Finaliza como uma conversa (salva a resposta do Orquestrador).
+            config_run = _config(run_id)
+            snap = g.get_state(config_run)
+            if any(tarefa.interrupts for tarefa in snap.tasks):
+                g.invoke(Command(resume={"aprovado": aprovado, "por": por}), config_run)
+            elif snap.next:
+                g.invoke(None, config_run)
             return _finalizar(g, run_id)
-    except Exception:  # noqa: BLE001 — falha no resume vira mensagem amigável
+    except Exception:  # noqa: BLE001 — falha no resume vira status `erro` + aviso
         logger.exception("Falha ao retomar run após aprovação (run_id=%s)", run_id)
-        return _tratar_erro(run_id)
+        try:
+            db.executar(
+                "update aprovacoes set status = 'erro' where id = %s", (aprovacao_id,)
+            )
+        except Exception:  # noqa: BLE001 — não deixa o tratamento de erro derrubar o fluxo
+            logger.exception("Falha ao marcar aprovação %s com erro", aprovacao_id)
+        return _tratar_erro(run_id, MSG_ERRO_APROVACAO)

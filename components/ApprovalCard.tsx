@@ -11,6 +11,7 @@ export type Aprovacao = {
   proposta: PropostaReuniao | Record<string, unknown>;
   pedido_por: string | null;
   status: string;
+  aprovado?: boolean | null;
   decidido_por: string | null;
   criado_em: string;
   decidido_em: string | null;
@@ -78,24 +79,28 @@ function DetalhesReuniao({ proposta }: { proposta: PropostaReuniao }) {
 export default function ApprovalCard({
   aprovacao,
   onDecidir,
+  onRetomar,
   ocupado = false,
 }: {
   aprovacao: Aprovacao;
   onDecidir?: (id: number, aprovado: boolean) => void;
+  onRetomar?: (id: number) => void;
   ocupado?: boolean;
 }) {
   const proposta = (aprovacao.proposta ?? {}) as PropostaReuniao;
   const titulo = proposta.titulo || "Proposta de reunião";
   const pendente = aprovacao.status === "pendente";
+  const comErro = aprovacao.status === "erro";
+  const destaque = pendente || comErro;
 
   return (
     <div
       className="painel"
       style={{
         padding: "14px 16px",
-        borderColor: pendente ? "var(--espera)" : "var(--borda)",
+        borderColor: destaque ? "var(--espera)" : "var(--borda)",
         borderLeft: `3px solid ${
-          pendente ? "var(--espera)" : "var(--borda-forte)"
+          destaque ? "var(--espera)" : "var(--borda-forte)"
         }`,
         display: "flex",
         flexDirection: "column",
@@ -144,6 +149,26 @@ export default function ApprovalCard({
           >
             Recusar
           </button>
+        </div>
+      ) : comErro ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div style={{ fontSize: "13px", color: "var(--espera)" }}>
+            {aprovacao.aprovado ? "Aprovada" : "Recusada"}
+            {aprovacao.decidido_por ? ` por ${aprovacao.decidido_por}` : ""}, mas
+            a ação não foi concluída.
+          </div>
+          {onRetomar && (
+            <div>
+              <button
+                type="button"
+                className="botao-destaque"
+                disabled={ocupado}
+                onClick={() => onRetomar(aprovacao.id)}
+              >
+                Tentar de novo
+              </button>
+            </div>
+          )}
         </div>
       ) : !pendente ? (
         <div className="texto-secundario" style={{ fontSize: "13px" }}>

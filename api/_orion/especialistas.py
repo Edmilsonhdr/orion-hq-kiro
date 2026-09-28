@@ -23,7 +23,7 @@ Especialistas expostos:
 from __future__ import annotations
 
 import logging
-from typing import Any, Sequence
+from typing import Any, Optional, Sequence
 
 from langchain_core.messages import (
     AIMessage,
@@ -222,6 +222,23 @@ class PropostaReuniao(BaseModel):
     )
 
 
+def problema_inicio(inicio: Any) -> Optional[str]:
+    """Diz por que o `inicio` de uma proposta é inválido, ou None se estiver ok.
+
+    Exige ISO 8601 com fuso e no futuro. Uma proposta com problema não vai
+    para aprovação: a Agenda devolve um relatório e o grafo não pausa.
+    """
+    try:
+        momento = config.ler_iso(inicio)
+    except (TypeError, ValueError):
+        return f'a data de início "{inicio}" não está no formato ISO 8601'
+    if momento.tzinfo is None:
+        return f'a data de início "{inicio}" não informa o fuso horário'
+    if momento <= config.agora():
+        return f'a data de início "{inicio}" já passou'
+    return None
+
+
 def _prompt_agenda(contexto_mudancas: str) -> str:
     """Prompt de sistema do agente Agenda para montar a proposta.
 
@@ -255,6 +272,8 @@ def propor_reuniao(instrucao: str, run_id: str | None) -> dict:
     relativas já resolvidas para o fuso de São Paulo (Requirement 6.2).
 
     Retorna a proposta como `dict` (o estado do grafo guarda `proposta: dict`).
+    Se o `inicio` for inválido (ver `problema_inicio`), a proposta volta com a
+    chave `problema` explicando o motivo.
     """
     emitir(run_id, "agenda", "inicio", instrucao)
 
@@ -267,5 +286,10 @@ def propor_reuniao(instrucao: str, run_id: str | None) -> dict:
     )
 
     proposta = resultado.model_dump()
-    emitir(run_id, "agenda", "concluiu", proposta.get("titulo", ""))
+    problema = problema_inicio(proposta.get("inicio"))
+    if problema:
+        proposta["problema"] = problema
+        emitir(run_id, "agenda", "concluiu", f"Proposta inválida: {problema}.")
+    else:
+        emitir(run_id, "agenda", "concluiu", proposta.get("titulo", ""))
     return proposta

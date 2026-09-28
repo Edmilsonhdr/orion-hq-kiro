@@ -19,7 +19,9 @@ Cobrem os cenários obrigatórios do Requirement 11.1 relativos a este módulo:
 - falha no run → mensagem amigável e atividade `erro`.
 """
 
-from _orion import atividades, db, execucao, grafo
+from datetime import timedelta
+
+from _orion import atividades, config, db, execucao, grafo
 
 
 def _rota(proximo: str, instrucao: str = "faça", motivo: str = "porque") -> grafo.Rota:
@@ -28,10 +30,11 @@ def _rota(proximo: str, instrucao: str = "faça", motivo: str = "porque") -> gra
 
 
 def _proposta(titulo: str = "Semanal Orion") -> dict:
-    """Proposta de reunião de exemplo (início ISO com offset de São Paulo)."""
+    """Proposta de reunião de exemplo (amanhã, ISO com offset de São Paulo)."""
+    inicio = (config.agora() + timedelta(days=1)).replace(microsecond=0)
     return {
         "titulo": titulo,
-        "inicio": "2026-09-29T15:00:00-03:00",
+        "inicio": inicio.isoformat(),
         "duracao_min": 30,
         "participantes": ["Dimi", "Jullyana"],
         "pauta": ["Onboarding", "Custos"],
@@ -275,3 +278,88 @@ def test_conversar_erro_no_run_responde_amigavel(banco, monkeypatch):
         if a["tipo"] == "erro" and a["run_id"] == resultado["run_id"]
     ]
     assert erros
+
+
+# --- Retomada resiliente da aprovação ---
+
+
+def _pedido_de_reuniao(monkeypatch) -> int:
+    """Faz um pedido de reunião que pausa no interrupt e devolve o id da aprovação."""
+    decisoes = iter([_rota("agenda", "marca a semanal"), _rota("responder")])
+    monkeypatch.setattr(grafo, "decidir", lambda estado: next(decisoes))
+    monkeypatch.setattr(
+        grafo.especialistas, "propor_reuniao", lambda i, r: _proposta()
+    )
+    assert execucao.conversar("dimi", "marca uma reunião")["status"] == "aguardando_aprovacao"
+    return db.um("select id from aprovacoes")["id"]
+
+
+def _redigir_quebra(estado):
+    raise RuntimeError("falha simulada ao redigir")
+
+
+def test_falha_na_retomada_marca_erro(banco, monkeypatch):
+    """Se a retomada falha, a aprovação vai para `erro`, com atividade e aviso."""
+    aprovacao_id = _pedido_de_reuniao(monkeypatch)
+    monkeypatch.setattr(grafo, "redigir", _redigir_quebra)
+
+    resultado = execucao.decidir_aprovacao(aprovacao_id, "dimi", True)
+
+    assert resultado["status"] == "erro"
+    assert resultado["resposta"] == execucao.MSG_ERRO_APROVACAO
+    aprov = db.um("select status, aprovado, decidido_por from aprovacoes")
+    assert aprov == {"status": "erro", "aprovado": True, "decidido_por": "dimi"}
+    erros = [
+        a for a in atividades.listar()
+        if a["tipo"] == "erro" and a["run_id"] == resultado["run_id"]
+    ]
+    assert erros
+    ultima = db.um(
+        "select texto from mensagens where autor = %s order by id desc limit 1",
+        (execucao.AUTOR_ORQ,),
+    )
+    assert "Tentar de novo" in ultima["texto"]
+
+
+def test_retomar_de_novo_nao_duplica_reuniao(banco, monkeypatch):
+    """A reunião já criada na tentativa que falhou é reaproveitada ao retomar."""
+    aprovacao_id = _pedido_de_reuniao(monkeypatch)
+    monkeypatch.setattr(grafo, "redigir", _redigir_quebra)
+    execucao.decidir_aprovacao(aprovacao_id, "dimi", True)
+    assert len(db.consultar("select id from reunioes")) == 1
+
+    monkeypatch.setattr(grafo, "redigir", lambda estado: "Reunião marcada.")
+    resultado = execucao.retomar_aprovacao(aprovacao_id)
+
+    assert resultado["status"] == "respondido"
+    assert resultado["resposta"] == "Reunião marcada."
+    assert len(db.consultar("select id from reunioes")) == 1
+    assert db.um("select status from aprovacoes")["status"] == "aprovada"
+
+
+def test_retomar_quando_falha_antes_de_criar(banco, monkeypatch):
+    """Falha antes de criar a reunião: retomar cria uma única vez."""
+    aprovacao_id = _pedido_de_reuniao(monkeypatch)
+    monkeypatch.setattr(grafo, "redigir", lambda estado: "Reunião marcada.")
+    original = grafo._criar_reuniao
+
+    def _criar_quebra(*args, **kwargs):
+        raise RuntimeError("banco fora do ar")
+
+    monkeypatch.setattr(grafo, "_criar_reuniao", _criar_quebra)
+    assert execucao.decidir_aprovacao(aprovacao_id, "dimi", True)["status"] == "erro"
+    assert db.consultar("select id from reunioes") == []
+
+    monkeypatch.setattr(grafo, "_criar_reuniao", original)
+    resultado = execucao.retomar_aprovacao(aprovacao_id)
+
+    assert resultado["status"] == "respondido"
+    reunioes = db.consultar("select criado_por from reunioes")
+    assert reunioes == [{"criado_por": "dimi"}]
+
+
+def test_retomar_so_com_status_erro(banco, monkeypatch):
+    """Aprovação pendente ou já concluída não pode ser retomada."""
+    aprovacao_id = _pedido_de_reuniao(monkeypatch)
+    assert execucao.retomar_aprovacao(aprovacao_id) == {"status": "nao_retomavel"}
+    assert execucao.retomar_aprovacao(9999) == {"status": "nao_retomavel"}
