@@ -1,0 +1,4 @@
+{
+  "functions": { "api/index.py": { "maxDuration": 300 } },
+  "crons": [{ "path": "/api/cron/resumo-semanal", "schedule": "0 12 * * 1" }]
+}

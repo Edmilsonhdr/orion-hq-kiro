@@ -1,0 +1,222 @@
+:root {
+  /* Paleta (design.md) */
+  --fundo: #0b1020;
+  --piso: #0e1528;
+  --piso-grade: #16203a;
+  --painel: #121a2e;
+  --borda: #1c2744;
+  --borda-forte: #2a3a5e;
+  --texto: #e8eef9;
+  --texto-secundario: #8c9ab8;
+  --destaque: #4c8dff;
+  --espera: #f2a541;
+
+  /* Tipografia */
+  --fonte-titulo: "Silkscreen", "Courier New", monospace;
+  --fonte-texto: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto,
+    sans-serif;
+  --fonte-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas,
+    monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: var(--fonte-texto);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+.titulo-pixel {
+  font-family: var(--fonte-titulo);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--texto);
+}
+
+.mono {
+  font-family: var(--fonte-mono);
+}
+
+.texto-secundario {
+  color: var(--texto-secundario);
+}
+
+a {
+  color: var(--destaque);
+}
+
+/* Painel padrao */
+.painel {
+  background: var(--painel);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+}
+
+/* Piso quadriculado do escritorio */
+.piso {
+  background-color: var(--piso);
+  background-image: linear-gradient(var(--piso-grade) 1px, transparent 1px),
+    linear-gradient(90deg, var(--piso-grade) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Botoes: altura minima 44px e foco visivel */
+button,
+.botao {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--borda-forte);
+  border-radius: 6px;
+  background: var(--painel);
+  color: var(--texto);
+  font-family: var(--fonte-texto);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+button:hover,
+.botao:hover {
+  border-color: var(--destaque);
+}
+
+button:disabled,
+.botao:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.botao-destaque {
+  background: var(--destaque);
+  border-color: var(--destaque);
+  color: var(--fundo);
+  font-weight: 600;
+}
+
+.botao-espera {
+  background: var(--espera);
+  border-color: var(--espera);
+  color: var(--fundo);
+  font-weight: 600;
+}
+
+:focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: 2px;
+}
+
+input,
+textarea {
+  min-height: 44px;
+  padding: 0 12px;
+  background: var(--fundo);
+  border: 1px solid var(--borda-forte);
+  border-radius: 6px;
+  color: var(--texto);
+  font-family: var(--fonte-texto);
+  font-size: 15px;
+}
+
+textarea {
+  padding: 10px 12px;
+}
+
+/* Escritorio virtual: pontos "digitando" na tela da mesa ativa */
+.ponto-digitando {
+  animation: piscar-ponto 0.9s ease-in-out infinite;
+}
+
+@keyframes piscar-ponto {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Escritorio virtual: envelope animado a cada `delegou` (Requirement 8.4).
+   Desliza da mesa de origem ate a de destino em ~1,3s (transicao de left/top).
+   A cor da borda acompanha o agente de origem (definida inline). */
+.envelope {
+  position: absolute;
+  width: 22px;
+  height: 16px;
+  margin-left: -11px;
+  margin-top: -8px;
+  border-radius: 3px;
+  background: var(--painel);
+  border: 2px solid var(--destaque);
+  box-shadow: 0 0 10px rgba(76, 141, 255, 0.45);
+  transition: left 1.3s ease-in-out, top 1.3s ease-in-out, opacity 0.25s ease;
+  will-change: left, top;
+}
+
+/* "Aba" do envelope, em pixel art simples */
+.envelope::after {
+  content: "";
+  position: absolute;
+  inset: 2px 3px auto 3px;
+  height: 6px;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: skewX(0deg);
+  opacity: 0.7;
+}
+
+.log-lateral {
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  max-width: 320px;
+  gap: 12px;
+}
+
+.log-linha {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--borda);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.log-linha:last-child {
+  border-bottom: none;
+}
+
+.tokens-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  /* Com reduced-motion o envelope nao desliza: pula direto ao destino
+     (Requirement 8.7). O !important acima ja zera a transicao; reforcamos
+     aqui para deixar explicito. */
+  .envelope {
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -1,0 +1,13 @@
+fastapi
+langgraph
+langgraph-checkpoint-postgres
+langchain-anthropic
+psycopg[binary]
+httpx
+pydantic
+
+# Dev
+pytest
+uvicorn
+# Postgres local efêmero para testes/validação (não é usado em produção).
+pgserver
