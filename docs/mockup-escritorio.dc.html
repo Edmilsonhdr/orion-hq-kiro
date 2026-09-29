@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Orion HQ — escritório dos agentes</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#0B1020;font-family:'IBM Plex Sans',system-ui,sans-serif;color:#E8EEF9}
+a{color:#7FB0FF}a:hover{color:#A9C8FF}
+.wood{background-color:#2B2320;background-image:repeating-linear-gradient(90deg,rgba(0,0,0,.28) 0 2px,transparent 2px 64px),repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 16px)}
+.carpet{background-image:linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);background-size:16px 16px}
+.tile{background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:28px 28px}
+.typing{animation:typing 1s steps(3) infinite}
+.still{animation:none}
+@keyframes typing{0%{opacity:1}50%{opacity:.3}100%{opacity:1}}
+.bob{animation:bob 1.2s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+.led{animation:led 1.3s steps(2) infinite}
+@keyframes led{0%{opacity:1}100%{opacity:.2}}
+.pulse{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(242,165,65,.55)}50%{box-shadow:0 0 0 8px rgba(242,165,65,0)}}
+.live{animation:live 1.6s ease-in-out infinite}
+.walk{animation:walk .32s steps(2) infinite}
+@keyframes walk{0%{transform:translateY(0)}100%{transform:translateY(-2px)}}
+.sip{animation:sip 3s ease-in-out infinite}
+.alerta{animation:alerta .7s steps(2) infinite}
+@keyframes alerta{0%{opacity:1;box-shadow:0 0 14px #FF7A59}100%{opacity:.25;box-shadow:none}}
+@keyframes sip{0%,80%,100%{transform:translateY(0)}88%{transform:translateY(-3px)}}
+@keyframes live{0%,100%{opacity:1}50%{opacity:.3}}
+@media (prefers-reduced-motion: reduce){.typing,.bob,.led,.pulse,.live,.walk,.sip,.alerta{animation:none}}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid #7FB0FF;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 800px; box-sizing: border-box; background: #0B1020; display: flex; flex-direction: column; overflow: hidden">
+
+<!-- Header -->
+<header style="height: 64px; box-sizing: border-box; padding: 0 24px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #1C2744">
+<div style="width: 20px; height: 20px; background: #4C8DFF; box-shadow: 6px 6px 0 #2B5BB8"></div>
+<div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1">
+<div style="font-family: 'Silkscreen', monospace; font-size: 18px; letter-spacing: 1px; color: #E8EEF9">ORION HQ</div>
+<div style="font-size: 12px; color: #8C9AB8">Escritório dos agentes · de plantão: {{plantao}} · N2 especialistas · N3 tarefas rápidas</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid #1C2744; border-radius: 999px; font-size: 12px; color: #C9D4EA">
+<div class="live" style="width: 8px; height: 8px; border-radius: 50%; background: {{liveColor}}"></div>
+<span>{{liveLabel}}</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px; padding: 0 8px">
+<div style="font-size: 11px; color: #8C9AB8">Tokens hoje</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #E8EEF9">{{totalTokens}}</div>
+</div>
+<button onClick="{{togglePause}}" style="height: 44px; padding: 0 16px; background: #121A2E; color: #E8EEF9; border: 1px solid #2A3A5E; border-radius: 8px; font-size: 14px; font-weight: 500">{{pauseLabel}}</button>
+<button onClick="{{toggleNoite}}" aria-pressed="{{noite}}" style="height: 44px; padding: 0 16px; background: #121A2E; color: #E8EEF9; border: 1px solid #2A3A5E; border-radius: 8px; font-size: 14px; font-weight: 500">{{noiteLabel}}</button>
+<button onClick="{{restart}}" style="height: 44px; padding: 0 16px; background: transparent; color: #C9D4EA; border: 1px solid #2A3A5E; border-radius: 8px; font-size: 14px; font-weight: 500">Reiniciar</button>
+</header>
+
+<div style="flex-grow: 1; display: flex; gap: 24px; padding: 24px; box-sizing: border-box; min-height: 0">
+
+<!-- Planta do escritório: 3 salas em cima, corredor, 3 salas embaixo -->
+<section class="wood" aria-label="Escritório" style="position: relative; width: 872px; height: 688px; flex-shrink: 0; border: 1px solid #1C2744; border-radius: 12px; overflow: hidden">
+
+<!-- Salas (paredes + piso) -->
+<div class="carpet" style="position: absolute; left: 12px; top: 12px; width: 280px; height: 280px; box-sizing: border-box; background-color: #152036; border: 6px solid #3B4666; border-radius: 4px"></div>
+<div class="carpet" style="position: absolute; left: 296px; top: 12px; width: 280px; height: 280px; box-sizing: border-box; background-color: #16223C; border: 6px solid #5E7FB8; border-radius: 4px; box-shadow: inset 0 0 0 2px rgba(127,176,255,.25)"></div>
+<div class="carpet" style="position: absolute; left: 580px; top: 12px; width: 280px; height: 280px; box-sizing: border-box; background-color: #13221E; border: 6px solid #3B4666; border-radius: 4px"></div>
+<div class="carpet" style="position: absolute; left: 12px; top: 396px; width: 280px; height: 280px; box-sizing: border-box; background-color: #1B1830; border: 6px solid #3B4666; border-radius: 4px"></div>
+<div class="tile" style="position: absolute; left: 296px; top: 396px; width: 280px; height: 280px; box-sizing: border-box; background-color: #25221E; border: 6px solid #3B4666; border-radius: 4px"></div>
+<div class="carpet" style="position: absolute; left: 580px; top: 396px; width: 280px; height: 280px; box-sizing: border-box; background-color: #171C28; border: 6px solid #3B4666; border-radius: 4px"></div>
+
+<!-- Portas -->
+<div style="position: absolute; left: 122px; top: 286px; width: 60px; height: 6px; background: #2B2320"></div>
+<div style="position: absolute; left: 406px; top: 286px; width: 60px; height: 6px; background: #2B2320"></div>
+<div style="position: absolute; left: 690px; top: 286px; width: 60px; height: 6px; background: #2B2320"></div>
+<div style="position: absolute; left: 122px; top: 396px; width: 60px; height: 6px; background: #2B2320"></div>
+<div style="position: absolute; left: 406px; top: 396px; width: 60px; height: 6px; background: #2B2320"></div>
+<div style="position: absolute; left: 690px; top: 396px; width: 60px; height: 6px; background: #2B2320"></div>
+
+<!-- Guarita do Rui (Vigia): ponta esquerda do corredor -->
+<div role="img" aria-label="{{ruiAria}}" style="position: absolute; left: 18px; top: 298px; width: 100px; height: 94px">
+<div style="position: absolute; left: 0; top: 0; width: 100px; height: 94px; box-sizing: border-box; border: 2px solid {{ruiRing}}; border-radius: 6px; background: rgba(11,16,32,.35); transition: border-color .3s"></div>
+<div style="position: absolute; left: 10px; top: 10px; width: 20px; height: 34px">
+<div style="position: absolute; left: 3px; top: 0; width: 14px; height: 13px; background: #B87A4B; border-radius: 3px"></div>
+<div style="position: absolute; left: 2px; top: -3px; width: 16px; height: 6px; background: #1A1411; border-radius: 3px 3px 0 0"></div>
+<div style="position: absolute; left: 5px; top: 5px; width: 3px; height: 3px; background: #0B1020"></div>
+<div style="position: absolute; left: 12px; top: 5px; width: 3px; height: 3px; background: #0B1020"></div>
+<div style="position: absolute; left: 0; top: 13px; width: 20px; height: 16px; background: #FF7A59; border-radius: 4px 4px 0 0"></div>
+<div style="position: absolute; left: 0; top: 20px; width: 20px; height: 3px; background: #F2D65E"></div>
+</div>
+<div style="position: absolute; left: 44px; top: 8px; width: 12px; height: 8px; border-radius: 6px 6px 0 0; background: {{ruiLuz}}" class="{{ruiLuzCls}}"></div>
+<div style="position: absolute; left: 36px; top: 16px; width: 56px; height: 26px; box-sizing: border-box; background: #1B2235; border: 2px solid #2C3654; padding: 2px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px">
+<div style="background: {{ruiCam}}"></div><div style="background: {{ruiCam}}"></div><div style="background: {{ruiCam}}"></div><div style="background: {{ruiCamAlerta}}"></div>
+</div>
+<div style="position: absolute; left: 4px; top: 40px; width: 92px; height: 22px; box-sizing: border-box; background: #5A6478; border-top: 5px solid #6E7890; border-radius: 3px; box-shadow: 0 5px 0 #3B4666"></div>
+<div style="position: absolute; left: 0; right: 0; top: 70px; display: flex; justify-content: center">
+<div style="display: flex; align-items: center; gap: 4px; padding: 2px 6px; background: #0B1020; border: 1px solid #FF7A59; border-radius: 6px">
+<span style="font-family: 'Silkscreen', monospace; font-size: 11px; color: #E8EEF9">Rui</span>
+<span style="font-size: 9px; color: #8C9AB8">Vigia · N2</span>
+</div>
+</div>
+</div>
+<sc-if value="{{ruiBusy}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 124px; top: 300px; max-width: 250px; height: 26px; box-sizing: border-box; padding: 0 10px; background: #E8EEF9; color: #0B1020; border-radius: 8px; font-size: 12px; font-weight: 600; line-height: 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 9">{{ruiStatus}}</div>
+</sc-if>
+
+<!-- Engenharia: quadro branco, planta, servidor -->
+<div style="position: absolute; left: 244px; top: 26px; width: 36px; height: 26px; box-sizing: border-box; background: #E8EEF9; border: 2px solid #8C9AB8; padding: 4px; display: flex; flex-direction: column; gap: 3px">
+<div style="width: 70%; height: 2px; background: #3FC1C9"></div><div style="width: 90%; height: 2px; background: #4C8DFF"></div><div style="width: 50%; height: 2px; background: #F2A541"></div>
+</div>
+<div style="position: absolute; left: 28px; top: 212px; width: 22px; height: 34px; display: flex; flex-direction: column; align-items: center">
+<div style="width: 22px; height: 20px; background: #3E8E5A; border-radius: 10px 10px 4px 4px; box-shadow: inset -5px -4px 0 #2F6F46"></div><div style="width: 16px; height: 14px; background: #8B5E3C"></div>
+</div>
+<div style="position: absolute; left: 252px; top: 196px; width: 26px; height: 50px; z-index: 6; box-sizing: border-box; background: #1B2235; border: 2px solid #2C3654; padding: 5px 4px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; gap: 3px"><div class="led" style="width: 3px; height: 3px; background: #7BD88F"></div><div style="width: 10px; height: 3px; background: #2C3654"></div></div>
+<div style="display: flex; gap: 3px"><div style="width: 3px; height: 3px; background: #7BD88F"></div><div style="width: 10px; height: 3px; background: #2C3654"></div></div>
+<div style="display: flex; gap: 3px"><div class="led" style="width: 3px; height: 3px; background: #F2A541"></div><div style="width: 10px; height: 3px; background: #2C3654"></div></div>
+</div>
+
+<!-- Sala do chefe: tapete, quadro, plantas -->
+<div style="position: absolute; left: 326px; top: 146px; width: 220px; height: 84px; border-radius: 50%; background: rgba(76,141,255,.12); border: 2px dashed rgba(127,176,255,.25)"></div>
+<div style="position: absolute; left: 528px; top: 26px; width: 34px; height: 26px; box-sizing: border-box; background: #0B1020; border: 3px solid #A0703F; display: flex; align-items: center; justify-content: center">
+<div style="width: 10px; height: 10px; background: #4C8DFF; box-shadow: 3px 3px 0 #2B5BB8"></div>
+</div>
+<div style="position: absolute; left: 312px; top: 212px; width: 22px; height: 34px; display: flex; flex-direction: column; align-items: center">
+<div style="width: 22px; height: 20px; background: #3E8E5A; border-radius: 10px 10px 4px 4px; box-shadow: inset -5px -4px 0 #2F6F46"></div><div style="width: 16px; height: 14px; background: #8B5E3C"></div>
+</div>
+<div style="position: absolute; left: 538px; top: 212px; width: 22px; height: 34px; display: flex; flex-direction: column; align-items: center">
+<div style="width: 22px; height: 20px; background: #4FA56C; border-radius: 10px 10px 4px 4px; box-shadow: inset -5px -4px 0 #2F6F46"></div><div style="width: 16px; height: 14px; background: #8B5E3C"></div>
+</div>
+
+<!-- Agenda: calendário de parede, planta, estante -->
+<div style="position: absolute; left: 826px; top: 24px; width: 30px; height: 30px; box-sizing: border-box; background: #E8EEF9; border: 2px solid #8C9AB8; display: flex; flex-direction: column">
+<div style="height: 7px; background: #E5484D"></div>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 2px">
+<div style="background: #C9D4EA"></div><div style="background: #C9D4EA"></div><div style="background: #7BD88F"></div><div style="background: #C9D4EA"></div><div style="background: #C9D4EA"></div><div style="background: #C9D4EA"></div>
+</div>
+</div>
+<div style="position: absolute; left: 596px; top: 212px; width: 22px; height: 34px; display: flex; flex-direction: column; align-items: center">
+<div style="width: 22px; height: 20px; background: #3E8E5A; border-radius: 10px 10px 4px 4px; box-shadow: inset -5px -4px 0 #2F6F46"></div><div style="width: 16px; height: 14px; background: #8B5E3C"></div>
+</div>
+<div style="position: absolute; left: 826px; top: 196px; width: 30px; height: 50px; box-sizing: border-box; background: #6B4A30; border: 2px solid #4A3222; padding: 3px; display: flex; flex-direction: column; gap: 3px">
+<div style="height: 12px; display: flex; gap: 2px; align-items: flex-end"><div style="width: 4px; height: 12px; background: #4C8DFF"></div><div style="width: 4px; height: 10px; background: #7BD88F"></div><div style="width: 4px; height: 12px; background: #E8EEF9"></div></div>
+<div style="height: 12px; display: flex; gap: 2px; align-items: flex-end"><div style="width: 4px; height: 11px; background: #F2A541"></div><div style="width: 4px; height: 12px; background: #A58BFF"></div></div>
+</div>
+
+<!-- Negócios: gráfico de parede, planta, arquivo -->
+<div style="position: absolute; left: 242px; top: 410px; width: 38px; height: 28px; box-sizing: border-box; background: #E8EEF9; border: 2px solid #8C9AB8; padding: 3px; display: flex; gap: 3px; align-items: flex-end">
+<div style="width: 5px; height: 6px; background: #A58BFF"></div><div style="width: 5px; height: 10px; background: #A58BFF"></div><div style="width: 5px; height: 8px; background: #A58BFF"></div><div style="width: 5px; height: 16px; background: #7BD88F"></div>
+</div>
+<div style="position: absolute; left: 28px; top: 596px; width: 22px; height: 34px; display: flex; flex-direction: column; align-items: center">
+<div style="width: 22px; height: 20px; background: #4FA56C; border-radius: 10px 10px 4px 4px; box-shadow: inset -5px -4px 0 #2F6F46"></div><div style="width: 16px; height: 14px; background: #8B5E3C"></div>
+</div>
+<div style="position: absolute; left: 250px; top: 580px; width: 28px; height: 50px; box-sizing: border-box; background: #5A6478; border: 2px solid #3B4666; padding: 4px; display: flex; flex-direction: column; gap: 4px">
+<div style="height: 10px; background: #6E7890; display: flex; justify-content: center; align-items: center"><div style="width: 8px; height: 2px; background: #3B4666"></div></div>
+<div style="height: 10px; background: #6E7890; display: flex; justify-content: center; align-items: center"><div style="width: 8px; height: 2px; background: #3B4666"></div></div>
+<div style="height: 10px; background: #6E7890; display: flex; justify-content: center; align-items: center"><div style="width: 8px; height: 2px; background: #3B4666"></div></div>
+</div>
+
+<!-- Copa (sem agente): máquina de café, bebedouro, mesa redonda -->
+<div style="position: absolute; left: 310px; top: 410px; font-family: 'Silkscreen', monospace; font-size: 11px; color: #8C9AB8; letter-spacing: 1px">COPA</div>
+<div style="position: absolute; left: 318px; top: 440px; width: 34px; height: 42px; box-sizing: border-box; background: #2C3654; border: 2px solid #1B2235; border-radius: 3px; padding: 4px; display: flex; flex-direction: column; gap: 4px; align-items: center">
+<div class="led" style="width: 6px; height: 4px; background: #E5484D"></div><div style="width: 14px; height: 12px; background: #0B1020"></div><div style="width: 10px; height: 8px; background: #E8EEF9"></div>
+</div>
+<div style="position: absolute; left: 526px; top: 436px; width: 26px; height: 50px; display: flex; flex-direction: column; align-items: center">
+<div style="width: 20px; height: 22px; background: rgba(127,176,255,.55); border-radius: 8px 8px 2px 2px"></div><div style="width: 26px; height: 28px; background: #C9D4EA; border-radius: 2px"></div>
+</div>
+<div style="position: absolute; left: 394px; top: 514px; width: 84px; height: 84px; border-radius: 50%; background: #7A5236; box-shadow: inset 0 -6px 0 #5E3E28"></div>
+<div style="position: absolute; left: 418px; top: 538px; width: 14px; height: 14px; background: #E8EEF9; border-radius: 3px"></div>
+<div style="position: absolute; left: 444px; top: 552px; width: 14px; height: 14px; background: #E8EEF9; border-radius: 3px"></div>
+<div style="position: absolute; left: 368px; top: 540px; width: 30px; height: 30px; border-radius: 8px; background: #2A2F45"></div>
+<div style="position: absolute; left: 474px; top: 540px; width: 30px; height: 30px; border-radius: 8px; background: #2A2F45"></div>
+<div style="position: absolute; left: 421px; top: 598px; width: 30px; height: 30px; border-radius: 8px; background: #2A2F45"></div>
+<div style="position: absolute; left: 310px; top: 648px; font-size: 11px; color: #8C9AB8">Sem agentes aqui, só café.</div>
+
+<!-- Baia dos workers: quadro de post-its, caixas -->
+<div style="position: absolute; left: 818px; top: 408px; width: 38px; height: 30px; box-sizing: border-box; background: #6B4A30; border: 2px solid #4A3222; padding: 3px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px">
+<div style="background: #F2D65E"></div><div style="background: #7BD88F"></div><div style="background: #F2D65E"></div><div style="background: #E0A8FF"></div><div style="background: #F2D65E"></div><div style="background: #7FB0FF"></div>
+</div>
+<div style="position: absolute; left: 596px; top: 606px; width: 30px; height: 24px; background: #A0703F; box-shadow: inset 0 -4px 0 #7A5236; display: flex; justify-content: center"><div style="width: 4px; height: 24px; background: #C9A26B"></div></div>
+<div style="position: absolute; left: 820px; top: 590px; width: 30px; height: 40px; display: flex; flex-direction: column; gap: 2px">
+<div style="height: 18px; background: #A0703F; box-shadow: inset 0 -3px 0 #7A5236"></div><div style="height: 20px; background: #8B5E3C; box-shadow: inset 0 -3px 0 #6B4A30"></div>
+</div>
+
+<!-- Agentes: uma estação de trabalho por sala -->
+<sc-for list="{{agents}}" as="a" hint-placeholder-count="5">
+<div>
+<div style="position: absolute; left: {{a.rx}}px; top: {{a.ry}}px; width: 280px; height: 280px; box-sizing: border-box; border: 3px solid {{a.ring}}; border-radius: 4px; box-shadow: {{a.glow}}; pointer-events: none; transition: border-color .3s, box-shadow .3s"></div>
+<div style="position: absolute; left: {{a.labelX}}px; top: {{a.labelY}}px; font-family: 'Silkscreen', monospace; font-size: 11px; color: #8C9AB8; letter-spacing: 1px">{{a.room}}</div>
+
+<div style="position: absolute; left: {{a.wx}}px; top: {{a.wy}}px; width: 180px; height: 160px">
+<sc-if value="{{a.busy}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 0; right: 0; top: 0; height: 28px; box-sizing: border-box; padding: 0 10px; background: #E8EEF9; color: #0B1020; border-radius: 8px; font-size: 12px; font-weight: 600; line-height: 28px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 3">{{a.status}}</div>
+</sc-if>
+<div style="position: absolute; left: 0; right: 0; top: 36px; display: flex; justify-content: center">
+<div style="display: flex; align-items: center; gap: 6px; padding: 3px 8px; background: #0B1020; border: 1px solid {{a.color}}; border-radius: 6px">
+<span style="font-family: 'Silkscreen', monospace; font-size: 12px; color: #E8EEF9">{{a.name}}</span>
+<span style="font-size: 10px; color: #8C9AB8">{{a.role}} · {{a.level}}</span>
+</div>
+</div>
+
+<div style="position: absolute; left: 88px; top: 68px; width: 48px; height: 44px; background: #2A2F45; border-radius: 10px 10px 4px 4px"></div>
+<sc-if value="{{a.atDesk}}" hint-placeholder-val="{{true}}">
+<div class="{{a.bodyCls}}" style="position: absolute; left: 0; top: 0; width: 180px; height: 120px">
+<sc-if value="{{a.longHair}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 95px; top: 66px; width: 34px; height: 34px; background: {{a.hair}}; border-radius: 8px 8px 2px 2px"></div>
+</sc-if>
+<div style="position: absolute; left: 99px; top: 70px; width: 26px; height: 24px; background: {{a.skin}}; border-radius: 4px"></div>
+<div style="position: absolute; left: 97px; top: 66px; width: 30px; height: 9px; background: {{a.hair}}; border-radius: 4px 4px 0 0"></div>
+<div style="position: absolute; left: 105px; top: 80px; width: 3px; height: 3px; background: #0B1020"></div>
+<div style="position: absolute; left: 116px; top: 80px; width: 3px; height: 3px; background: #0B1020"></div>
+<sc-if value="{{a.beard}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 101px; top: 86px; width: 22px; height: 10px; background: {{a.hair}}; border-radius: 0 0 6px 6px"></div>
+</sc-if>
+<sc-if value="{{a.glasses}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 102px; top: 77px; width: 8px; height: 7px; box-sizing: border-box; border: 2px solid #0B1020"></div>
+<div style="position: absolute; left: 114px; top: 77px; width: 8px; height: 7px; box-sizing: border-box; border: 2px solid #0B1020"></div>
+<div style="position: absolute; left: 110px; top: 79px; width: 4px; height: 2px; background: #0B1020"></div>
+</sc-if>
+<sc-if value="{{a.cap}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 96px; top: 62px; width: 32px; height: 10px; background: {{a.color}}; border-radius: 6px 6px 0 0"></div>
+<div style="position: absolute; left: 112px; top: 70px; width: 20px; height: 4px; background: #5E7399"></div>
+</sc-if>
+<div style="position: absolute; left: 93px; top: 94px; width: 38px; height: 24px; background: {{a.color}}; border-radius: 6px 6px 0 0"></div>
+<sc-if value="{{a.tie}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 110px; top: 95px; width: 4px; height: 14px; background: #F2A541"></div>
+</sc-if>
+<sc-if value="{{a.blazer}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 106px; top: 94px; width: 12px; height: 16px; background: #E8EEF9; clip-path: polygon(0 0, 100% 0, 50% 100%)"></div>
+</sc-if>
+<sc-if value="{{a.bun}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 106px; top: 57px; width: 12px; height: 10px; background: {{a.hair}}; border-radius: 6px 6px 2px 2px"></div>
+</sc-if>
+</div>
+</sc-if>
+
+<div style="position: absolute; left: 6px; top: 112px; width: 168px; height: 40px; box-sizing: border-box; background: #7A5236; border-top: 6px solid #9A6A45; border-radius: 3px; box-shadow: 0 6px 0 #4A3222"></div>
+<div style="position: absolute; left: 18px; top: 70px; width: 62px; height: 44px; box-sizing: border-box; background: #1B2235; border: 3px solid #2C3654; border-radius: 3px; padding: 6px; display: flex; flex-direction: column; gap: 4px">
+<div class="{{a.screenCls}}" style="width: 70%; height: 3px; background: {{a.screen}}"></div>
+<div class="{{a.screenCls}}" style="width: 45%; height: 3px; background: {{a.screen}}"></div>
+<div class="{{a.screenCls}}" style="width: 85%; height: 3px; background: {{a.screen}}"></div>
+<div class="{{a.screenCls}}" style="width: 60%; height: 3px; background: {{a.screen}}"></div>
+</div>
+<div style="position: absolute; left: 43px; top: 113px; width: 12px; height: 6px; background: #2C3654"></div>
+<div style="position: absolute; left: 94px; top: 122px; width: 36px; height: 7px; background: #C9D2E6; border-radius: 2px"></div>
+<div style="position: absolute; left: 146px; top: 118px; width: 10px; height: 11px; background: #E8EEF9; border-radius: 2px"></div>
+</div>
+
+<div style="position: absolute; left: {{a.fx}}px; top: {{a.fy}}px; width: 252px; height: 28px; box-sizing: border-box; padding: 0 10px; background: rgba(11,16,32,.8); border-radius: 6px; display: flex; align-items: center; gap: 8px">
+<div style="width: 8px; height: 8px; border-radius: 50%; background: {{a.dot}}; flex-shrink: 0"></div>
+<div style="flex-grow: 1; font-size: 12px; color: #C9D4EA; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{a.line}}</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8C9AB8; flex-shrink: 0">{{a.tok}} tk</div>
+</div>
+<sc-if value="{{a.lamp}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: {{a.lampX}}px; top: {{a.lampY}}px; width: 180px; height: 120px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,214,120,.28), rgba(255,214,120,0)); pointer-events: none"></div>
+<div style="position: absolute; left: {{a.lampPX}}px; top: {{a.lampPY}}px; width: 12px; height: 14px; background: #F2D65E; border-radius: 6px 6px 2px 2px; box-shadow: 0 0 12px #F2D65E"></div>
+</sc-if>
+<sc-if value="{{a.dark}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: {{a.rx}}px; top: {{a.ry}}px; width: 280px; height: 280px; background: rgba(4,7,16,.66); border-radius: 4px; z-index: 5; pointer-events: none"></div>
+</sc-if>
+</div>
+</sc-for>
+
+<!-- Copa: quem está no café -->
+<sc-if value="{{copaDark}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 296px; top: 396px; width: 280px; height: 280px; background: rgba(4,7,16,.66); border-radius: 4px; z-index: 5; pointer-events: none"></div>
+</sc-if>
+<sc-for list="{{copa}}" as="c" hint-placeholder-count="2">
+<div class="sip" style="position: absolute; left: {{c.left}}px; top: {{c.top}}px; width: 20px; height: 34px; z-index: 7">
+<div style="position: absolute; left: -14px; top: -14px; width: 48px; text-align: center; font-family: 'Silkscreen', monospace; font-size: 9px; color: #E8EEF9; white-space: nowrap">{{c.name}}</div>
+<div style="position: absolute; left: 3px; top: 0; width: 14px; height: 13px; background: {{c.skin}}; border-radius: 3px"></div>
+<div style="position: absolute; left: 2px; top: -3px; width: 16px; height: 6px; background: {{c.hair}}; border-radius: 3px 3px 0 0"></div>
+<div style="position: absolute; left: 0; top: 13px; width: 20px; height: 12px; background: {{c.color}}; border-radius: 4px 4px 0 0"></div>
+<div style="position: absolute; left: 20px; top: 14px; width: 6px; height: 7px; background: #E8EEF9; border-radius: 1px"></div>
+<sc-if value="{{c.stand}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; left: 3px; top: 25px; width: 5px; height: 9px; background: #1B2235"></div>
+<div style="position: absolute; left: 12px; top: 25px; width: 5px; height: 9px; background: #1B2235"></div>
+</sc-if>
+</div>
+</sc-for>
+<sc-if value="{{papo}}" hint-placeholder-val="{{false}}">
+<div class="live" aria-hidden="true" style="position: absolute; left: 418px; top: 486px; padding: 2px 8px; background: #E8EEF9; color: #0B1020; border-radius: 8px; font-weight: 700; font-size: 12px; z-index: 7">…</div>
+</sc-if>
+
+<!-- Quem está andando pelo escritório -->
+<sc-for list="{{walkers}}" as="w" hint-placeholder-count="1">
+<div style="position: absolute; left: {{w.left}}px; top: {{w.top}}px; width: 18px; height: 34px; z-index: 8; transition: {{w.trans}}">
+<div style="position: absolute; left: -15px; top: -14px; width: 48px; text-align: center; font-family: 'Silkscreen', monospace; font-size: 9px; color: #E8EEF9; white-space: nowrap">{{w.name}}</div>
+<div class="walk" style="position: absolute; left: 0; top: 0; width: 18px; height: 34px">
+<div style="position: absolute; left: 3px; top: 0; width: 12px; height: 11px; background: {{w.skin}}; border-radius: 3px"></div>
+<div style="position: absolute; left: 2px; top: -2px; width: 14px; height: 5px; background: {{w.hair}}; border-radius: 3px 3px 0 0"></div>
+<div style="position: absolute; left: 1px; top: 11px; width: 16px; height: 13px; background: {{w.color}}; border-radius: 4px 4px 0 0"></div>
+<div style="position: absolute; left: 3px; top: 24px; width: 5px; height: 9px; background: #1B2235"></div>
+<div style="position: absolute; left: 10px; top: 24px; width: 5px; height: 9px; background: #1B2235"></div>
+</div>
+</div>
+</sc-for>
+
+<!-- Envelope da delegação: anda pelo corredor -->
+<sc-if value="{{tokShow}}" hint-placeholder-val="{{false}}">
+<div aria-hidden="true" style="position: absolute; left: {{tokX}}px; top: {{tokY}}px; width: 24px; height: 18px; box-sizing: border-box; background: #E8EEF9; border: 2px solid #4C8DFF; box-shadow: 3px 3px 0 #2B5BB8; z-index: 10; transition: {{tokTrans}}">
+<div style="width: 12px; height: 2px; background: #4C8DFF; margin: 5px auto 0"></div>
+</div>
+</sc-if>
+</section>
+
+<!-- Sidebar -->
+<aside style="flex-grow: 1; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+
+<div style="height: 288px; box-sizing: border-box; padding: 16px; background: #121A2E; border: 1px solid #1C2744; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-family: 'Silkscreen', monospace; font-size: 12px; color: #E8EEF9; flex-grow: 1">GRUPO ORION HQ</div>
+<div style="font-size: 11px; color: #8C9AB8">Chat</div>
+</div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; overflow: hidden">
+<sc-for list="{{chat}}" as="c" hint-placeholder-count="3">
+<div style="align-self: {{c.align}}; max-width: 88%; padding: 8px 10px; background: {{c.bg}}; border-radius: 10px; display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 11px; font-weight: 600; color: {{c.nameColor}}">{{c.who}}</div>
+<div style="font-size: 13px; line-height: 1.35; color: #E8EEF9">{{c.text}}</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<sc-if value="{{temIncidente}}" hint-placeholder-val="{{false}}">
+<div style="box-sizing: border-box; padding: 14px 16px; background: #1F1512; border: 2px solid #FF7A59; border-radius: 12px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0">
+<div style="display: flex; align-items: center; gap: 8px">
+<div style="font-family: 'Silkscreen', monospace; font-size: 12px; color: #FF7A59; flex-grow: 1">INCIDENTE · APP</div>
+<div style="padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: {{incBg}}; color: #0B1020">{{incStatus}}</div>
+</div>
+<div style="font-size: 13px; line-height: 1.4; color: #E8EEF9">TypeError no login · 12 usuários · desde o PR #58</div>
+<sc-if value="{{incDiag}}" hint-placeholder-val="{{false}}">
+<div style="font-size: 12px; line-height: 1.4; color: #C9D4EA">Causa provável: <b>user</b> nulo em LoginScreen.tsx · confiança alta · não corrigível automaticamente (toca em login)</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{waiting}}" hint-placeholder-val="{{false}}">
+<div class="pulse" style="box-sizing: border-box; padding: 16px; background: #1D1A14; border: 2px solid #F2A541; border-radius: 12px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0">
+<div style="font-family: 'Silkscreen', monospace; font-size: 12px; color: #F2A541">APROVAÇÃO NECESSÁRIA</div>
+<div style="font-size: 13px; line-height: 1.4; color: #E8EEF9">Lia (Agenda) quer criar uma reunião: terça, 19:00 · Revisão do onboarding · Dimi e Jullyana.</div>
+<div style="display: flex; gap: 8px">
+<button onClick="{{approve}}" style="flex-grow: 1; height: 44px; background: #4C8DFF; color: #0B1020; border: 0; border-radius: 8px; font-size: 14px; font-weight: 600">Aprovar</button>
+<button onClick="{{decline}}" style="flex-grow: 1; height: 44px; background: transparent; color: #E8EEF9; border: 1px solid #5A4A2E; border-radius: 8px; font-size: 14px; font-weight: 500">Recusar</button>
+</div>
+</div>
+</sc-if>
+
+<div style="flex-grow: 1; min-height: 0; box-sizing: border-box; padding: 16px; background: #121A2E; border: 1px solid #1C2744; border-radius: 12px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'Silkscreen', monospace; font-size: 12px; color: #E8EEF9">LOG DE DELEGAÇÃO</div>
+<div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; overflow: hidden">
+<sc-for list="{{log}}" as="l" hint-placeholder-count="5">
+<div style="display: flex; gap: 8px; align-items: flex-start; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.4">
+<span style="color: #8392B4; flex-shrink: 0">{{l.time}}</span>
+<span style="width: 8px; height: 8px; margin-top: 4px; background: {{l.color}}; flex-shrink: 0"></span>
+<span style="color: #C9D4EA">{{l.text}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"noite":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  // ---------- estado da simulação (chat, log, envelope) ----------
+  fresh() {
+    return { step: -1, log: [], chat: [], tokens: {}, waiting: false, paused: false, noite: false, inc: null, tok: { x: 436, y: 344, show: false }, tokAnim: false };
+  }
+  // ---------- onde cada pessoa está (fonte da verdade, com forceUpdate) ----------
+  pessoasIniciais() {
+    return { loc: { atlas: 'desk', nara: 'copa', tech: 'desk', agenda: 'desk', neg: 'desk', work: 'desk' },
+             seat: { nara: 0 }, walkers: {}, onDuty: 'atlas', blocking: 0 };
+  }
+  agentsDef() {
+    return [
+      { id: 'tech', role: 'Tech', level: 'N2', room: 'ENGENHARIA', color: '#3FC1C9', idle: 'observando a main', rx: 12, ry: 12 },
+      { id: 'orq', role: 'Orquestrador', level: 'N1', room: 'SALA DO CHEFE', color: '#4C8DFF', idle: 'ouvindo o grupo', rx: 296, ry: 12 },
+      { id: 'agenda', role: 'Agenda', level: 'N2', room: 'AGENDA', color: '#7BD88F', idle: 'sem pendências', rx: 580, ry: 12 },
+      { id: 'neg', role: 'Negócios', level: 'N2', room: 'NEGÓCIOS', color: '#A58BFF', idle: 'aguardando eventos', rx: 12, ry: 396 },
+      { id: 'work', role: 'Worker', level: 'N3', room: 'BAIA DOS WORKERS', color: '#8FA3C7', idle: 'na fila', rx: 580, ry: 396 }
+    ];
+  }
+  pessoas() {
+    return {
+      atlas:  { name: 'Atlas',  sala: 'orq',    color: '#4C8DFF', skin: '#C68642', hair: '#2B1B10', tie: true, chat: '#7FB0FF' },
+      nara:   { name: 'Nara',   sala: 'orq',    color: '#2B5BB8', skin: '#E8B98F', hair: '#5A2E1A', bun: true, blazer: true, chat: '#F2A0C4' },
+      tech:   { name: 'Tobias', sala: 'tech',   color: '#3FC1C9', skin: '#F1C27D', hair: '#7A4A22', beard: true },
+      agenda: { name: 'Lia',    sala: 'agenda', color: '#7BD88F', skin: '#8D5524', hair: '#1A1411', longHair: true },
+      neg:    { name: 'Bento',  sala: 'neg',    color: '#A58BFF', skin: '#E0AC69', hair: '#A7A7A7', glasses: true },
+      work:   { name: 'Pipo',   sala: 'work',   color: '#8FA3C7', skin: '#FFDBAC', hair: '#D9A441', cap: true }
+    };
+  }
+  agent(id) { return this.agentsDef().find((x) => x.id === id); }
+  pessoaDoPapel(id) { return id === 'orq' ? this.m.onDuty : id; }
+  nomePlantao() { return this.pessoas()[this.m.onDuty].name; }
+  colorOf(id) {
+    if (id === 'wait') return '#F2A541';
+    if (id === 'vigia') return '#FF7A59';
+    const a = this.agent(id);
+    return a ? a.color : '#8C9AB8';
+  }
+  // ---------- geometria ----------
+  mesaEnvelope(id) { if (id === 'vigia') return { x: 66, y: 344 }; const a = this.agent(id); return { x: a.rx + 140, y: a.ry + 150 }; }
+  cadeira(pessoa) { const a = this.agent(this.pessoas()[pessoa].sala); return { x: a.rx + 162, y: a.ry + 130 }; }
+  assento(i) {
+    if (i === 'stand') return { x: 372, y: 504 };
+    return [{ x: 383, y: 548 }, { x: 489, y: 548 }, { x: 436, y: 606 }][i];
+  }
+  lugarLivre() {
+    const ocupados = Object.keys(this.m.seat).map((k) => this.m.seat[k]);
+    for (let i = 0; i < 3; i++) if (ocupados.indexOf(i) < 0) return i;
+    return 'stand';
+  }
+  caminhoCopa(pessoa, lugar) {
+    const d = this.cadeira(pessoa);
+    return [d, { x: d.x, y: 344 }, { x: 436, y: 344 }, { x: 436, y: 432 }, this.assento(lugar)];
+  }
+  // ---------- timers ----------
+  later(fn, ms) { this.timers = this.timers || []; this.timers.push(setTimeout(fn, ms)); }
+  limparTimers() { (this.timers || []).forEach((t) => clearTimeout(t)); this.timers = []; }
+  // ---------- andar ----------
+  andar(pessoa, destino, rapido, bloqueia, fim) {
+    const m = this.m;
+    if (m.loc[pessoa] === destino) { if (fim) fim(); return; }
+    let pts;
+    if (destino === 'copa') {
+      const lugar = this.lugarLivre();
+      m.seat[pessoa] = lugar;
+      pts = this.caminhoCopa(pessoa, lugar);
+    } else {
+      const liberado = m.seat[pessoa];
+      pts = this.caminhoCopa(pessoa, liberado).reverse();
+      delete m.seat[pessoa];
+      // quem estava em pé perto da máquina de café pega a cadeira que vagou
+      const emPe = Object.keys(m.seat).find((k) => m.seat[k] === 'stand' && m.loc[k] === 'copa');
+      if (emPe && liberado !== 'stand') m.seat[emPe] = liberado;
+    }
+    const passo = rapido ? 230 : 460;
+    m.loc[pessoa] = 'walk';
+    m.walkers[pessoa] = { x: pts[0].x, y: pts[0].y, anim: false, passo: passo };
+    if (bloqueia) m.blocking++;
+    this.forceUpdate();
+    pts.slice(1).forEach((p, i) => this.later(() => {
+      m.walkers[pessoa] = { x: p.x, y: p.y, anim: true, passo: passo };
+      this.forceUpdate();
+    }, 60 + i * passo));
+    this.later(() => {
+      delete m.walkers[pessoa];
+      m.loc[pessoa] = destino;
+      if (bloqueia) m.blocking--;
+      this.forceUpdate();
+      if (fim) fim();
+    }, 60 + (pts.length - 1) * passo + 40);
+  }
+  // ---------- roteiro ----------
+  steps() {
+    return [
+      { chat: ['Jullyana', 'O que mudou no onboarding essa semana?'], st: { orq: 'lendo a pergunta' }, log: 'Jullyana → {orq}: nova pergunta', by: 'orq', cost: { orq: 320 } },
+      { st: { orq: 'chamando o Tobias' }, move: ['orq', 'tech'], log: '{orq} → Tobias: resumir mudanças do onboarding', by: 'orq', cost: { orq: 180 }, acts: [['neg', 'copa']] },
+      { st: { tech: 'lendo o PR #42' }, log: 'Tobias · buscar_changelog("onboarding")', by: 'tech', cost: { tech: 1450 }, acts: [['agenda', 'copa']] },
+      { st: { tech: 'pedindo resumo ao Pipo' }, move: ['tech', 'work'], log: 'Tobias → Pipo: resumir diff do PR #42', by: 'tech', cost: { tech: 120 } },
+      { st: { work: 'resumindo o diff' }, log: 'Pipo · resumo pronto', by: 'work', cost: { work: 900 } },
+      { st: { tech: 'revisando o resumo' }, move: ['work', 'tech'], log: 'Pipo → Tobias: resumo entregue', by: 'work', cost: { tech: 260 } },
+      { st: { orq: 'redigindo a resposta' }, move: ['tech', 'orq'], log: 'Tobias → {orq}: resposta com fonte', by: 'tech', cost: { orq: 410 }, acts: [['work', 'copa']] },
+      { chat: ['{orq}', 'Saiu o redirecionamento para médicos parceiros: a pergunta sim/não agora segue o fluxo normal nos dois casos. Fonte: PR #42.'], st: {}, log: '{orq} → Grupo: resposta enviada', by: 'orq' },
+      { chat: ['Dimi', 'Marca uma reunião com a Jullyana terça 19h pra revisar isso'], st: { orq: 'lendo o pedido' }, log: 'Dimi → {orq}: agendar reunião', by: 'orq', cost: { orq: 280 } },
+      { st: { orq: 'chamando a Lia' }, move: ['orq', 'agenda'], log: '{orq} → Lia: reunião ter 19h', by: 'orq', cost: { orq: 150 } },
+      { st: { agenda: 'checando o calendário' }, log: 'Lia · mudancas_recentes(dias=7)', by: 'agenda', cost: { agenda: 540 } },
+      { st: { agenda: 'montando a pauta' }, log: 'Lia · pauta: onboarding, PR #42, pendências', by: 'agenda', cost: { agenda: 620 }, acts: [['neg', 'desk']] },
+      { st: { agenda: 'aguardando aprovação' }, wait: 'agenda', approval: true, log: 'Lia · ação sensível, pede aprovação', by: 'wait' },
+      { st: { agenda: 'criando a reunião' }, log: 'Lia · criar_reuniao(ter 19:00), aprovado por Dimi', by: 'agenda', cost: { agenda: 210 } },
+      { st: { orq: 'confirmando no grupo' }, move: ['agenda', 'orq'], log: 'Lia → {orq}: reunião criada', by: 'agenda', cost: { orq: 190 } },
+      { id: 'confirma', chat: ['{orq}', 'Reunião marcada: terça, 19h, com Dimi e Jullyana. Pauta: onboarding (PR #42) e pendências.'], st: {}, log: '{orq} → Grupo: confirmação enviada', by: 'orq' },
+      { st: { vigia: 'erro novo no login do app!' }, inc: 'aberto', log: 'Sentry → Rui: TypeError em LoginScreen.tsx (12 usuários)', by: 'vigia', cost: { vigia: 280 } },
+      { st: { vigia: 'chamando o Tobias' }, move: ['vigia', 'tech'], log: 'Rui → Tobias: ler LoginScreen.tsx no commit do PR #58', by: 'vigia', cost: { vigia: 190 } },
+      { st: { tech: 'lendo LoginScreen.tsx' }, log: 'Tobias · ler_arquivo_repo("app/screens/LoginScreen.tsx")', by: 'tech', cost: { tech: 1680 } },
+      { st: { vigia: 'lendo a resposta do Tobias' }, move: ['tech', 'vigia'], log: 'Tobias → Rui: "user" pode vir nulo desde o PR #58', by: 'tech', cost: { tech: 240 } },
+      { st: { vigia: 'montando o diagnóstico' }, inc: 'diagnosticado', log: 'Rui · diagnóstico: confiança alta · não corrigível (toca no login)', by: 'vigia', cost: { vigia: 620 } },
+      { st: { orq: 'avisando o grupo' }, move: ['vigia', 'orq'], log: 'Rui → {orq}: diagnóstico pronto', by: 'vigia', cost: { orq: 210 } },
+      { chat: ['{orq}', 'Erro novo no login do app desde o PR #58, 12 usuários afetados. Causa provável: "user" nulo em LoginScreen.tsx. Toca no login, então não é corrigível automaticamente. Detalhes em Incidentes.'], st: {}, log: '{orq} → Grupo: alerta de incidente', by: 'orq' },
+      { shift: true, st: {}, log: 'Troca de turno: {orq} vai pro café, {prox} assume', by: 'orq' }
+    ];
+  }
+  clock() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  }
+  nomes(txt) {
+    const prox = this.m.onDuty === 'atlas' ? 'Nara' : 'Atlas';
+    return txt.split('{orq}').join(this.nomePlantao()).split('{prox}').join(prox);
+  }
+  animarEnvelope(pontos) {
+    (this.mvs || []).forEach((t) => clearTimeout(t));
+    this.mvs = pontos.slice(1).map((p, i) => setTimeout(() => {
+      this.setState({ tok: Object.assign({ show: true }, p), tokAnim: true });
+    }, 80 + i * 520));
+    return 80 + (pontos.length - 1) * 520;
+  }
+  trocarTurno() {
+    const sai = this.m.onDuty;
+    const entra = sai === 'atlas' ? 'nara' : 'atlas';
+    this.andar(sai, 'copa', false, true, null);
+    this.andar(entra, 'desk', false, true, () => { this.m.onDuty = entra; this.forceUpdate(); });
+  }
+  enter(i, base) {
+    const st = this.steps()[i];
+    const s = base || this.state;
+    const log = st.log ? s.log.concat([{ time: this.clock(), text: this.nomes(st.log), color: this.colorOf(st.by) }]).slice(-10) : s.log;
+    const chat = st.chat ? s.chat.concat([{ who: this.nomes(st.chat[0]), text: st.chat[1] }]).slice(-3) : s.chat;
+    const tokens = Object.assign({}, s.tokens);
+    if (st.cost) Object.keys(st.cost).forEach((k) => { tokens[k] = (tokens[k] || 0) + st.cost[k]; });
+    const next = { step: i, log: log, chat: chat, tokens: tokens, waiting: !!st.approval, paused: s.paused, noite: s.noite, inc: st.inc !== undefined ? st.inc : (s.inc || null), tokAnim: false };
+
+    let pontos = null;
+    let voltaCorrendo = null;
+    if (st.move) {
+      const de = this.mesaEnvelope(st.move[0]);
+      const alvo = this.pessoaDoPapel(st.move[1]);
+      if (this.m.loc[alvo] === 'copa') {
+        // quem recebe está no café: o envelope vai até a copa e a pessoa volta correndo
+        pontos = [de, { x: de.x, y: 344 }, { x: 436, y: 344 }, { x: 436, y: 432 }, this.assento(this.m.seat[alvo])];
+        voltaCorrendo = alvo;
+      } else {
+        const b = this.mesaEnvelope(st.move[1]);
+        pontos = [de, { x: de.x, y: 344 }, { x: b.x, y: 344 }, b];
+      }
+    }
+    next.tok = pontos ? Object.assign({ show: true }, pontos[0]) : Object.assign({}, s.tok, { show: false });
+    this.setState(next);
+    if (pontos) {
+      const dur = this.animarEnvelope(pontos);
+      if (voltaCorrendo) {
+        this.m.blocking++;
+        this.later(() => {
+          this.setState({ tok: Object.assign({}, this.state.tok, { show: false }) });
+          this.andar(voltaCorrendo, 'desk', true, false, () => { this.m.blocking--; this.forceUpdate(); });
+        }, dur + 60);
+      }
+    }
+    (st.acts || []).forEach((a) => {
+      const p = a[0];
+      if (a[1] === 'copa' && (this.state.waiting || (st.wait === p))) return; // quem espera aprovação não sai
+      this.andar(p, a[1], false, false, null);
+    });
+    if (st.shift) this.trocarTurno();
+  }
+  tick() {
+    const s = this.state;
+    if (!s || s.paused || s.waiting || this.m.blocking > 0) return;
+    const last = this.steps().length - 1;
+    if (s.step >= last) {
+      this.enter(0, Object.assign(this.fresh(), { tokens: s.tokens, noite: s.noite, paused: s.paused }));
+    } else {
+      this.enter(s.step + 1);
+    }
+  }
+  componentDidMount() {
+    this.m = this.pessoasIniciais();
+    this.setState(this.fresh());
+    setTimeout(() => this.enter(0, this.fresh()), 300);
+    this.timer = setInterval(() => this.tick(), 2600);
+  }
+  componentWillUnmount() {
+    clearInterval(this.timer);
+    this.limparTimers();
+    (this.mvs || []).forEach((t) => clearTimeout(t));
+  }
+  renderVals() {
+    if (!this.m) this.m = this.pessoasIniciais();
+    const m = this.m;
+    const s = (this.state && this.state.log) ? this.state : this.fresh();
+    const noite = !!(this.props.noite || s.noite);
+    const steps = this.steps();
+    const cur = s.step >= 0 ? steps[s.step] : { st: {} };
+    const moving = cur.move || [];
+    const P = this.pessoas();
+    const base = { beard: false, glasses: false, longHair: false, cap: false, tie: false, bun: false, blazer: false };
+
+    const ativo = (id) => !!cur.st[id] || cur.wait === id;
+    const agents = this.agentsDef().map((a) => {
+      const key = this.pessoaDoPapel(a.id);
+      const look = P[key];
+      const status = cur.st[a.id];
+      const busy = !!status;
+      const waiting = cur.wait === a.id;
+      const involved = busy || moving.indexOf(a.id) >= 0;
+      const foiEmbora = noite && a.id !== 'orq' && !ativo(a.id);
+      const naCopa = m.loc[key] === 'copa';
+      const andando = m.loc[key] === 'walk';
+      let line = status || a.idle;
+      if (!status && naCopa) line = 'na copa ☕';
+      if (!status && andando) line = 'andando pelo escritório';
+      if (foiEmbora) line = 'foi pra casa';
+      if (a.id === 'orq' && andando) line = 'troca de turno';
+      return Object.assign({}, base, look, a, {
+        name: look.name,
+        color: a.id === 'orq' ? look.color : a.color,
+        busy: busy,
+        status: status || '',
+        line: line,
+        atDesk: m.loc[key] === 'desk' && !foiEmbora,
+        labelX: a.rx + 14, labelY: a.ry + 14,
+        wx: a.rx + 50, wy: a.ry + 40,
+        fx: a.rx + 14, fy: a.ry + 240,
+        ring: waiting ? '#F2A541' : (involved ? a.color : 'transparent'),
+        glow: waiting ? '0 0 0 4px rgba(242,165,65,.25), inset 0 0 40px rgba(242,165,65,.12)' : (busy ? 'inset 0 0 40px ' + a.color + '33' : 'none'),
+        dot: waiting ? '#F2A541' : (busy ? a.color : '#4A5878'),
+        screen: busy ? a.color : '#2C3654',
+        screenCls: busy ? 'typing' : 'still',
+        bodyCls: busy ? 'bob' : 'still',
+        dark: noite && a.id !== 'orq' && !ativo(a.id),
+        lamp: noite && a.id === 'orq',
+        lampX: a.rx + 50, lampY: a.ry + 90, lampPX: a.rx + 206, lampPY: a.ry + 138,
+        tok: (s.tokens[a.id] || 0).toLocaleString('pt-BR')
+      });
+    });
+
+    const visivel = (k) => !noite || k === m.onDuty || (P[k].sala !== 'orq' && ativo(P[k].sala));
+    const copa = Object.keys(m.loc).filter((k) => m.loc[k] === 'copa' && visivel(k)).map((k) => {
+      const lugar = m.seat[k];
+      const pt = this.assento(lugar === undefined ? 'stand' : lugar);
+      return Object.assign({}, base, P[k], { left: pt.x - 10, top: pt.y - 24, stand: lugar === 'stand' });
+    });
+    const sentados = copa.filter((c) => !c.stand).length;
+    const walkers = Object.keys(m.walkers).filter((k) => visivel(k)).map((k) => {
+      const w = m.walkers[k];
+      return Object.assign({}, P[k], {
+        left: w.x - 9, top: w.y - 30,
+        trans: w.anim ? ('left ' + w.passo + 'ms linear, top ' + w.passo + 'ms linear') : 'none'
+      });
+    });
+
+    const total = Object.keys(s.tokens).reduce((acc, k) => acc + s.tokens[k], 0);
+    const chat = s.chat.map((c) => {
+      const bot = c.who === 'Atlas' || c.who === 'Nara';
+      const cor = c.who === 'Atlas' ? P.atlas.chat : (c.who === 'Nara' ? P.nara.chat : (c.who === 'Dimi' ? '#7BD88F' : '#E0A8FF'));
+      return Object.assign({}, c, { align: bot ? 'flex-start' : 'flex-end', bg: bot ? '#1A2644' : '#22304F', nameColor: cor });
+    });
+    const ruiStatus = cur.st.vigia || '';
+    const aberto = s.inc === 'aberto';
+    return {
+      ruiBusy: !!ruiStatus,
+      ruiStatus: ruiStatus,
+      ruiRing: (aberto || ruiStatus) ? '#FF7A59' : 'transparent',
+      ruiLuz: aberto ? '#FF7A59' : '#3B4666',
+      ruiLuzCls: aberto ? 'alerta' : 'still',
+      ruiCam: '#1E3A34',
+      ruiCamAlerta: aberto ? '#FF7A59' : '#1E3A34',
+      ruiAria: 'Rui, Vigia: ' + (ruiStatus || (aberto ? 'incidente aberto' : 'de olho nas câmeras')),
+      temIncidente: !!s.inc,
+      incStatus: aberto ? 'aberto' : 'diagnosticado',
+      incBg: aberto ? '#FF7A59' : '#F2D65E',
+      incDiag: s.inc === 'diagnosticado',
+      agents: agents,
+      copa: copa,
+      papo: sentados >= 2 && !noite,
+      copaDark: noite,
+      walkers: walkers,
+      plantao: this.nomePlantao(),
+      noite: noite,
+      noiteLabel: noite ? 'Dia' : 'Noite',
+      tokShow: !!(s.tok && s.tok.show),
+      tokX: s.tok ? s.tok.x - 12 : 0,
+      tokY: s.tok ? s.tok.y - 9 : 0,
+      tokTrans: s.tokAnim ? 'left .5s linear, top .5s linear' : 'none',
+      chat: chat,
+      log: s.log,
+      waiting: !!s.waiting,
+      totalTokens: total.toLocaleString('pt-BR'),
+      liveLabel: s.waiting ? 'Aguardando vocês' : (s.paused ? 'Pausado' : 'Ao vivo'),
+      liveColor: s.waiting ? '#F2A541' : (s.paused ? '#8C9AB8' : '#7BD88F'),
+      pauseLabel: s.paused ? 'Retomar' : 'Pausar',
+      togglePause: () => this.setState({ paused: !this.state.paused }),
+      toggleNoite: () => this.setState({ noite: !this.state.noite }),
+      restart: () => {
+        this.limparTimers();
+        this.m = this.pessoasIniciais();
+        this.enter(0, Object.assign(this.fresh(), { noite: this.state.noite }));
+      },
+      approve: () => {
+        this.setState({ waiting: false });
+        this.enter(this.state.step + 1, Object.assign({}, this.state, { waiting: false }));
+      },
+      decline: () => {
+        const st = this.state;
+        this.setState({
+          waiting: false,
+          step: this.steps().findIndex((x) => x.id === 'confirma'),
+          tok: Object.assign({}, st.tok, { show: false }),
+          log: st.log.concat([{ time: this.clock(), text: 'Dimi recusou: reunião não criada', color: '#F2A541' }]).slice(-10),
+          chat: st.chat.concat([{ who: this.nomePlantao(), text: 'Combinado, não criei a reunião. Quer sugerir outro horário?' }]).slice(-3)
+        });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
