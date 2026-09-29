@@ -6,6 +6,7 @@ tarefas (product.md). O fluxo é um `StateGraph`:
 
     START → supervisor ──► tech ────────► supervisor
                 │     ├──► negocios ────► supervisor
+                │     ├──► vigia ───────► supervisor
                 │     ├──► agenda ──► aprovacao (interrupt) ──► supervisor
                 │     └──► responder ──► END
 
@@ -41,7 +42,7 @@ from langgraph.types import interrupt
 from psycopg.types.json import Json
 from pydantic import BaseModel, Field
 
-from . import config, db, especialistas, llm
+from . import config, db, especialistas, llm, vigia
 from .atividades import emitir
 
 logger = logging.getLogger("orion.grafo")
@@ -50,7 +51,7 @@ logger = logging.getLogger("orion.grafo")
 MAX_PASSOS = 4
 
 # Destinos válidos que o supervisor pode escolher.
-Destino = Literal["tech", "agenda", "negocios", "responder"]
+Destino = Literal["tech", "agenda", "negocios", "vigia", "responder"]
 
 
 class Estado(TypedDict, total=False):
@@ -89,8 +90,9 @@ class Rota(BaseModel):
         description=(
             "Quem deve trabalhar agora: 'tech' (produto/código/PRs), "
             "'agenda' (reuniões e pautas), 'negocios' (custos, métricas, "
-            "decisões) ou 'responder' (quando os relatórios já bastam ou é "
-            "conversa simples)."
+            "decisões), 'vigia' (erros, falhas, instabilidade, incidentes do "
+            "app ou backend) ou 'responder' (quando os relatórios já bastam ou "
+            "é conversa simples)."
         )
     )
     instrucao: str = Field(
@@ -120,6 +122,7 @@ def _prompt_supervisor() -> str:
         "- tech = produto/código/PRs do app Orion;\n"
         "- agenda = reuniões e pautas;\n"
         "- negocios = custos, métricas, decisões de negócio;\n"
+        "- vigia = erros, falhas, instabilidade, incidentes do app ou backend;\n"
         "- responder = quando os relatórios já bastam ou é conversa simples.\n"
         "Dê ao especialista uma instrução autocontida (ele não vê esta "
         "conversa). Não repita um especialista para a mesma coisa.\n"
@@ -267,6 +270,22 @@ def no_negocios(estado: Estado) -> dict:
     emitir(run_id, "negocios", "delegou", "Relatório para o Orquestrador",
            dados={"de": "negocios", "para": "orq"})
     return {"relatorios": [{"agente": "negocios", "texto": texto}], "passos": 1}
+
+
+def no_vigia(estado: Estado) -> dict:
+    """Nó Vigia: o Rui responde sobre incidentes já registrados (Req. 5.1–5.3).
+
+    Roda o Rui só com as ferramentas de leitura (sem `pedir_ao_tobias` e sem
+    iniciar diagnóstico), devolve o relatório ao Orquestrador e soma um passo,
+    como os outros especialistas. A emissão do `delegou` de volta segue o mesmo
+    padrão de `no_tech`/`no_negocios`.
+    """
+    run_id = estado.get("run_id")
+    instrucao = estado.get("instrucao") or estado.get("pedido", "")
+    texto = vigia.responder_sobre_incidentes(instrucao, run_id)
+    emitir(run_id, "vigia", "delegou", "Relatório para o Orquestrador",
+           dados={"de": "vigia", "para": "orq"})
+    return {"relatorios": [{"agente": "vigia", "texto": texto}], "passos": 1}
 
 
 def no_agenda(estado: Estado) -> dict:
@@ -538,7 +557,7 @@ def no_responder(estado: Estado) -> dict:
 def _rota_supervisor(estado: Estado) -> Destino:
     """Aresta condicional a partir do supervisor: usa `estado["proxima"]`."""
     proxima = estado.get("proxima", "responder")
-    if proxima not in ("tech", "agenda", "negocios", "responder"):
+    if proxima not in ("tech", "agenda", "negocios", "vigia", "responder"):
         # Defensivo: destino inesperado encerra respondendo com o que há.
         return "responder"
     return proxima  # type: ignore[return-value]
@@ -555,8 +574,8 @@ def _rota_agenda(estado: Estado) -> str:
 def construir() -> StateGraph:
     """Monta o `StateGraph` (sem compilar).
 
-    Arestas: START→supervisor; supervisor→(tech|negocios|agenda|responder);
-    tech/negocios→supervisor; agenda→(aprovacao|supervisor);
+    Arestas: START→supervisor; supervisor→(tech|negocios|vigia|agenda|responder);
+    tech/negocios/vigia→supervisor; agenda→(aprovacao|supervisor);
     aprovacao→supervisor; responder→END.
     """
     grafo = StateGraph(Estado)
@@ -564,6 +583,7 @@ def construir() -> StateGraph:
     grafo.add_node("supervisor", no_supervisor)
     grafo.add_node("tech", no_tech)
     grafo.add_node("negocios", no_negocios)
+    grafo.add_node("vigia", no_vigia)
     grafo.add_node("agenda", no_agenda)
     grafo.add_node("aprovacao", no_aprovacao)
     grafo.add_node("responder", no_responder)
@@ -575,12 +595,14 @@ def construir() -> StateGraph:
         {
             "tech": "tech",
             "negocios": "negocios",
+            "vigia": "vigia",
             "agenda": "agenda",
             "responder": "responder",
         },
     )
     grafo.add_edge("tech", "supervisor")
     grafo.add_edge("negocios", "supervisor")
+    grafo.add_edge("vigia", "supervisor")
     grafo.add_conditional_edges(
         "agenda",
         _rota_agenda,

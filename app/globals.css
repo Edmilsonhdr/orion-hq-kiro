@@ -238,6 +238,53 @@ textarea {
   font-size: 12px;
 }
 
+/* Escritorio virtual: guarita do Rui (Vigia) no corredor (Requirement 7.1).
+   A luz de alerta pisca em #FF7A59 enquanto houver incidente aberto. Quando
+   nao ha incidente, a luz fica apagada (sem animacao). */
+.guarita {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--borda-forte);
+  border-radius: 5px;
+  background: var(--painel);
+  font-family: var(--fonte-titulo);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--texto-secundario);
+  z-index: 3;
+}
+
+.guarita-luz {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--borda-forte);
+  box-shadow: none;
+  flex-shrink: 0;
+}
+
+/* Alerta ligado: pisca em #FF7A59 (Requirement 7.1). */
+.guarita-luz-alerta {
+  background: #ff7a59;
+  animation: piscar-alerta 1s ease-in-out infinite;
+}
+
+@keyframes piscar-alerta {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 8px 2px #ff7a59;
+  }
+  50% {
+    opacity: 0.3;
+    box-shadow: 0 0 2px 0 #ff7a59;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;
@@ -249,5 +296,11 @@ textarea {
      aqui para deixar explicito. */
   .envelope {
     transition-duration: 0.001ms !important;
+  }
+
+  /* Com reduced-motion a luz de alerta nao pisca, mas fica acesa em #FF7A59
+     para continuar sinalizando incidente aberto (Requirement 7.1). */
+  .guarita-luz-alerta {
+    opacity: 1 !important;
   }
 }

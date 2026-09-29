@@ -215,3 +215,93 @@ def reuniao(reuniao_id: int) -> Optional[dict]:
         """,
         (reuniao_id,),
     )
+
+
+# --- Incidentes do Vigia (Requirement 6) ---
+
+# Colunas devolvidas na lista de incidentes (sem o `diagnostico`, que é pesado
+# e só interessa no detalhe). Requirement 6.2: título, projeto, nível,
+# ocorrências, usuários afetados, última vez e status.
+_COLUNAS_LISTA_INCIDENTES = (
+    "id, sentry_issue_id, projeto, titulo, nivel, url, ocorrencias, "
+    "usuarios_afetados, primeira_vez, ultima_vez, status, "
+    "diagnostico_iniciado_em, diagnosticado_em, criado_em"
+)
+
+
+def listar_incidentes(status: Optional[str] = None) -> list[dict]:
+    """Incidentes para a tela do Vigia (Requirement 6.2).
+
+    - `status` informado: filtra por ele (aberto | diagnosticado | resolvido |
+      ignorado).
+    - `status` ausente: devolve todos, com os `aberto` primeiro (Requirement
+      6.2) e, dentro de cada grupo, os de `ultima_vez` mais recente antes.
+
+    Não traz o `diagnostico` (jsonb pesado); use `incidente(id)` no detalhe.
+    """
+    if status is not None:
+        return consultar(
+            f"""
+            select {_COLUNAS_LISTA_INCIDENTES}
+            from incidentes
+            where status = %s
+            order by ultima_vez desc
+            """,
+            (status,),
+        )
+
+    return consultar(
+        f"""
+        select {_COLUNAS_LISTA_INCIDENTES}
+        from incidentes
+        order by (status = 'aberto') desc, ultima_vez desc
+        """
+    )
+
+
+def incidente(incidente_id: int) -> Optional[dict]:
+    """Um incidente pelo id (ou None), com o diagnóstico (Requirement 6.3).
+
+    Traz todas as colunas relevantes para o detalhe, inclusive `stack` e
+    `diagnostico` (jsonb).
+    """
+    return um(
+        """
+        select id, sentry_issue_id, projeto, titulo, nivel, culpado, release,
+               ambiente, url, stack, ocorrencias, usuarios_afetados,
+               primeira_vez, ultima_vez, status, diagnostico,
+               diagnostico_iniciado_em, diagnosticado_em, criado_em
+        from incidentes
+        where id = %s
+        """,
+        (incidente_id,),
+    )
+
+
+def contar_incidentes_abertos() -> int:
+    """Quantidade de incidentes com status `aberto` (Requirements 6.1, 7.1).
+
+    Alimenta o contador do cabeçalho e a luz de alerta da guarita.
+    """
+    linha = um("select count(*) as n from incidentes where status = 'aberto'")
+    return int(linha["n"]) if linha is not None else 0
+
+
+def atualizar_status_incidente(
+    incidente_id: int, status: str
+) -> Optional[dict]:
+    """Muda o status de um incidente e devolve a linha atualizada (ou None).
+
+    Requirement 6.4: os botões da tela mudam o status para `resolvido`,
+    `ignorado` ou `aberto`. Devolve `None` se o incidente não existir (para a
+    rota responder 404).
+    """
+    return um(
+        """
+        update incidentes
+           set status = %s
+         where id = %s
+        returning id, status
+        """,
+        (status, incidente_id),
+    )

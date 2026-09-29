@@ -3,8 +3,10 @@
 // Cabeçalho do grupo autenticado (Requirements 1.4, 9.2).
 // - Checa a sessão via GET /api/me (401 é tratado no wrapper de lib/api.ts,
 //   que redireciona para /login).
-// - Navegação para Chat, Escritório e Aprovações.
+// - Navegação para Chat, Escritório, Incidentes e Aprovações.
 // - Contador de aprovações pendentes com polling leve (Requirement 9.2).
+// - Contador de incidentes abertos do Vigia (Requirement 6.1), via
+//   /api/incidentes/resumo, com o mesmo polling leve.
 // - Botão "Sair" que chama POST /api/logout e volta para /login.
 
 import { useEffect, useState } from "react";
@@ -18,6 +20,7 @@ type Aprovacao = { id: number };
 const LINKS = [
   { href: "/chat", rotulo: "Chat" },
   { href: "/escritorio", rotulo: "Escritório" },
+  { href: "/incidentes", rotulo: "Incidentes" },
   { href: "/aprovacoes", rotulo: "Aprovações" },
 ] as const;
 
@@ -28,6 +31,7 @@ export default function Header() {
   const caminho = usePathname();
   const [usuario, setUsuario] = useState<string | null>(null);
   const [pendentes, setPendentes] = useState(0);
+  const [incidentesAbertos, setIncidentesAbertos] = useState(0);
   const [saindo, setSaindo] = useState(false);
 
   // Checa a sessão uma vez. Se não houver sessão, o wrapper de api.ts
@@ -55,6 +59,36 @@ export default function Header() {
       try {
         const lista = await obter<Aprovacao[]>("/aprovacoes?status=pendente");
         if (ativo && Array.isArray(lista)) setPendentes(lista.length);
+      } catch {
+        // erros de rede/401 não devem quebrar o loop
+      }
+    }
+
+    buscar();
+    const timer = setInterval(buscar, INTERVALO_PENDENTES_MS);
+    const aoMudarVisibilidade = () => {
+      if (!document.hidden) buscar();
+    };
+    document.addEventListener("visibilitychange", aoMudarVisibilidade);
+
+    return () => {
+      ativo = false;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", aoMudarVisibilidade);
+    };
+  }, []);
+
+  // Polling leve do contador de incidentes abertos do Vigia (Requirement 6.1).
+  useEffect(() => {
+    let ativo = true;
+
+    async function buscar() {
+      if (typeof document !== "undefined" && document.hidden) return;
+      try {
+        const resumo = await obter<{ abertos: number }>("/incidentes/resumo");
+        if (ativo && typeof resumo?.abertos === "number") {
+          setIncidentesAbertos(resumo.abertos);
+        }
       } catch {
         // erros de rede/401 não devem quebrar o loop
       }
@@ -142,6 +176,27 @@ export default function Header() {
                   }}
                 >
                   {pendentes}
+                </span>
+              )}
+              {link.href === "/incidentes" && incidentesAbertos > 0 && (
+                <span
+                  className="mono"
+                  aria-label={`${incidentesAbertos} incidentes abertos`}
+                  style={{
+                    minWidth: "20px",
+                    height: "20px",
+                    padding: "0 6px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "#FF7A59",
+                    color: "var(--fundo)",
+                    borderRadius: "10px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {incidentesAbertos}
                 </span>
               )}
             </Link>

@@ -5,6 +5,7 @@ Todas as rotas ficam sob `/api/*`. Este módulo adiciona o próprio diretório a
 de tratar a pasta como uma função serverless separada).
 """
 
+import logging
 import os
 import secrets
 import sys
@@ -45,6 +46,21 @@ class DecisaoAprovacao(BaseModel):
     """Corpo do `POST /aprovacoes/{id}`: aprovar ou recusar (Requirement 6.4/6.5)."""
 
     aprovado: bool
+
+
+class StatusIncidente(BaseModel):
+    """Corpo do `POST /incidentes/{id}/status` (Vigia — Requirement 6.4).
+
+    Só aceita os três status que os botões da tela produzem: `resolvido`,
+    `ignorado` e `aberto`.
+    """
+
+    status: str
+
+
+# Status que a rota de mudança manual aceita (Requirement 6.4). `diagnosticado`
+# fica de fora: é o fluxo do diagnóstico que o define, não o botão do sócio.
+_STATUS_INCIDENTE_VALIDOS = {"resolvido", "ignorado", "aberto"}
 
 
 @app.post("/api/login")
@@ -265,6 +281,106 @@ def _montar_ics(reuniao: dict) -> str:
     return "\r\n".join(linhas) + "\r\n"
 
 
+@app.get("/api/incidentes")
+def listar_incidentes(
+    status: str | None = None, usuario: str = Depends(auth.usuario_atual)
+) -> list[dict]:
+    """Lista os incidentes do Vigia (Requirements 6.2, 6.6).
+
+    Com `status` informado, filtra por ele; sem filtro, devolve os `aberto`
+    primeiro e o restante por `ultima_vez` mais recente. Não traz o
+    `diagnostico` (pesado); use o detalhe para isso. Exige sessão (Requirement
+    6.6).
+    """
+    return db.listar_incidentes(status)
+
+
+@app.get("/api/incidentes/resumo")
+def resumo_incidentes(
+    usuario: str = Depends(auth.usuario_atual),
+) -> dict:
+    """Contador de incidentes `aberto` (Requirements 6.1, 6.6, 7.1).
+
+    Alimenta o contador do cabeçalho e a luz de alerta da guarita no
+    escritório. Devolve `{"abertos": n}`. Exige sessão.
+    """
+    return {"abertos": db.contar_incidentes_abertos()}
+
+
+@app.get("/api/incidentes/{incidente_id}")
+def detalhe_incidente(
+    incidente_id: int, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    """Detalhe de um incidente, com diagnóstico (Requirements 6.3, 6.6).
+
+    Incidente inexistente → 404. Exige sessão.
+    """
+    linha = db.incidente(incidente_id)
+    if linha is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Incidente não encontrado.",
+        )
+    return linha
+
+
+@app.post("/api/incidentes/{incidente_id}/status")
+def mudar_status_incidente(
+    incidente_id: int,
+    corpo: StatusIncidente,
+    usuario: str = Depends(auth.usuario_atual),
+) -> dict:
+    """Muda o status de um incidente (Requirements 6.4, 6.6).
+
+    Aceita apenas `resolvido`, `ignorado` ou `aberto` (o `diagnosticado` é
+    definido pelo fluxo de diagnóstico, não pelo botão) — outro valor → 400.
+    Incidente inexistente → 404. Exige sessão.
+    """
+    if corpo.status not in _STATUS_INCIDENTE_VALIDOS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Status inválido. Use resolvido, ignorado ou aberto.",
+        )
+    atualizado = db.atualizar_status_incidente(incidente_id, corpo.status)
+    if atualizado is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Incidente não encontrado.",
+        )
+    return atualizado
+
+
+@app.post("/api/incidentes/{incidente_id}/diagnosticar")
+def diagnosticar_incidente(
+    incidente_id: int, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    """Diagnóstico manual de um incidente na fila (Requirements 6.4, 6.6).
+
+    O botão "Diagnosticar agora" da tela chama esta rota para incidentes que
+    ficaram `aberto` sem diagnóstico (por causa do limite por hora). Exige
+    sessão.
+
+    Fluxo:
+    1. Incidente inexistente → 404.
+    2. `vigia.diagnosticar` já respeita o limite por hora internamente
+       (Requirement 4): acima do limite devolve `{"status": "fila"}` sem chamar
+       o modelo. A rota apenas repassa o resultado — não força o diagnóstico
+       ignorando o limite.
+
+    Import tardio de `vigia` para não exigir httpx/modelo em quem só importa o
+    app (ex.: testes de outras rotas).
+    """
+    if db.incidente(incidente_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Incidente não encontrado.",
+        )
+
+    from _orion import vigia
+
+    return vigia.diagnosticar(incidente_id)
+
+
 @app.post("/api/webhooks/github")
 async def webhook_github(
     request: Request,
@@ -374,9 +490,27 @@ async def webhook_sentry(
     if resultado.get("resultado") == "ignorado":
         return {"ignorado": True}
 
-    # TODO (task 4.5): quando `resultado["resultado"] == "registrado"` e
-    # `resultado["novo"]` for True, disparar aqui o diagnóstico do Rui
-    # (`vigia.diagnosticar(resultado["id"])`), respeitando o limite por hora.
+    # Task 4.5: incidente NOVO e registrado dispara o diagnóstico do Rui, no
+    # mesmo estilo síncrono da ingestão do GitHub (design.md, o Vigia é um fluxo
+    # síncrono na mesma função da Vercel). Só incidente NOVO: eventos repetidos
+    # vêm com `novo=False` (dedup do upsert, Requirement 1.6) e não re-disparam.
+    # `vigia.diagnosticar` já respeita o limite por hora internamente (retorna
+    # `{"status": "fila"}` acima do limite), então NÃO checamos o limite aqui.
+    #
+    # A resposta ao Sentry é sempre o `resultado` do registro (200): o incidente
+    # já foi gravado. Uma falha no diagnóstico não pode alterar essa resposta
+    # nem virar 500 (o Sentry reenviaria em loop). `diagnosticar` não propaga
+    # exceções (devolve dict), mas envolvemos a chamada em try/except defensivo
+    # mesmo assim, apenas logando e seguindo.
+    if resultado.get("resultado") == "registrado" and resultado.get("novo"):
+        from _orion import vigia
+
+        try:
+            vigia.diagnosticar(resultado["id"])
+        except Exception:  # noqa: BLE001 — falha no diagnóstico não afeta a resposta
+            logging.getLogger("orion.webhook").exception(
+                "Falha ao disparar diagnóstico do incidente %s", resultado.get("id")
+            )
 
     return resultado
 

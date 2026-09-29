@@ -118,6 +118,44 @@ def test_limite_de_quatro_passos(banco, monkeypatch):
     assert final["resposta"] == "Resposta por limite."
 
 
+# --- Roteamento vigia (Requirement 5.1) ---
+
+
+def test_pergunta_sobre_erro_vai_para_vigia(banco, monkeypatch):
+    """Pergunta sobre erro roteia para o Vigia, que responde sobre incidentes."""
+    # 1ª decisão: vigia; 2ª decisão (de volta ao supervisor): responder.
+    decisoes = iter([
+        _rota("vigia", "algum erro no app?", "é sobre falhas"),
+        _rota("responder"),
+    ])
+    monkeypatch.setattr(grafo, "decidir", lambda estado: next(decisoes))
+    monkeypatch.setattr(grafo, "redigir", lambda estado: "Sem incidentes abertos.")
+    monkeypatch.setattr(
+        grafo.vigia,
+        "responder_sobre_incidentes",
+        lambda instrucao, run_id: "Nenhum incidente aberto no momento.",
+    )
+
+    g = _compilar()
+    final = g.invoke(_entrada("run-vigia", "tem algo quebrado?"), _config("run-vigia"))
+
+    assert final["resposta"] == "Sem incidentes abertos."
+    assert final["relatorios"] == [
+        {"agente": "vigia", "texto": "Nenhum incidente aberto no momento."}
+    ]
+    assert final["passos"] == 1
+
+    # A delegação orq→vigia e a volta vigia→orq foram registradas.
+    log = [a for a in atividades.listar() if a["run_id"] == "run-vigia"]
+    delegou = [a for a in log if a["tipo"] == "delegou"]
+    orq_para_vigia = [
+        a for a in delegou
+        if (a.get("dados") or {}).get("de") == "orq"
+        and (a.get("dados") or {}).get("para") == "vigia"
+    ]
+    assert orq_para_vigia, "esperava delegou de orq para vigia"
+
+
 # --- Roteamento agenda → aprovacao → supervisor ---
 
 

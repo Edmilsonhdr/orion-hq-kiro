@@ -79,6 +79,11 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790573437871
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790573927341
       }
     ],
     "4.1 Ferramentas do Rui e `pedir_ao_tobias` com atividades `delegou` de ida e volta": [
@@ -86,6 +91,16 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790571903187
+      },
+      {
+        "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
+        "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
+        "timestamp": 1790573933235
+      },
+      {
+        "executionId": "715a8afc-5b49-482c-8492-adb6927ee9d0",
+        "chatSessionId": "sess_abc8931c-9d2b-40d1-bd01-b9be01f76cbd",
+        "timestamp": 1790651412886
       }
     ],
     "4.2 `diagnosticar()`: loop do Rui (máx. 8 voltas), `Diagnostico` estruturado, tokens registrados,": [
@@ -93,6 +108,16 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790571903602
+      },
+      {
+        "executionId": "715a8afc-5b49-482c-8492-adb6927ee9d0",
+        "chatSessionId": "sess_abc8931c-9d2b-40d1-bd01-b9be01f76cbd",
+        "timestamp": 1790651424243
+      },
+      {
+        "executionId": "715a8afc-5b49-482c-8492-adb6927ee9d0",
+        "chatSessionId": "sess_abc8931c-9d2b-40d1-bd01-b9be01f76cbd",
+        "timestamp": 1790651990247
       }
     ],
     "4.3 Áreas proibidas aplicadas por código": [
@@ -100,6 +125,16 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790571904027
+      },
+      {
+        "executionId": "715a8afc-5b49-482c-8492-adb6927ee9d0",
+        "chatSessionId": "sess_abc8931c-9d2b-40d1-bd01-b9be01f76cbd",
+        "timestamp": 1790651995528
+      },
+      {
+        "executionId": "715a8afc-5b49-482c-8492-adb6927ee9d0",
+        "chatSessionId": "sess_abc8931c-9d2b-40d1-bd01-b9be01f76cbd",
+        "timestamp": 1790652409419
       }
     ],
     "4.4 Limite por hora e aviso único de fila": [
@@ -107,6 +142,16 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790571904596
+      },
+      {
+        "executionId": "715a8afc-5b49-482c-8492-adb6927ee9d0",
+        "chatSessionId": "sess_abc8931c-9d2b-40d1-bd01-b9be01f76cbd",
+        "timestamp": 1790652416105
+      },
+      {
+        "executionId": "715a8afc-5b49-482c-8492-adb6927ee9d0",
+        "chatSessionId": "sess_abc8931c-9d2b-40d1-bd01-b9be01f76cbd",
+        "timestamp": 1790652761511
       }
     ],
     "4.5 Ligar o webhook ao diagnóstico (só incidente novo, dentro do limite)": [
@@ -114,6 +159,16 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790571904987
+      },
+      {
+        "executionId": "715a8afc-5b49-482c-8492-adb6927ee9d0",
+        "chatSessionId": "sess_abc8931c-9d2b-40d1-bd01-b9be01f76cbd",
+        "timestamp": 1790652767117
+      },
+      {
+        "executionId": "715a8afc-5b49-482c-8492-adb6927ee9d0",
+        "chatSessionId": "sess_abc8931c-9d2b-40d1-bd01-b9be01f76cbd",
+        "timestamp": 1790653292270
       }
     ],
     "5. Rota `vigia` no supervisor": [
@@ -121,6 +176,16 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790571905356
+      },
+      {
+        "executionId": "a772dbad-0ecf-4002-a656-c1a91f885ea0",
+        "chatSessionId": "sess_329132c1-063a-49ca-927e-83c347a38908",
+        "timestamp": 1790653395911
+      },
+      {
+        "executionId": "a772dbad-0ecf-4002-a656-c1a91f885ea0",
+        "chatSessionId": "sess_329132c1-063a-49ca-927e-83c347a38908",
+        "timestamp": 1790653979873
       }
     ],
     "6. API de incidentes": [
@@ -128,6 +193,21 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790571905773
+      },
+      {
+        "executionId": "a772dbad-0ecf-4002-a656-c1a91f885ea0",
+        "chatSessionId": "sess_329132c1-063a-49ca-927e-83c347a38908",
+        "timestamp": 1790653984469
+      },
+      {
+        "executionId": "8f68fc0c-00b4-4a27-9cce-7ea921c9f602",
+        "chatSessionId": "sess_e8f108e7-9676-4ba0-9600-7abd4d5d0c0a",
+        "timestamp": 1790654320165
+      },
+      {
+        "executionId": "8f68fc0c-00b4-4a27-9cce-7ea921c9f602",
+        "chatSessionId": "sess_e8f108e7-9676-4ba0-9600-7abd4d5d0c0a",
+        "timestamp": 1790654917623
       }
     ],
     "7. Front: tela de Incidentes": [
@@ -135,6 +215,16 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790571906193
+      },
+      {
+        "executionId": "e91ec7b7-1947-4c44-8a83-66cdf5b34380",
+        "chatSessionId": "sess_46a7f856-3966-4770-accc-4227e2ad8987",
+        "timestamp": 1790654967657
+      },
+      {
+        "executionId": "e91ec7b7-1947-4c44-8a83-66cdf5b34380",
+        "chatSessionId": "sess_46a7f856-3966-4770-accc-4227e2ad8987",
+        "timestamp": 1790655344103
       }
     ],
     "8. Front: escritório": [
@@ -142,6 +232,11 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790571906675
+      },
+      {
+        "executionId": "e91ec7b7-1947-4c44-8a83-66cdf5b34380",
+        "chatSessionId": "sess_46a7f856-3966-4770-accc-4227e2ad8987",
+        "timestamp": 1790655349510
       }
     ],
     "9. Script de teste e documentação": [
@@ -163,6 +258,13 @@
         "executionId": "125a0e3a-4004-454a-a909-a81b0356d195",
         "chatSessionId": "sess_151113fc-c646-401a-a6e7-a8d9b44baeb8",
         "timestamp": 1790573431928
+      }
+    ],
+    "4. Diagnóstico do Rui": [
+      {
+        "executionId": "715a8afc-5b49-482c-8492-adb6927ee9d0",
+        "chatSessionId": "sess_abc8931c-9d2b-40d1-bd01-b9be01f76cbd",
+        "timestamp": 1790653292833
       }
     ]
   }

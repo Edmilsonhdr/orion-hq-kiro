@@ -3,6 +3,7 @@
 export const AGENTES = [
   { id: "tech", nome: "Tech", nivel: "N2", cor: "#3FC1C9", ocioso: "observando a main", ferramenta: "Repo", x: 60, y: 60 },
   { id: "agenda", nome: "Agenda", nivel: "N2", cor: "#7BD88F", ocioso: "sem pendências", ferramenta: "Calendário", x: 612, y: 60 },
+  { id: "vigia", nome: "Rui", nivel: "N2", cor: "#FF7A59", ocioso: "de olho no Sentry", ferramenta: "Sentry", x: 336, y: 40 },
   { id: "orq", nome: "Orquestrador", nivel: "N1", cor: "#4C8DFF", ocioso: "ouvindo o grupo", ferramenta: "Chefe", x: 336, y: 250 },
   { id: "negocios", nome: "Negócios", nivel: "N2", cor: "#A58BFF", ocioso: "aguardando eventos", ferramenta: "Métricas", x: 60, y: 450 },
   { id: "work", nome: "Workers", nivel: "N3", cor: "#8FA3C7", ocioso: "na fila", ferramenta: "Haiku", x: 612, y: 450 },

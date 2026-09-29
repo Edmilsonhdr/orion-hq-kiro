@@ -94,6 +94,20 @@ def test_assinatura_valida_encaminha_para_processar(cliente, monkeypatch):
         return {"resultado": "registrado", "id": 42, "novo": True}
 
     monkeypatch.setattr(sentry, "processar_evento", _fake_processar)
+    # Task 4.5: um incidente novo dispara `vigia.diagnosticar`. Aqui o
+    # `processar_evento` é um fake sem banco, então isolamos o diagnóstico com
+    # um stub para não tocar no Postgres — o contrato desta rota (corpo == o
+    # `resultado` do registro) continua o mesmo. O teste de ponta a ponta do
+    # disparo real está em `test_webhook_diagnostico.py`.
+    diagnosticado = {}
+
+    def _fake_diagnosticar(incidente_id):
+        diagnosticado["id"] = incidente_id
+        return {"status": "diagnosticado", "id": incidente_id}
+
+    from _orion import vigia
+
+    monkeypatch.setattr(vigia, "diagnosticar", _fake_diagnosticar)
 
     resp = _enviar(cliente, _fixture_bytes("sentry_issue_created.json"))
     assert resp.status_code == 200
@@ -101,6 +115,8 @@ def test_assinatura_valida_encaminha_para_processar(cliente, monkeypatch):
     # O parser aplicou a whitelist antes de chamar o processamento.
     assert chamado["campos"]["sentry_issue_id"] == "1234567890"
     assert chamado["campos"]["projeto"] == "app"
+    # O incidente novo disparou o diagnóstico com o id devolvido pelo registro.
+    assert diagnosticado["id"] == 42
 
 
 def test_assinatura_invalida_da_401(cliente, monkeypatch):
