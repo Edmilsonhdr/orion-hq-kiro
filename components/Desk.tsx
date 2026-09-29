@@ -15,7 +15,10 @@ import { Agente } from "../lib/agents";
 export const LARGURA_MESA = 200;
 export const ALTURA_MESA = 160;
 
-export type EstadoMesa = "ativo" | "ocioso" | "espera";
+// "plantao": Rui (Vigia) de plantão enquanto há incidente aberto — não vai à
+// copa (Requirement 7.4). Visualmente fica alerta na cor do agente, sem o texto
+// ocioso, mas sem o balão/animação de "trabalhando" do estado ativo.
+export type EstadoMesa = "ativo" | "ocioso" | "espera" | "plantao";
 
 const COR_ESPERA = "#f2a541";
 
@@ -30,7 +33,7 @@ export type DeskProps = {
 
 function corBorda(agente: Agente, estado: EstadoMesa): string {
   if (estado === "espera") return COR_ESPERA;
-  if (estado === "ativo") return agente.cor;
+  if (estado === "ativo" || estado === "plantao") return agente.cor;
   return "var(--borda-forte)";
 }
 
