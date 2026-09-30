@@ -130,83 +130,6 @@ textarea {
 textarea {
   padding: 10px 12px;
 }
-
-/* Escritorio virtual: pontos "digitando" na tela da mesa ativa */
-.ponto-digitando {
-  animation: piscar-ponto 0.9s ease-in-out infinite;
-}
-
-@keyframes piscar-ponto {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-/* Escritorio virtual: bonequinho balanca quando o agente esta ativo e pisca
-   os olhos de tempos em tempos */
-.boneco-ativo {
-  animation: balancar-boneco 0.8s steps(2) infinite;
-}
-
-@keyframes balancar-boneco {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-2px);
-  }
-}
-
-.olho-boneco {
-  animation: piscar-olho 4s steps(1) infinite;
-}
-
-@keyframes piscar-olho {
-  0%,
-  94%,
-  100% {
-    transform: scaleY(1);
-  }
-  96% {
-    transform: scaleY(0.2);
-  }
-}
-
-/* Escritorio virtual: envelope animado a cada `delegou` (Requirement 8.4).
-   Desliza da mesa de origem ate a de destino em ~1,3s (transicao de left/top).
-   A cor da borda acompanha o agente de origem (definida inline). */
-.envelope {
-  position: absolute;
-  width: 22px;
-  height: 16px;
-  margin-left: -11px;
-  margin-top: -8px;
-  border-radius: 3px;
-  background: var(--painel);
-  border: 2px solid var(--destaque);
-  box-shadow: 0 0 10px rgba(76, 141, 255, 0.45);
-  transition: left 1.3s ease-in-out, top 1.3s ease-in-out, opacity 0.25s ease;
-  will-change: left, top;
-}
-
-/* "Aba" do envelope, em pixel art simples */
-.envelope::after {
-  content: "";
-  position: absolute;
-  inset: 2px 3px auto 3px;
-  height: 6px;
-  border-top: 2px solid currentColor;
-  border-left: 2px solid currentColor;
-  border-right: 2px solid currentColor;
-  transform: skewX(0deg);
-  opacity: 0.7;
-}
-
 .log-lateral {
   display: flex;
   flex-direction: column;
@@ -238,51 +161,188 @@ textarea {
   font-size: 12px;
 }
 
-/* Escritorio virtual: guarita do Rui (Vigia) no corredor (Requirement 7.1).
-   A luz de alerta pisca em #FF7A59 enquanto houver incidente aberto. Quando
-   nao ha incidente, a luz fica apagada (sem animacao). */
-.guarita {
+/* ---------------------------------------------------------------------------
+   Escritorio virtual (planta 872x688, pixel art em CSS puro).
+   Posicoes e cores seguem docs/mockup-escritorio.dc.html. */
+
+.esc-planta {
+  position: relative;
+  width: 872px;
+  height: 688px;
+  flex-shrink: 0;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.esc-planta div {
+  box-sizing: border-box;
+}
+
+.esc-madeira {
+  background-color: #2b2320;
+  background-image: repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.28) 0 2px, transparent 2px 64px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 16px);
+}
+
+.esc-carpete {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.esc-ladrilho {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.esc-rotulo {
   position: absolute;
+  font-family: var(--fonte-titulo);
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #a3b0cc;
+}
+
+.esc-balao {
+  position: absolute;
+  height: 28px;
+  padding: 0 10px;
+  background: #e8eef9;
+  color: #0b1020;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 28px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.esc-cracha {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 3px 8px;
-  border: 1px solid var(--borda-forte);
-  border-radius: 5px;
-  background: var(--painel);
-  font-family: var(--fonte-titulo);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--texto-secundario);
-  z-index: 3;
+  background: #0b1020;
+  border: 1px solid;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 
-.guarita-luz {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--borda-forte);
-  box-shadow: none;
-  flex-shrink: 0;
+.esc-rodape {
+  position: absolute;
+  width: 252px;
+  height: 28px;
+  padding: 0 10px;
+  background: rgba(11, 16, 32, 0.88);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 6;
 }
 
-/* Alerta ligado: pisca em #FF7A59 (Requirement 7.1). */
-.guarita-luz-alerta {
-  background: #ff7a59;
-  animation: piscar-alerta 1s ease-in-out infinite;
+.esc-sombra-noite {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  background: rgba(4, 7, 16, 0.66);
+  border-radius: 4px;
+  z-index: 5;
+  pointer-events: none;
 }
 
-@keyframes piscar-alerta {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow: 0 0 8px 2px #ff7a59;
-  }
-  50% {
-    opacity: 0.3;
-    box-shadow: 0 0 2px 0 #ff7a59;
-  }
+.esc-andando {
+  position: absolute;
+  width: 18px;
+  height: 34px;
+  z-index: 8;
+}
+
+.esc-envelope {
+  position: absolute;
+  width: 24px;
+  height: 18px;
+  background: #e8eef9;
+  border: 2px solid;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.esc-digitando {
+  animation: esc-digitando 1s steps(3) infinite;
+}
+
+@keyframes esc-digitando {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.esc-mexendo {
+  animation: esc-mexendo 1.2s ease-in-out infinite;
+}
+
+@keyframes esc-mexendo {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+.esc-led {
+  animation: esc-led 1.3s steps(2) infinite;
+}
+
+@keyframes esc-led {
+  0% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+
+.esc-espera {
+  animation: esc-espera 1.4s ease-in-out infinite;
+}
+
+@keyframes esc-espera {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(242, 165, 65, 0.55), inset 0 0 40px rgba(242, 165, 65, 0.12); }
+  50% { box-shadow: 0 0 0 8px rgba(242, 165, 65, 0), inset 0 0 40px rgba(242, 165, 65, 0.12); }
+}
+
+.esc-vivo {
+  animation: esc-vivo 1.6s ease-in-out infinite;
+}
+
+@keyframes esc-vivo {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.esc-passo {
+  animation: esc-passo 0.32s steps(2) infinite;
+}
+
+@keyframes esc-passo {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-2px); }
+}
+
+.esc-gole {
+  animation: esc-gole 3s ease-in-out infinite;
+}
+
+@keyframes esc-gole {
+  0%, 80%, 100% { transform: translateY(0); }
+  88% { transform: translateY(-3px); }
+}
+
+.esc-alerta {
+  animation: esc-alerta 0.7s steps(2) infinite;
+}
+
+@keyframes esc-alerta {
+  0% { opacity: 1; box-shadow: 0 0 14px #ff7a59; }
+  100% { opacity: 0.25; box-shadow: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -291,16 +351,14 @@ textarea {
     transition-duration: 0.001ms !important;
   }
 
-  /* Com reduced-motion o envelope nao desliza: pula direto ao destino
-     (Requirement 8.7). O !important acima ja zera a transicao; reforcamos
-     aqui para deixar explicito. */
-  .envelope {
-    transition-duration: 0.001ms !important;
-  }
-
-  /* Com reduced-motion a luz de alerta nao pisca, mas fica acesa em #FF7A59
-     para continuar sinalizando incidente aberto (Requirement 7.1). */
-  .guarita-luz-alerta {
-    opacity: 1 !important;
+  .esc-digitando,
+  .esc-mexendo,
+  .esc-led,
+  .esc-espera,
+  .esc-vivo,
+  .esc-passo,
+  .esc-gole,
+  .esc-alerta {
+    animation: none !important;
   }
 }

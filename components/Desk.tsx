@@ -1,284 +1,127 @@
-"use client";
+// Estação de trabalho de uma sala (caixa 180×160 do mockup): balão com o que
+// o agente está fazendo, crachá "Nome · Papel · Nível", cadeira, personagem
+// (se estiver na mesa), mesa, monitor, teclado e caneca.
 
-// Mesa individual do escritório virtual (Requirements 8.1, 8.2, 8.3).
-// Componente puramente de apresentação: recebe o agente e o estado já
-// derivado das atividades (ver Office.tsx). Desenha uma mesa em pixel art
-// de 200×160: bonequinho do agente, monitor, nome (fonte Silkscreen), nível,
-// estado e rodapé com a ferramenta e os tokens do dia.
-//   - ativo:  borda na cor do agente, monitor "digitando", balão com o detalhe
-//             da última atividade;
-//   - ocioso: texto ocioso do agente;
-//   - espera: âmbar (#F2A541), usado quando há aprovação pendente (Agenda).
+import type { Agente, Pessoa } from "../lib/agents";
+import { FiguraMesa } from "./Personagem";
 
-import { Agente } from "../lib/agents";
+export type EstadoMesa = "ativo" | "ocioso" | "espera";
 
-export const LARGURA_MESA = 200;
-export const ALTURA_MESA = 160;
+export const LARGURA_ESTACAO = 180;
+export const ALTURA_ESTACAO = 160;
 
-// "plantao": Rui (Vigia) de plantão enquanto há incidente aberto — não vai à
-// copa (Requirement 7.4). Visualmente fica alerta na cor do agente, sem o texto
-// ocioso, mas sem o balão/animação de "trabalhando" do estado ativo.
-export type EstadoMesa = "ativo" | "ocioso" | "espera" | "plantao";
-
-const COR_ESPERA = "#f2a541";
-
-export type DeskProps = {
+export default function Desk({
+  agente,
+  pessoa,
+  estado,
+  balao,
+  sentado,
+  cracha = true,
+}: {
   agente: Agente;
+  pessoa: Pessoa;
   estado: EstadoMesa;
-  // Detalhe da última atividade (mostrado no balão quando ativo).
-  detalhe?: string | null;
-  // Tokens gastos hoje pelo agente.
-  tokens?: number;
-};
-
-function corBorda(agente: Agente, estado: EstadoMesa): string {
-  if (estado === "espera") return COR_ESPERA;
-  if (estado === "ativo" || estado === "plantao") return agente.cor;
-  return "var(--borda-forte)";
-}
-
-// Bonequinho em pixel art: cabeça na cor do agente com dois olhos e corpo
-// num tom mais escuro da mesma cor.
-function Boneco({ agente, estado }: { agente: Agente; estado: EstadoMesa }) {
-  const ativo = estado === "ativo";
+  balao: string | null;
+  sentado: boolean;
+  cracha?: boolean;
+}) {
+  const ativo = estado === "ativo" && sentado;
+  const tela = ativo ? agente.cor : estado === "espera" ? "#F2A541" : "#2C3654";
   return (
-    <div
-      aria-hidden="true"
-      className={ativo ? "boneco boneco-ativo" : "boneco"}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
-    >
-      <div
-        style={{
-          width: "20px",
-          height: "18px",
-          background: agente.cor,
-          position: "relative",
-          boxShadow: "inset -2px -2px 0 rgba(0,0,0,0.18)",
-        }}
-      >
-        {[5, 11].map((esq) => (
-          <span
-            key={esq}
-            className="olho-boneco"
-            style={{
-              position: "absolute",
-              top: "6px",
-              left: `${esq}px`,
-              width: "4px",
-              height: "4px",
-              background: "#0b1220",
-            }}
-          />
-        ))}
-      </div>
-      <div
-        style={{
-          width: "26px",
-          height: "16px",
-          marginTop: "2px",
-          background: `color-mix(in srgb, ${agente.cor} 55%, #0b1220)`,
-          boxShadow: "inset -2px -2px 0 rgba(0,0,0,0.2)",
-        }}
-      />
-    </div>
-  );
-}
-
-// Monitor com linhas de "código"; as linhas piscam na cor do agente quando ativo.
-function Monitor({ agente, estado }: { agente: Agente; estado: EstadoMesa }) {
-  const ligado = estado !== "ocioso";
-  const cor = estado === "espera" ? COR_ESPERA : agente.cor;
-  const larguras = ["70%", "50%", "85%", "40%"];
-  return (
-    <div
-      aria-hidden="true"
-      style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
-    >
-      <div
-        style={{
-          width: "88px",
-          height: "38px",
-          borderRadius: "3px",
-          background: "var(--fundo)",
-          border: `2px solid ${ligado ? cor : "var(--borda-forte)"}`,
-          padding: "5px 7px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "4px",
-          boxShadow: ligado ? `0 0 8px ${cor}55` : "none",
-        }}
-      >
-        {larguras.slice(0, 3).map((w, i) => (
-          <span
-            key={i}
-            className={estado === "ativo" ? "ponto-digitando" : undefined}
-            style={{
-              display: "block",
-              width: w,
-              height: "3px",
-              background: ligado ? cor : "var(--borda-forte)",
-              animationDelay: estado === "ativo" ? `${i * 0.2}s` : undefined,
-            }}
-          />
-        ))}
-      </div>
-      <div style={{ width: "14px", height: "4px", background: "var(--borda-forte)" }} />
-    </div>
-  );
-}
-
-export default function Desk({ agente, estado, detalhe, tokens = 0 }: DeskProps) {
-  const borda = corBorda(agente, estado);
-  const ativo = estado === "ativo";
-  const espera = estado === "espera";
-
-  const textoEstado = espera
-    ? "aguardando aprovação"
-    : ativo
-    ? detalhe || "trabalhando…"
-    : agente.ocioso;
-  const corPonto = espera ? COR_ESPERA : ativo ? agente.cor : "var(--texto-secundario)";
-
-  return (
-    <div
-      style={{
-        width: `${LARGURA_MESA}px`,
-        height: `${ALTURA_MESA}px`,
-        position: "relative",
-      }}
-      data-agente={agente.id}
-      data-estado={estado}
-    >
-      {/* Balão com o detalhe da última atividade (ativo) ou aviso de espera */}
-      {((ativo && detalhe) || espera) && (
-        <div
-          className="mono balao-mesa"
-          style={{
-            position: "absolute",
-            bottom: "calc(100% + 6px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            maxWidth: "220px",
-            padding: "6px 10px",
-            background: "#e8eef9",
-            border: `1px solid ${espera ? COR_ESPERA : agente.cor}`,
-            borderRadius: "6px",
-            color: "#0b1220",
-            fontSize: "11px",
-            lineHeight: 1.35,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            zIndex: 3,
-          }}
-          title={espera ? "aguardando aprovação" : detalhe ?? undefined}
-        >
-          {espera ? "aguardando aprovação" : detalhe}
+    <div style={{ position: "absolute", left: 0, top: 0, width: LARGURA_ESTACAO, height: ALTURA_ESTACAO }}>
+      {balao && sentado && (
+        <div className="esc-balao" style={{ left: 0, right: 0, top: 0, zIndex: 3 }}>
+          {balao}
+        </div>
+      )}
+      {cracha && (
+        <div style={{ position: "absolute", left: 0, right: 0, top: 36, display: "flex", justifyContent: "center" }}>
+          <div className="esc-cracha" style={{ borderColor: agente.cor }}>
+            <span style={{ fontFamily: "var(--fonte-titulo)", fontSize: 12, color: "#E8EEF9" }}>{pessoa.nome}</span>
+            <span style={{ fontSize: 10, color: "#A3B0CC" }}>
+              {agente.papel} · {agente.nivel}
+            </span>
+          </div>
         </div>
       )}
 
-      {/* Corpo da mesa */}
-      <div
-        className="painel"
-        style={{
-          width: "100%",
-          height: "100%",
-          padding: "12px",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          borderColor: borda,
-          borderWidth: ativo || espera ? "2px" : "1px",
-          boxShadow: ativo
-            ? `0 0 0 1px ${agente.cor}, 0 0 16px ${agente.cor}44`
-            : espera
-            ? `0 0 0 1px ${COR_ESPERA}, 0 0 16px ${COR_ESPERA}44`
-            : "none",
-        }}
-      >
-        {/* Bonequinho + monitor */}
+      <div aria-hidden="true">
+        {/* cadeira */}
         <div
           style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            paddingLeft: "8px",
+            position: "absolute",
+            left: 88,
+            top: 68,
+            width: 48,
+            height: 44,
+            background: "#2A2F45",
+            borderRadius: "10px 10px 4px 4px",
           }}
-        >
-          <Boneco agente={agente} estado={estado} />
-          <Monitor agente={agente} estado={estado} />
-        </div>
-
-        {/* Nome + nível */}
+        />
+        {sentado && <FiguraMesa visual={pessoa.visual} mexendo={ativo} />}
+        {/* mesa */}
         <div
           style={{
+            position: "absolute",
+            left: 6,
+            top: 112,
+            width: 168,
+            height: 40,
+            background: "#7A5236",
+            borderTop: "6px solid #9A6A45",
+            borderRadius: 3,
+            boxShadow: "0 6px 0 #4A3222",
+          }}
+        />
+        {/* monitor */}
+        <div
+          style={{
+            position: "absolute",
+            left: 18,
+            top: 70,
+            width: 62,
+            height: 44,
+            background: "#1B2235",
+            border: "3px solid #2C3654",
+            borderRadius: 3,
+            padding: 6,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "8px",
+            flexDirection: "column",
+            gap: 4,
           }}
         >
-          <span
-            className="titulo-pixel"
-            style={{
-              fontSize: "11px",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: ativo ? agente.cor : "var(--texto)",
-            }}
-          >
-            {agente.nome}
-          </span>
-          <span
-            className="mono texto-secundario"
-            style={{
-              fontSize: "9px",
-              padding: "1px 5px",
-              border: "1px solid var(--borda-forte)",
-              borderRadius: "3px",
-            }}
-            aria-label={`nível ${agente.nivel}`}
-          >
-            {agente.nivel}
-          </span>
-        </div>
-
-        {/* Estado + rodapé */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <div
-            className="mono"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "11px",
-              color: ativo || espera ? "var(--texto)" : "var(--texto-secundario)",
-              minWidth: 0,
-            }}
-          >
-            <span
-              aria-hidden="true"
-              style={{
-                width: "6px",
-                height: "6px",
-                borderRadius: "50%",
-                flexShrink: 0,
-                background: corPonto,
-              }}
+          {[70, 45, 85, 60].map((largura, i) => (
+            <div
+              key={i}
+              className={ativo ? "esc-digitando" : undefined}
+              style={{ width: `${largura}%`, height: 3, background: tela }}
             />
-            <span
-              style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-            >
-              {textoEstado}
-            </span>
-          </div>
-          <div
-            className="mono"
-            style={{ fontSize: "10px", color: `color-mix(in srgb, ${agente.cor} 60%, var(--texto-secundario))` }}
-          >
-            {agente.ferramenta} · {tokens.toLocaleString("pt-BR")} tk
-          </div>
+          ))}
         </div>
+        <div style={{ position: "absolute", left: 43, top: 113, width: 12, height: 6, background: "#2C3654" }} />
+        {/* teclado e caneca */}
+        <div
+          style={{
+            position: "absolute",
+            left: 94,
+            top: 122,
+            width: 36,
+            height: 7,
+            background: "#C9D2E6",
+            borderRadius: 2,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: 146,
+            top: 118,
+            width: 10,
+            height: 11,
+            background: "#E8EEF9",
+            borderRadius: 2,
+          }}
+        />
       </div>
     </div>
   );

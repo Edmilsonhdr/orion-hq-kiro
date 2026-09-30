@@ -12,7 +12,16 @@ export function usePoll<T extends { id: number }>(
   caminho: string,
   intervaloMs: number
 ) {
+  return usePollComEstado<T>(caminho, intervaloMs).itens;
+}
+
+// Igual ao usePoll, mas diz também se a primeira busca já voltou.
+export function usePollComEstado<T extends { id: number }>(
+  caminho: string,
+  intervaloMs: number
+) {
   const [itens, setItens] = useState<T[]>([]);
+  const [carregado, setCarregado] = useState(false);
   const desdeRef = useRef(0);
   const buscandoRef = useRef(false);
 
@@ -33,6 +42,7 @@ export function usePoll<T extends { id: number }>(
         desdeRef.current = maior;
         setItens((atuais) => [...atuais, ...novos]);
       }
+      if (Array.isArray(novos)) setCarregado(true);
     } catch {
       // erros de rede ou 401 (tratado no wrapper) não devem quebrar o loop
     } finally {
@@ -44,6 +54,7 @@ export function usePoll<T extends { id: number }>(
     // reinicia o estado quando o caminho muda
     desdeRef.current = 0;
     setItens([]);
+    setCarregado(false);
 
     buscar();
     const timer = setInterval(buscar, intervaloMs);
@@ -59,5 +70,5 @@ export function usePoll<T extends { id: number }>(
     };
   }, [buscar, intervaloMs]);
 
-  return itens;
+  return { itens, carregado };
 }
