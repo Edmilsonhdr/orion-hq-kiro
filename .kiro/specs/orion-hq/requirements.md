@@ -128,12 +128,16 @@ acontecendo e achar problemas.
 
 #### Acceptance Criteria
 
-1. A tela DEVE mostrar uma mesa por agente, em pixel art, dispostas pela hierarquia (Orquestrador no centro).
-2. ENQUANTO um agente tiver atividade de trabalho nos últimos 30 s e ainda não tiver `concluiu` ENTÃO a mesa
-   DEVE aparecer ativa (borda na cor do agente, tela "digitando", balão com o detalhe da última atividade).
-3. ENQUANTO houver aprovação pendente ENTÃO a mesa da Agenda DEVE aparecer em estado de espera (âmbar).
-4. QUANDO chegar uma atividade `delegou` ENTÃO um envelope DEVE se mover da mesa `dados.de` até a mesa
-   `dados.para` em ~1,3 s.
+1. A tela DEVE mostrar a planta do escritório (872×688, pixel art, `docs/mockup-escritorio.dc.html`): 3 salas
+   em cima (Engenharia, Sala do Chefe no centro, Agenda), corredor de madeira com a guarita do Vigia na ponta
+   esquerda e 3 salas embaixo (Negócios, Copa, Baia dos Workers). Cada sala tem paredes, porta para o
+   corredor, piso próprio, rótulo, 2–3 decorações e uma estação (mesa, cadeira, monitor, teclado, caneca).
+2. ENQUANTO um agente tiver atividade de trabalho nos últimos 30 s E estiver na mesa ENTÃO a sala DEVE aparecer
+   ativa (borda na cor do agente com brilho interno, tela "digitando", leve movimento, balão com o detalhe).
+3. ENQUANTO houver aprovação pendente ENTÃO a sala da Agenda DEVE aparecer em espera (borda âmbar `#F2A541`
+   pulsando).
+4. QUANDO chegar uma atividade `delegou` ENTÃO um envelope DEVE sair da mesa `dados.de`, ir ao corredor, andar
+   por ele e entrar na sala `dados.para` (4 pontos, ~0,5 s por trecho), sem passar pela guarita.
 5. A tela DEVE mostrar um log com as atividades recentes (horário, cor do agente, detalhe) e os tokens
    gastos hoje por agente e no total.
 6. A tela DEVE funcionar para quem abre no meio de um run (estado derivado das atividades, não de memória local).
@@ -173,3 +177,44 @@ acontecendo e achar problemas.
 2. `scripts/setup_db.py` DEVE ser idempotente.
 3. `GET /api/saude` DEVE responder 200 sem autenticação, informando se o banco está acessível.
 4. O README DEVE explicar setup local, criação do Neon, variáveis, configuração do webhook do GitHub e deploy.
+
+### Requirement 12 — Rotina do escritório (personagens, café, turnos, fim do dia)
+
+**User Story:** Como sócio, quero que o escritório tenha personagens com rotina (café, turnos, noite), para a
+tela ser agradável de acompanhar sem deixar de refletir o que os agentes estão fazendo de verdade.
+
+#### Acceptance Criteria
+
+1. Nomes, papéis, níveis, cores, pele/cabelo, acessórios e frases de ociosidade DEVEM ficar centralizados em
+   `lib/agents.ts`: Atlas ou Nara (Orquestrador · N1, turnos), Tobias (Tech · N2), Lia (Agenda · N2), Bento
+   (Negócios · N2), Pipo (Worker · N3) e Rui (Vigia · N2, cor `#FF7A59`, guarita no corredor). Componentes NÃO
+   DEVEM ter nomes fixos; ids e valores no banco NÃO DEVEM mudar (nomes são só de exibição).
+2. Todo estado visual (plantão, copa, noite) DEVE ser DERIVADO do relógio (fuso de São Paulo) e das atividades
+   do banco, por funções puras em `lib/rotina.ts`; nada sorteado nem guardado só no navegador. Duas telas com os
+   mesmos dados no mesmo instante DEVEM mostrar a mesma cena.
+3. Cada sala DEVE ter crachá "Nome · Papel · Nível" acima do personagem e rodapé com ponto de status, última
+   atividade (ou "na copa ☕") e tokens de hoje.
+4. QUANDO um especialista (Tobias, Lia, Bento, Pipo, Rui) ficar mais de 2 min sem atividade durante o dia ENTÃO
+   ele DEVE ir pela porta e pelo corredor até a Copa e sentar numa cadeira livre com uma xícara; a cadeira da
+   sala fica vazia. A Copa tem 3 lugares; o próximo espera em pé perto da máquina de café e senta quando vagar,
+   em ordem determinística.
+5. QUANDO houver delegação para alguém na Copa ENTÃO o envelope DEVE ir até a Copa e a pessoa DEVE voltar mais
+   rápido do que foi, antes de a sala ficar ativa. Com 2+ sentados, um balão "…" DEVE aparecer de vez em quando.
+6. ENQUANTO houver aprovação pendente a Lia NÃO DEVE ir à Copa; ENQUANTO houver incidente aberto o Rui NÃO DEVE
+   sair da guarita, e a luz da guarita DEVE piscar em `#FF7A59`.
+7. A Sala do Chefe NUNCA DEVE ficar vazia: exatamente um Orquestrador de plantão, em turnos alternados de
+   90 min a partir da meia-noite (00:00–01:30 Atlas, 01:30–03:00 Nara…), duração configurável em
+   `lib/rotina.ts`. Na troca, quem sai vai à Copa por alguns minutos e some; quem entra vem da Copa até a mesa.
+8. SE houver run em andamento na hora da troca ENTÃO a troca DEVE esperar o run terminar; o fim do adiamento
+   DEVE ser derivado das atividades.
+9. Mensagens do "Orquestrador" no chat DEVEM ser assinadas por quem estava de plantão no `criado_em`, com a cor
+   e o avatar dessa pessoa (o banco continua guardando "Orquestrador"). Log e cartões DEVEM usar o nome de
+   exibição no horário da atividade.
+10. Das 19:00 às 08:00 (São Paulo) os especialistas NÃO DEVEM estar nas salas (sombra, cadeira vazia; o servidor
+    da Engenharia continua piscando). Trabalho noturno DEVE acender a sala e mostrar a pessoa na mesa, que sai
+    pela porta 2 min depois de terminar. O Orquestrador de plantão fica com luminária; o Rui fica na guarita com
+    as câmeras acesas.
+11. Com `prefers-reduced-motion` ninguém DEVE andar (personagens aparecem no destino). A planta DEVE ter
+    `aria-label`; salas e guarita DEVEM ter texto acessível ("Tobias, Tech: na copa"); decoração DEVE ser
+    `aria-hidden`; rodapés e rótulos DEVEM ter contraste ≥ 4,5:1, inclusive à noite.
+12. Em desenvolvimento, `?relogio=HH:MM` DEVE simular o horário (as datas das atividades são deslocadas junto).

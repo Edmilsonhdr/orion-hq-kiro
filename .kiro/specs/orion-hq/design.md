@@ -182,26 +182,45 @@ continua até terminar. Aceitável nesta fase; documentar no README.
 
 - `lib/usePoll.ts`: `usePoll<T extends {id:number}>(path, intervaloMs)` guarda a lista e o maior `id`, chama
   `path?desde=<maior>` e concatena. Pausa quando a aba está oculta (`document.visibilityState`).
-- `lib/agents.ts`:
+- `lib/agents.ts` (Requirement 12.1): `AGENTES` com `id`, `papel`, `nivel`, `cor`, `pessoas` (nome, visual em
+  pixel art, cor no chat), `frasesOciosas` e `sala` (rótulo, posição, piso, parede). O Orquestrador tem duas
+  pessoas (Atlas, Nara); o Vigia (Rui) tem `sala: null` e fica na `GUARITA`. Também exporta `SALA_COPA`,
+  `agentePorId`, `pessoaDoAgente`.
+- `lib/rotina.ts` (Requirement 12.2–12.10): funções puras, sem imports de runtime (testadas com
+  `node --test lib/rotina.test.ts`, script `npm run test:front`).
+  - `ROTINA`: turno 90 min, 2 pessoas no plantão, café após 2 min, ativo por 30 s, noite 19:00–08:00, run
+    parado após 2 min, 5 min na copa ao sair do turno, 3 lugares, janela de 6 h para a simulação da copa.
+  - `plantaoEm(ms, atividades)`: turno nominal pelo relógio de São Paulo; na virada, se houver run em
+    andamento (última atividade não terminal — terminais: `resposta`, `erro`, `aguardando_aprovacao` — há
+    menos de 2 min), a troca espera o primeiro instante sem runs em andamento. Devolve `{pessoa, adiado,
+    trocaEm, saindo}`.
+  - Local de cada especialista: `mesa` se tocado (atividade própria ou `delegou` para ele) há < 2 min;
+    senão `copa` de dia e `casa` à noite. Exceções: Lia fica na mesa com aprovação pendente; Rui fica na
+    guarita com incidente aberto e à noite.
+  - Cadeiras da copa: simulação das entradas/saídas a partir dos intervalos ociosos (desde as 08:00 ou 6 h
+    atrás), em ordem fixa de desempate; quem chega sem cadeira fica em pé e senta na primeira que vagar.
+  - `derivarCena(entrada)` junta tudo; `destinoEnvelope` diz se o destino estava na copa (e em que lugar).
+- `lib/planta.ts`: geometria do mockup (salas 280×280, portas, corredor y = 344, lugares da copa, saída pela
+  ponta direita — a esquerda é da guarita) e as rotas: `caminho(de, para)` sempre pelas portas e pelo
+  corredor; `rotaEnvelope` com 4 pontos (mesa → corredor → corredor → mesa/copa).
+- `lib/exibicao.ts`: `pessoaEm`/`nomeEm(id, criado_em, atividades)` — nome de exibição no horário (para o
+  Orquestrador, quem estava de plantão).
+- `lib/useRelogio.ts`: tick de 1 s; em dev, `?relogio=HH:MM` define um deslocamento aplicado também às datas
+  das atividades (`deslocarDatas`).
+- `GET /api/atividades?desde=0` devolve as atividades das últimas 7 h (no mínimo as últimas 80, teto 3000),
+  para uma tela recém-aberta ter o mesmo histórico que uma aberta há horas.
 
-```ts
-export const AGENTES = [
-  { id: "tech",     nome: "Tech",         nivel: "N2", cor: "#3FC1C9", ocioso: "observando a main",  x: 60,  y: 60  },
-  { id: "agenda",   nome: "Agenda",       nivel: "N2", cor: "#7BD88F", ocioso: "sem pendências",     x: 612, y: 60  },
-  { id: "orq",      nome: "Orquestrador", nivel: "N1", cor: "#4C8DFF", ocioso: "ouvindo o grupo",    x: 336, y: 250 },
-  { id: "negocios", nome: "Negócios",     nivel: "N2", cor: "#A58BFF", ocioso: "aguardando eventos", x: 60,  y: 450 },
-  { id: "work",     nome: "Workers",      nivel: "N3", cor: "#8FA3C7", ocioso: "na fila",            x: 612, y: 450 },
-] as const;
-```
-
-- **Escritório** (`components/Office.tsx`): área 872×688 com piso quadriculado, mesas de 200×160 nas posições
-  acima, linhas tracejadas do Orquestrador para cada especialista. Estado de cada mesa derivado das
-  atividades: última atividade do agente; ativo se tipo ∈ {inicio, pensando, ferramenta, delegou} e idade < 30 s;
-  espera se existe aprovação pendente (Agenda). Envelope: a cada `delegou` novo, posiciona na mesa `de` e
-  anima até a `para` (transição CSS de `left/top`). Barra lateral: log + tokens do dia.
-- **Chat**: bolhas (Orquestrador à esquerda, humanos à direita), cartões de aprovação pendente no topo,
-  indicador "trabalhando…" com o detalhe da última atividade do run atual.
-- Referência visual: mockup "Escritório dos Agentes" feito no Claude (pixel art, tema escuro).
+- **Escritório** (`components/Office.tsx`, `Desk.tsx`, `Personagem.tsx`, `Guarita.tsx`, `Decoracao.tsx`):
+  planta do `docs/mockup-escritorio.dc.html` em CSS puro. Cada sala: estação 180×160 (balão, crachá,
+  cadeira, personagem, mesa, monitor, teclado, caneca), borda ativa/espera, rodapé com status, linha e tokens,
+  sombra noturna e luminária do plantão. Copa com máquina de café, bebedouro, mesa redonda e 3 cadeiras;
+  guarita com monitor 2×2 e luz de alerta. As animações são só transição: quando a posição derivada de alguém
+  muda, ele anda pela rota (460 ms por ponto; 230 ms quando chamado na copa, depois do envelope). Nada anda
+  ao abrir a tela nem com `prefers-reduced-motion`.
+- **Chat**: bolhas (Orquestrador à esquerda, humanos à direita), assinadas por quem estava de plantão no
+  `criado_em` (cor e avatar da pessoa); cartões de aprovação pendente no topo; indicador "trabalhando…" com o
+  nome de exibição.
+- Referência visual: `docs/mockup-escritorio.dc.html` (pixel art, tema escuro). Prints em `docs/prints/`.
 
 ### Paleta e tipografia
 

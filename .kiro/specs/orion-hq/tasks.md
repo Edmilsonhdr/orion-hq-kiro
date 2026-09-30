@@ -84,3 +84,15 @@
   - README: setup local, Neon, variáveis, webhook do GitHub (evento Pull requests, content type JSON, segredo), deploy na Vercel, limitação do timeout de 10 s do GitHub
   - Rodar `pytest` e `npm run build` sem erros
   - _Requirements: 11.4_
+
+- [x] 14. Escritório virtual com rotina (Parte A)
+- [x] 14.1 `lib/agents.ts` com personagens, visual, frases de ociosidade e salas; nenhum nome fixo nos componentes
+  - _Requirements: 12.1_
+- [x] 14.2 `lib/rotina.ts` (plantão com troca adiada, copa com 3 lugares, noite) + `lib/rotina.test.ts` (`npm run test:front`)
+  - _Requirements: 12.2, 12.4, 12.6, 12.7, 12.8, 12.10_
+- [x] 14.3 Planta do mockup: salas, portas, decoração, copa, guarita, caminhadas pelo corredor, envelope em 4 pontos, noite
+  - _Requirements: 8.1-8.4, 12.3, 12.5, 12.10, 12.11_
+- [x] 14.4 Chat, log e cartões com o nome de quem estava de plantão no horário
+  - _Requirements: 12.9_
+- [x] 14.5 `?relogio=HH:MM` (dev), janela de 7 h em `GET /atividades?desde=0`, `seed_demo.py --cenario copa` e prints em `docs/prints/`
+  - _Requirements: 12.2, 12.12_
