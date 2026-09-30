@@ -92,8 +92,11 @@ def listar(desde: int = 0) -> list[dict]:
 
     - `desde > 0`: todas as atividades com `id > desde`, em ordem crescente de
       id (as novas desde a última vista).
-    - `desde == 0`: as últimas 80 atividades, mas devolvidas em ordem crescente
-      de id (o front concatena assumindo ordem crescente).
+    - `desde == 0`: as atividades das últimas 7 horas (no mínimo as últimas
+      80), em ordem crescente de id (o front concatena assumindo ordem
+      crescente). O escritório deriva copa e turnos de uma janela de 6 horas;
+      a folga garante que uma tela recém-aberta tenha o mesmo histórico que
+      uma aberta há horas e mostre a mesma cena.
 
     Cada linha segue o contrato do design.md: id, run_id, agente, tipo,
     detalhe, dados, tokens, criado_em.
@@ -109,13 +112,15 @@ def listar(desde: int = 0) -> list[dict]:
             (desde,),
         )
 
-    # desde == 0: pega as 80 mais recentes (id desc) e reinverte para asc.
+    # desde == 0: janela recente (id desc, com teto) e reinverte para asc.
     recentes = db.consultar(
         """
         select id, run_id, agente, tipo, detalhe, dados, tokens, criado_em
         from atividades
+        where criado_em > now() - interval '7 hours'
+           or id > (select coalesce(max(id), 0) - 80 from atividades)
         order by id desc
-        limit 80
+        limit 3000
         """
     )
     recentes.reverse()

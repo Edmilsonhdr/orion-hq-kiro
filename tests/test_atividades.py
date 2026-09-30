@@ -83,13 +83,39 @@ def test_listar_desde_filtra_e_ordena_crescente(banco):
     assert [a["id"] for a in novas] == [3, 4, 5]
 
 
-def test_listar_desde_zero_pega_ultimas_80_em_ordem_crescente(banco):
-    # Insere 100 atividades numa única conexão (generate_series) para não abrir
-    # 100 conexões curtas — mais rápido e prova o limite de 80 mesmo assim.
+def test_listar_desde_zero_pega_janela_de_7h_em_ordem_crescente(banco):
+    # 100 antigas (8 h atrás) e 30 recentes numa única conexão cada.
+    db.executar(
+        """
+        insert into atividades (run_id, agente, tipo, detalhe, criado_em)
+        select 'run-1', 'tech', 'pensando', g::text, now() - interval '8 hours'
+        from generate_series(1, 100) as g
+        """
+    )
     db.executar(
         """
         insert into atividades (run_id, agente, tipo, detalhe)
-        select 'run-1', 'tech', 'pensando', g::text
+        select 'run-2', 'tech', 'pensando', g::text
+        from generate_series(1, 30) as g
+        """
+    )
+
+    resultado = atividades.listar(0)
+    ids = [a["id"] for a in resultado]
+    assert ids == sorted(ids)
+    # As 30 recentes entram pela janela; das antigas, só o bastante para 80.
+    assert len(resultado) == 80
+    assert ids[0] == 51
+    assert ids[-1] == 130
+
+
+def test_listar_desde_zero_pega_ultimas_80_em_ordem_crescente(banco):
+    # Insere 100 atividades antigas numa única conexão (generate_series):
+    # fora da janela de 7 h, vale o mínimo das 80 mais recentes.
+    db.executar(
+        """
+        insert into atividades (run_id, agente, tipo, detalhe, criado_em)
+        select 'run-1', 'tech', 'pensando', g::text, now() - interval '1 day'
         from generate_series(1, 100) as g
         """
     )
