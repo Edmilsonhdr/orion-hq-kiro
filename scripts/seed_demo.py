@@ -228,9 +228,59 @@ def semear_atividades(run_id: str, aprovacao_id: Optional[int]) -> int:
     return gravadas
 
 
+def semear_copa(run_id: str) -> int:
+    """Cenário "copa": Tobias e Bento ociosos há mais de 2 minutos (estão na
+    copa) enquanto um run curto está em andamento com o Pipo e a Lia na mesa.
+
+    As datas são retroativas (`now() - N segundos`), porque a ida à copa é
+    derivada do tempo desde a última atividade de cada especialista.
+    """
+    from _orion import db
+    from psycopg.types.json import Json
+
+    # (segundos atrás, agente, tipo, detalhe, dados, tokens)
+    linhas: list[tuple[int, str, str, str, Optional[dict], int]] = [
+        (420, "tech", "resposta", "Resumo do changelog entregue", None, 380),
+        (400, "negocios", "resposta", "Métricas da semana prontas", None, 290),
+        (40, "vigia", "pensando", "Conferindo os alertas do Sentry", None, 60),
+        (20, "orq", "inicio", "Recebi um pedido rápido", None, 0),
+        (15, "orq", "delegou", "Delegando ao Worker: formatar a lista", {"de": "orq", "para": "work"}, 0),
+        (8, "work", "ferramenta", "formatando a lista de pendências", None, 120),
+        (5, "agenda", "pensando", "Conferindo a agenda da semana", None, 90),
+    ]
+    for segundos, agente, tipo, detalhe, dados, tokens in linhas:
+        db.executar(
+            """
+            insert into atividades (run_id, agente, tipo, detalhe, dados, tokens, criado_em)
+            values (%s, %s, %s, %s, %s, %s, now() - make_interval(secs => %s))
+            """,
+            (run_id, agente, tipo, detalhe, Json(dados) if dados else None, tokens, segundos),
+        )
+    return len(linhas)
+
+
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Atividades de demonstração do escritório.")
+    parser.add_argument(
+        "--cenario",
+        choices=["trabalho", "copa"],
+        default="trabalho",
+        help="trabalho: run com delegações e aprovação pendente; "
+        "copa: dois especialistas na copa e um run curto em andamento",
+    )
+    args = parser.parse_args()
+
     _exigir_database_url()
     run_id = _run_id_demo()
+
+    if args.cenario == "copa":
+        gravadas = semear_copa(run_id)
+        print(f"run_id de demonstração: {run_id}")
+        print(f"atividades gravadas: {gravadas}")
+        print("Abra /escritorio: Tobias e Bento na copa, Pipo e Lia trabalhando.")
+        return
 
     aprovacao_id = criar_aprovacao_pendente(run_id)
     criar_reuniao_futura(run_id)
@@ -242,6 +292,7 @@ def main() -> None:
     print("Reunião futura de exemplo inserida.")
     print("Abra /escritorio para ver as mesas ativas e o envelope voando.")
     print("Rode de novo para reanimar o escritório.")
+    print("Simule outra hora (só em dev) com /escritorio?relogio=HH:MM, ex.: 01:29 (troca de turno) ou 21:00 (noite).")
 
 
 if __name__ == "__main__":
