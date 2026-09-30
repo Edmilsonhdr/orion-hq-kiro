@@ -11,7 +11,8 @@
 // página (app/(hq)/escritorio/page.tsx).
 
 import { useMemo } from "react";
-import { AGENTES, agentePorId } from "../lib/agents";
+import { AGENTES, agentePorId, pessoaDoAgente } from "../lib/agents";
+import { nomeEm } from "../lib/exibicao";
 import { Atividade } from "./Office";
 
 const FUSO = "America/Sao_Paulo";
@@ -30,11 +31,6 @@ function horaFormatada(criadoEm: string): string {
   const t = new Date(criadoEm);
   if (Number.isNaN(t.getTime())) return "--:--:--";
   return formatadorHora.format(t);
-}
-
-// Rótulo curto do agente (nome do metadado, ou o próprio id como fallback).
-function nomeAgente(id: string): string {
-  return agentePorId(id)?.nome ?? id;
 }
 
 function corAgente(id: string): string {
@@ -64,7 +60,8 @@ export default function LogLateral({
   const recentes = useMemo(() => {
     return [...atividades]
       .sort((a, b) => b.id - a.id)
-      .slice(0, MAX_LINHAS_LOG);
+      .slice(0, MAX_LINHAS_LOG)
+      .map((a) => ({ ...a, nome: nomeEm(a.agente, a.criado_em, atividades) }));
   }, [atividades]);
 
   // Linhas de tokens por agente (na ordem de lib/agents.ts), só quem gastou,
@@ -72,7 +69,7 @@ export default function LogLateral({
   const linhasTokens = useMemo(() => {
     const linhas = AGENTES.map((ag) => ({
       id: ag.id,
-      nome: ag.nome,
+      nome: ag.pessoas.length > 1 ? ag.papel : pessoaDoAgente(ag).nome,
       cor: ag.cor,
       total: tokens[ag.id] ?? 0,
     })).filter((l) => l.total > 0);
@@ -159,7 +156,7 @@ export default function LogLateral({
                   flexShrink: 0,
                 }}
               >
-                {nomeAgente(a.agente)}
+                {a.nome}
               </span>
               <span
                 style={{

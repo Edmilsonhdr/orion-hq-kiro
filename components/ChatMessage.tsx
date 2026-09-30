@@ -6,7 +6,8 @@
 // O componente é puramente de apresentação; recebe a mensagem já pronta.
 
 import type { ReactNode } from "react";
-import { agentePorId } from "../lib/agents";
+import type { Pessoa } from "../lib/agents";
+import { FiguraMini } from "./Personagem";
 
 export type Mensagem = {
   id: number;
@@ -58,17 +59,19 @@ function comLinks(texto: string): ReactNode[] {
   return partes;
 }
 
-function iniciais(nome: string): string {
-  const limpo = nome.trim();
-  if (!limpo) return "?";
-  return limpo.charAt(0).toUpperCase();
-}
-
-export default function ChatMessage({ mensagem }: { mensagem: Mensagem }) {
+// `assinatura`: quem estava de plantão no horário da mensagem (as mensagens
+// do Orquestrador são assinadas por essa pessoa; o banco guarda "Orquestrador").
+export default function ChatMessage({
+  mensagem,
+  assinatura,
+}: {
+  mensagem: Mensagem;
+  assinatura?: Pessoa | null;
+}) {
   const doOrquestrador = mensagem.autor === AUTOR_ORQ;
-  const corOrq = agentePorId("orq")?.cor ?? "var(--destaque)";
+  const corOrq = assinatura?.corChat ?? "var(--destaque)";
 
-  const nome = doOrquestrador ? "Orquestrador" : mensagem.autor;
+  const nome = doOrquestrador ? (assinatura?.nome ?? "Orquestrador") : mensagem.autor;
   const corAcento = doOrquestrador ? corOrq : "var(--borda-forte)";
 
   return (
@@ -82,22 +85,22 @@ export default function ChatMessage({ mensagem }: { mensagem: Mensagem }) {
       {doOrquestrador && (
         <div
           aria-hidden="true"
-          className="titulo-pixel"
           style={{
+            position: "relative",
             flexShrink: 0,
             width: "36px",
             height: "36px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             borderRadius: "8px",
             background: "var(--painel)",
             border: `1px solid ${corOrq}`,
-            color: corOrq,
-            fontSize: "14px",
+            overflow: "hidden",
           }}
         >
-          {iniciais(nome)}
+          {assinatura && (
+            <div style={{ position: "absolute", left: 7, top: 8, width: 20, height: 34 }}>
+              <FiguraMini visual={assinatura.visual} />
+            </div>
+          )}
         </div>
       )}
 

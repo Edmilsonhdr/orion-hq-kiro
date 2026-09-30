@@ -13,7 +13,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ErroApi, enviar, obter } from "../../../lib/api";
 import { usePoll } from "../../../lib/usePoll";
-import { agentePorId } from "../../../lib/agents";
+import { nomeEm, pessoaEm } from "../../../lib/exibicao";
 import ChatMessage, { Mensagem } from "../../../components/ChatMessage";
 import ApprovalCard, { Aprovacao } from "../../../components/ApprovalCard";
 
@@ -52,7 +52,7 @@ function indicadorTrabalho(atividades: Atividade[]): string | null {
   const idade = Date.now() - new Date(ultima.criado_em).getTime();
   if (Number.isNaN(idade) || idade > IDADE_ATIVA_MS) return null;
 
-  const nome = agentePorId(ultima.agente)?.nome ?? ultima.agente;
+  const nome = nomeEm(ultima.agente, ultima.criado_em, atividades);
   const detalhe = (ultima.detalhe || "").trim();
   return detalhe ? `${nome} · ${detalhe}` : nome;
 }
@@ -81,6 +81,10 @@ export default function ChatPage() {
   const fimRef = useRef<HTMLDivElement | null>(null);
 
   const trabalho = useMemo(() => indicadorTrabalho(atividades), [atividades]);
+  const assinaturas = useMemo(
+    () => new Map(mensagens.map((m) => [m.id, pessoaEm("orq", m.criado_em, atividades)])),
+    [mensagens, atividades]
+  );
 
   // Rola para o fim quando chegam mensagens novas ou muda o indicador.
   useEffect(() => {
@@ -198,7 +202,7 @@ export default function ChatPage() {
           </p>
         )}
         {mensagens.map((m) => (
-          <ChatMessage key={m.id} mensagem={m} />
+          <ChatMessage key={m.id} mensagem={m} assinatura={assinaturas.get(m.id)} />
         ))}
         <div ref={fimRef} />
       </div>

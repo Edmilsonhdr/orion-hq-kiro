@@ -5,6 +5,9 @@
 // Aprovar/Recusar. Reutilizável no topo do chat e na tela de aprovações.
 // A decisão é delegada ao pai via `onDecidir(id, aprovado)`.
 
+import { agentePorId } from "../lib/agents";
+import { nomeEm } from "../lib/exibicao";
+
 export type Aprovacao = {
   id: number;
   tipo: string;
@@ -37,6 +40,13 @@ function dataHora(iso: string | null | undefined): string {
   } catch {
     return String(iso);
   }
+}
+
+// `pedido_por` pode ser um id de agente ("agenda"): mostra "Lia (Agenda)".
+function quemPediu(pedidoPor: string, criadoEm: string): string {
+  const agente = agentePorId(pedidoPor);
+  if (!agente) return pedidoPor;
+  return `${nomeEm(agente.id, criadoEm, [])} (${agente.papel})`;
 }
 
 function DetalhesReuniao({ proposta }: { proposta: PropostaReuniao }) {
@@ -127,7 +137,7 @@ export default function ApprovalCard({
 
       {aprovacao.pedido_por && (
         <div className="texto-secundario" style={{ fontSize: "13px" }}>
-          Pedido por {aprovacao.pedido_por}
+          Pedido por {quemPediu(aprovacao.pedido_por, aprovacao.criado_em)}
         </div>
       )}
 
