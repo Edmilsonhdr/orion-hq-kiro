@@ -2585,3 +2585,43 @@ dialog.modal {
   color: var(--destaque);
   text-decoration: underline;
 }
+
+/* =========================================================================
+   Estilo corporativo: pedra polida no corredor e salas de vidro
+   ========================================================================= */
+
+.esc-planta.esc-madeira {
+  background-color: #141b2d;
+  background-image:
+    /* faixa de luz guiando o corredor (y = 344) */
+    linear-gradient(180deg, transparent 0, transparent 338px, rgba(120, 180, 255, 0.35) 338px, rgba(120, 180, 255, 0.35) 340px, transparent 340px, transparent 348px, rgba(120, 180, 255, 0.35) 348px, rgba(120, 180, 255, 0.35) 350px, transparent 350px),
+    /* brilho de piso polido */
+    linear-gradient(180deg, rgba(120, 170, 255, 0.07) 0%, rgba(255, 255, 255, 0) 38%, rgba(120, 170, 255, 0.05) 100%),
+    /* placas de pedra */
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(135deg, #1b2540 0%, #10172a 100%);
+  background-size: 100% 100%, 100% 100%, 72px 72px, 72px 72px, 100% 100%;
+}
+
+/* Paredes de vidro nas salas */
+.esc-carpete,
+.esc-ladrilho {
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(150, 200, 255, 0.28),
+    inset 0 0 0 2px rgba(150, 200, 255, 0.16),
+    inset 0 0 40px rgba(76, 141, 255, 0.07),
+    inset 0 18px 30px rgba(0, 0, 0, 0.28) !important;
+}
+
+.esc-planta::before {
+  background:
+    radial-gradient(ellipse 70% 12% at 50% 50%, rgba(120, 180, 255, 0.14), transparent 70%),
+    radial-gradient(ellipse 65% 55% at 50% 38%, rgba(255, 226, 170, 0.07), transparent 70%),
+    radial-gradient(ellipse 120% 100% at 50% 50%, transparent 55%, rgba(2, 4, 12, 0.55) 100%);
+}
+
+.esc-moldura .esc-planta {
+  box-shadow: 0 0 0 1px rgba(150, 200, 255, 0.2), 0 12px 40px rgba(0, 0, 0, 0.55);
+}
