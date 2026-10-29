@@ -17,15 +17,24 @@ em português.
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from typing import Optional
 
 from langchain_core.tools import tool
 
-from . import config, db
+from . import config, db, documentos, propostas_docs
+
+# (agente, run_id) do especialista em execução. As tools do LangChain não conhecem o run, então o loop
+# de `especialistas.rodar_com_ferramentas` publica aqui (usado pelas propostas de documento).
+contexto: ContextVar[tuple[str, Optional[str]]] = ContextVar(
+    "ferramentas_contexto", default=("agente", None)
+)
 
 # Quantos itens do changelog devolver por consulta (evita respostas enormes).
 _LIMITE_BUSCA = 8
 _LIMITE_RECENTES = 20
+# Quanto de um documento devolver ao modelo (spec docs, Requirement 6.3).
+_LIMITE_DOCUMENTO = 20_000
 
 
 def _formatar_item(item: dict) -> str:
@@ -190,6 +199,62 @@ def _registrar_decisao(titulo: str, descricao: str) -> str:
     return f'Decisão registrada no histórico do projeto (decisao · {data}): "{titulo}".'
 
 
+def _data_ptbr(momento) -> str:
+    """Data dd/mm/aaaa no fuso do projeto (mesma regra de `_formatar_item`)."""
+    try:
+        local = momento.astimezone(config.TZ)
+        return f"{local.day:02d}/{local.month:02d}/{local.year}"
+    except (AttributeError, ValueError, TypeError):
+        return "data desconhecida"
+
+
+def _formatar_documento(item: dict) -> str:
+    """Resultado de busca de documento citando id, pasta e data de atualização."""
+    pasta = item.get("pasta")
+    cabecalho = f"documento #{item['id']}" + (f" · {pasta}" if pasta else "")
+    linha = f"[{cabecalho} · {_data_ptbr(item.get('atualizado_em'))}] {item['titulo']}"
+    trecho = (item.get("trecho") or "").strip()
+    if trecho:
+        linha += f"\n{trecho}"
+    return linha
+
+
+def _buscar_documentos(consulta: str) -> str:
+    """Busca nos documentos dos sócios (Docs): full-text em português com fallback ILIKE."""
+    consulta = (consulta or "").strip()
+    if not consulta:
+        return "Consulta vazia: informe um termo para buscar nos documentos."
+
+    itens = documentos.buscar(consulta)
+    if not itens:
+        return f'Nada encontrado nos documentos para "{consulta}".'
+    return "\n\n".join(_formatar_documento(item) for item in itens)
+
+
+def _ler_documento(documento_id: int) -> str:
+    """Conteúdo de um documento, truncado em `_LIMITE_DOCUMENTO` caracteres."""
+    try:
+        documento_id = int(documento_id)
+    except (TypeError, ValueError):
+        return "Informe o número (id) do documento, como aparece na busca."
+
+    documento = documentos.obter(documento_id)
+    if documento is None:
+        return f"Não existe documento com o id {documento_id}."
+    if documento["arquivado"]:
+        return (
+            f'O documento #{documento_id} ("{documento["titulo"]}") está arquivado '
+            "e não pode ser usado."
+        )
+
+    texto = documento["conteudo"]
+    aviso = ""
+    if len(texto) > _LIMITE_DOCUMENTO:
+        texto = texto[:_LIMITE_DOCUMENTO]
+        aviso = f"\n\n[Conteúdo truncado: mostrando os primeiros {_LIMITE_DOCUMENTO} caracteres.]"
+    return f"{_formatar_documento(documento)}\n\n{texto}{aviso}"
+
+
 # --- Tools expostas aos especialistas (compatíveis com bind_tools) ---
 
 
@@ -225,8 +290,79 @@ def registrar_decisao(titulo: str, descricao: str) -> str:
     return _registrar_decisao(titulo, descricao)
 
 
+@tool
+def buscar_documentos(consulta: str) -> str:
+    """Busca nos documentos escritos pelos sócios (Docs) por um termo.
+
+    Use para responder perguntas sobre o que os sócios documentaram: planos,
+    decisões, processos, anotações. Cita o id, a pasta e a data de cada
+    documento. Se não achar nada, diz que não encontrou. Para ver o texto
+    completo de um resultado, use `ler_documento` com o id.
+    """
+    return _buscar_documentos(consulta)
+
+
+@tool
+def ler_documento(documento_id: int) -> str:
+    """Lê o conteúdo de um documento (Docs) pelo id, como aparece na busca.
+
+    Devolve o texto em markdown, com título, pasta e data. Nunca invente o que
+    não estiver no texto retornado.
+    """
+    return _ler_documento(documento_id)
+
+
+@tool
+def propor_documento(
+    titulo: str, conteudo: str, pasta: str = "", tags: Optional[list[str]] = None
+) -> str:
+    """PROPÕE criar um documento novo em Docs (não grava nada até um sócio aprovar).
+
+    Use quando os sócios pedirem para registrar/escrever algo em Docs (ata, plano, anotação). Escreva o
+    `conteudo` completo em markdown. Informe `pasta` e `tags` se fizer sentido. Depois de chamar, diga
+    que PROPÔS e que depende de aprovação; nunca diga que já criou.
+    """
+    agente, run_id = contexto.get()
+    return propostas_docs.propor_criacao(agente, run_id, titulo, conteudo, pasta or None, tags)
+
+
+@tool
+def propor_edicao_documento(
+    documento_id: int,
+    titulo: Optional[str] = None,
+    conteudo: Optional[str] = None,
+    pasta: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+) -> str:
+    """PROPÕE editar um documento existente (não grava nada até um sócio aprovar).
+
+    Primeiro leia o documento com `ler_documento`. Informe só o que muda; `conteudo` é o texto COMPLETO
+    novo (substitui o atual). Para limpar a pasta, mande string vazia. Depois de chamar, diga que PROPÔS
+    e que depende de aprovação; nunca diga que já alterou.
+    """
+    agente, run_id = contexto.get()
+    return propostas_docs.propor_edicao(
+        agente, run_id, documento_id, titulo, conteudo, pasta, tags
+    )
+
+
 # Conjuntos de ferramentas por especialista (usados em especialistas.py).
 # Tech: consulta o changelog (Requirement 4.1).
-FERRAMENTAS_TECH: tuple = (buscar_changelog, mudancas_recentes)
+FERRAMENTAS_TECH: tuple = (
+    buscar_changelog,
+    mudancas_recentes,
+    buscar_documentos,
+    ler_documento,
+    propor_documento,
+    propor_edicao_documento,
+)
 # Negócios: consulta e registra decisões (Requirement 7.1).
-FERRAMENTAS_NEGOCIOS: tuple = (buscar_changelog, mudancas_recentes, registrar_decisao)
+FERRAMENTAS_NEGOCIOS: tuple = (
+    buscar_changelog,
+    mudancas_recentes,
+    registrar_decisao,
+    buscar_documentos,
+    ler_documento,
+    propor_documento,
+    propor_edicao_documento,
+)

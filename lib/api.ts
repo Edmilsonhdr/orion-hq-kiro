@@ -59,3 +59,7 @@ export function enviar<T>(caminho: string, dados?: unknown): Promise<T> {
     body: dados === undefined ? undefined : JSON.stringify(dados),
   });
 }
+
+export function atualizar<T>(caminho: string, dados: unknown): Promise<T> {
+  return requisitar<T>(caminho, { method: "PUT", body: JSON.stringify(dados) });
+}

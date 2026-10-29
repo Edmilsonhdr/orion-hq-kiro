@@ -24,7 +24,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 
-from _orion import atividades, auth, config, db
+from _orion import atividades, auth, config, db, documentos
 
 app = FastAPI(title="Orion HQ")
 
@@ -61,6 +61,31 @@ class StatusIncidente(BaseModel):
 # Status que a rota de mudança manual aceita (Requirement 6.4). `diagnosticado`
 # fica de fora: é o fluxo do diagnóstico que o define, não o botão do sócio.
 _STATUS_INCIDENTE_VALIDOS = {"resolvido", "ignorado", "aberto"}
+
+
+class DocumentoNovo(BaseModel):
+    """Corpo do `POST /documentos` (Docs — Requirement 1.1)."""
+
+    titulo: str
+    conteudo: str = ""
+    pasta: str | None = None
+    tags: list[str] = []
+
+
+class DocumentoEdicao(BaseModel):
+    """Corpo do `PUT /documentos/{id}`: só os campos enviados são alterados."""
+
+    titulo: str | None = None
+    conteudo: str | None = None
+    pasta: str | None = None
+    tags: list[str] | None = None
+
+
+class ArquivarDocumento(BaseModel):
+    """Corpo do `POST /documentos/{id}/arquivar`."""
+
+    arquivado: bool = True
+
 
 
 @app.post("/api/login")
@@ -279,6 +304,132 @@ def _montar_ics(reuniao: dict) -> str:
         "END:VCALENDAR",
     ]
     return "\r\n".join(linhas) + "\r\n"
+
+
+def _documento_ou_404(documento: dict | None) -> dict:
+    if documento is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento não encontrado.",
+        )
+    return documento
+
+
+def _invalido(erro: ValueError) -> HTTPException:
+    return HTTPException(
+        status_code=422, detail=str(erro)
+    )
+
+
+@app.get("/api/documentos")
+def listar_documentos(
+    q: str | None = None,
+    pasta: str | None = None,
+    tag: str | None = None,
+    arquivados: bool = False,
+    usuario: str = Depends(auth.usuario_atual),
+) -> list[dict]:
+    """Lista ou busca documentos (Docs — Requirements 3.1–3.3, 4).
+
+    Com `q`, busca em título e conteúdo (full-text em português, fallback ILIKE);
+    `pasta`/`tag` filtram a listagem normal. Arquivados só com `arquivados=true`.
+    """
+    if q and q.strip():
+        return documentos.buscar(q, arquivados)
+    return documentos.listar(pasta, tag, arquivados)
+
+
+@app.get("/api/documentos/pastas")
+def pastas_documentos(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Pastas e tags existentes, para os filtros da tela."""
+    return documentos.pastas_e_tags()
+
+
+@app.post("/api/documentos", status_code=status.HTTP_201_CREATED)
+def criar_documento(
+    corpo: DocumentoNovo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    """Cria um documento (Docs — Requirements 1.1–1.3, 1.5)."""
+    try:
+        return documentos.criar(
+            corpo.titulo, corpo.conteudo, corpo.pasta, corpo.tags, usuario
+        )
+    except ValueError as erro:
+        raise _invalido(erro)
+
+
+@app.get("/api/documentos/{documento_id}")
+def detalhe_documento(
+    documento_id: int, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    """Documento completo (404 se não existir)."""
+    return _documento_ou_404(documentos.obter(documento_id))
+
+
+@app.put("/api/documentos/{documento_id}")
+def editar_documento(
+    documento_id: int,
+    corpo: DocumentoEdicao,
+    usuario: str = Depends(auth.usuario_atual),
+) -> dict:
+    """Edita o documento; título/conteúdo alterados geram versão (Requirement 2.1)."""
+    try:
+        editado = documentos.editar(
+            documento_id, corpo.model_dump(exclude_unset=True), usuario
+        )
+    except ValueError as erro:
+        raise _invalido(erro)
+    return _documento_ou_404(editado)
+
+
+@app.post("/api/documentos/{documento_id}/arquivar")
+def arquivar_documento(
+    documento_id: int,
+    corpo: ArquivarDocumento,
+    usuario: str = Depends(auth.usuario_atual),
+) -> dict:
+    """Arquiva ou desarquiva (não há exclusão definitiva — Requirement 3.4)."""
+    return _documento_ou_404(documentos.arquivar(documento_id, corpo.arquivado))
+
+
+@app.get("/api/documentos/{documento_id}/versoes")
+def versoes_documento(
+    documento_id: int, usuario: str = Depends(auth.usuario_atual)
+) -> list[dict]:
+    """Versões do documento, da mais recente para a mais antiga (sem conteúdo)."""
+    _documento_ou_404(documentos.obter(documento_id))
+    return documentos.versoes(documento_id)
+
+
+@app.get("/api/documentos/{documento_id}/versoes/{versao_id}")
+def detalhe_versao_documento(
+    documento_id: int,
+    versao_id: int,
+    usuario: str = Depends(auth.usuario_atual),
+) -> dict:
+    """Uma versão completa, com conteúdo."""
+    versao = documentos.versao(documento_id, versao_id)
+    if versao is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Versão não encontrada."
+        )
+    return versao
+
+
+@app.post("/api/documentos/{documento_id}/versoes/{versao_id}/restaurar")
+def restaurar_versao_documento(
+    documento_id: int,
+    versao_id: int,
+    usuario: str = Depends(auth.usuario_atual),
+) -> dict:
+    """Restaura uma versão como nova edição (Requirement 2.4)."""
+    restaurado = documentos.restaurar(documento_id, versao_id, usuario)
+    if restaurado is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento ou versão não encontrado.",
+        )
+    return restaurado
 
 
 @app.get("/api/incidentes")

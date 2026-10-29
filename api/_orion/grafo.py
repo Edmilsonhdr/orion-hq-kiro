@@ -88,9 +88,10 @@ class Rota(BaseModel):
 
     proximo: Destino = Field(
         description=(
-            "Quem deve trabalhar agora: 'tech' (produto/código/PRs), "
+            "Quem deve trabalhar agora: 'tech' (produto/código/PRs e "
+            "documentação técnica), "
             "'agenda' (reuniões e pautas), 'negocios' (custos, métricas, "
-            "decisões), 'vigia' (erros, falhas, instabilidade, incidentes do "
+            "decisões e documentos de negócio), 'vigia' (erros, falhas, instabilidade, incidentes do "
             "app ou backend) ou 'responder' (quando os relatórios já bastam ou "
             "é conversa simples)."
         )
@@ -119,9 +120,11 @@ def _prompt_supervisor() -> str:
     return (
         "Você é o Orquestrador do Orion HQ, chefe de gabinete de Dimi e "
         "Jullyana. Você NÃO executa tarefas: decide quem trabalha.\n"
-        "- tech = produto/código/PRs do app Orion;\n"
+        "- tech = produto/código/PRs do app Orion e documentação técnica;\n"
         "- agenda = reuniões e pautas;\n"
-        "- negocios = custos, métricas, decisões de negócio;\n"
+        "- negocios = custos, métricas, decisões e documentos de negócio;\n"
+        "- perguntas sobre o que os sócios escreveram nos documentos (Docs) vão "
+        "para tech ou negocios, que sabem buscá-los;\n"
         "- vigia = erros, falhas, instabilidade, incidentes do app ou backend;\n"
         "- responder = quando os relatórios já bastam ou é conversa simples.\n"
         "Dê ao especialista uma instrução autocontida (ele não vê esta "

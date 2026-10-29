@@ -48,6 +48,8 @@ _TABELAS_DOMINIO = (
     "aprovacoes",
     "reunioes",
     "incidentes",
+    "documentos",
+    "documento_versoes",
 )
 
 

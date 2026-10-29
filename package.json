@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n next,api -c cyan,magenta \"next dev\" \"uvicorn api.index:app --reload --port 8000\"",
+    "dev": "concurrently -n next,api -c cyan,magenta \"next dev\" \"uvicorn api.index:app --reload --port 8000 --env-file .env\"",
     "next-dev": "next dev",
-    "api-dev": "uvicorn api.index:app --reload --port 8000",
+    "api-dev": "uvicorn api.index:app --reload --port 8000 --env-file .env",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:front": "node --test lib/rotina.test.ts"
+    "test:front": "node --test lib/rotina.test.ts lib/markdown.test.ts"
   },
   "dependencies": {
     "next": "^16.3.6",

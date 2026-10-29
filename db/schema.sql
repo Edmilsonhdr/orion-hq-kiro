@@ -55,7 +55,7 @@ create table if not exists aprovacoes (
   tipo text not null,
   proposta jsonb not null,
   pedido_por text,
-  status text not null default 'pendente', -- pendente | aprovada | recusada | erro
+  status text not null default 'pendente', -- pendente | aprovada | recusada | erro | obsoleta
   decidido_por text,
   criado_em timestamptz not null default now(),
   decidido_em timestamptz
@@ -103,3 +103,34 @@ create table if not exists incidentes (
   criado_em               timestamptz not null default now()
 );
 create index if not exists incidentes_status_idx on incidentes (status);
+
+-- Docs: documentação e textos dos sócios, em markdown. `busca` pondera o título (A) acima do
+-- conteúdo (B), config portuguese. `documento_versoes` guarda o estado ANTERIOR a cada edição.
+create table if not exists documentos (
+  id bigserial primary key,
+  titulo text not null,
+  conteudo text not null default '',
+  pasta text,
+  tags text[] not null default '{}',
+  autor text not null,
+  arquivado boolean not null default false,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now(),
+  busca tsvector generated always as (
+    setweight(to_tsvector('portuguese', coalesce(titulo, '')), 'A') ||
+    setweight(to_tsvector('portuguese', coalesce(conteudo, '')), 'B')
+  ) stored
+);
+create index if not exists documentos_busca_idx on documentos using gin (busca);
+create index if not exists documentos_atualizado_idx on documentos (atualizado_em desc);
+
+create table if not exists documento_versoes (
+  id bigserial primary key,
+  documento_id bigint not null references documentos(id) on delete cascade,
+  titulo text not null,
+  conteudo text not null,
+  editado_por text not null,
+  criado_em timestamptz not null default now()
+);
+create index if not exists documento_versoes_doc_idx
+  on documento_versoes (documento_id, criado_em desc);

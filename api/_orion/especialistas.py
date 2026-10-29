@@ -40,6 +40,15 @@ from .atividades import emitir
 logger = logging.getLogger("orion.especialistas")
 
 
+# Tamanho máximo de cada argumento no log: textos longos (ex.: o conteúdo de um documento proposto)
+# não podem ir inteiros para as atividades.
+_ARG_MAX = 80
+
+
+def _encurtar(texto: str) -> str:
+    return texto if len(texto) <= _ARG_MAX else texto[: _ARG_MAX - 1] + "…"
+
+
 def _formatar_args(args: Any) -> str:
     """Formata os argumentos de uma tool call de forma legível.
 
@@ -48,8 +57,8 @@ def _formatar_args(args: Any) -> str:
     dict (formato inesperado), cai para `str(args)`.
     """
     if isinstance(args, dict):
-        return ", ".join(f"{chave}={valor!r}" for chave, valor in args.items())
-    return str(args)
+        return ", ".join(f"{chave}={_encurtar(repr(valor))}" for chave, valor in args.items())
+    return _encurtar(str(args))
 
 
 def _indexar_ferramentas(ferramentas: Sequence[Any]) -> dict[str, Any]:
@@ -98,33 +107,39 @@ def rodar_com_ferramentas(
     """
     modelo = llm.principal().bind_tools(list(ferramentas))
     indice = _indexar_ferramentas(ferramentas)
+    # As tools de proposta de documento precisam saber quem as chamou e em qual run.
+    token_contexto = ferramentas_mod.contexto.set((agente, run_id))
 
-    msgs: list[Any] = [SystemMessage(content=sistema), HumanMessage(content=instrucao)]
-    emitir(run_id, agente, "inicio", instrucao)
+    try:
+        msgs: list[Any] = [SystemMessage(content=sistema), HumanMessage(content=instrucao)]
+        emitir(run_id, agente, "inicio", instrucao)
 
-    ai: Any = None
-    for _ in range(max_voltas):
-        ai = modelo.invoke(msgs)
-        emitir(run_id, agente, "pensando", tokens=llm.tokens(ai))
-        msgs.append(ai)
+        ai: Any = None
+        for _ in range(max_voltas):
+            ai = modelo.invoke(msgs)
+            emitir(run_id, agente, "pensando", tokens=llm.tokens(ai))
+            msgs.append(ai)
 
-        chamadas = getattr(ai, "tool_calls", None) or []
-        if not chamadas:
-            break
+            chamadas = getattr(ai, "tool_calls", None) or []
+            if not chamadas:
+                break
 
-        for chamada in chamadas:
-            nome = chamada.get("name", "")
-            args = chamada.get("args", {})
-            emitir(run_id, agente, "ferramenta", f"{nome}({_formatar_args(args)})")
-            saida = _invocar_ferramenta(indice, nome, args)
-            msgs.append(ToolMessage(content=saida, tool_call_id=chamada.get("id")))
+            for chamada in chamadas:
+                nome = chamada.get("name", "")
+                args = chamada.get("args", {})
+                emitir(run_id, agente, "ferramenta", f"{nome}({_formatar_args(args)})")
+                saida = _invocar_ferramenta(indice, nome, args)
+                msgs.append(ToolMessage(content=saida, tool_call_id=chamada.get("id")))
 
-    if ai is None:
-        # max_voltas <= 0 (não deve acontecer): responde vazio sem quebrar.
-        ai = AIMessage(content="")
+        if ai is None:
+            # max_voltas <= 0 (não deve acontecer): responde vazio sem quebrar.
+            ai = AIMessage(content="")
 
-    final = llm.texto(ai)
-    emitir(run_id, agente, "concluiu", final[:200])
+        final = llm.texto(ai)
+        emitir(run_id, agente, "concluiu", final[:200])
+    finally:
+        ferramentas_mod.contexto.reset(token_contexto)
+
     return final
 
 
@@ -138,12 +153,18 @@ def _prompt_tech() -> str:
         "Responde o que mudou ou foi construído: PRs, notas e decisões técnicas.\n"
         f"Data e hora atual: {config.agora_formatado()} (fuso America/Sao_Paulo).\n\n"
         "Regras inegociáveis:\n"
-        "- Nada inventado. Sempre consulte o histórico (changelog) com as "
-        "ferramentas antes de responder.\n"
-        "- Cite a fonte de cada item: o PR (ex.: PR #12) ou a nota, junto com a "
-        "data. Use as datas e referências que vierem das ferramentas.\n"
+        "- Nada inventado. Sempre consulte o histórico (changelog) e os documentos "
+        "dos sócios (buscar_documentos / ler_documento) com as ferramentas antes "
+        "de responder.\n"
+        "- Cite a fonte de cada item: o PR (ex.: PR #12), a nota ou o documento "
+        "(ex.: documento #3 \"Título\"), junto com a data. Use as datas e "
+        "referências que vierem das ferramentas.\n"
         "- Se não encontrar nada sobre o que foi perguntado, diga explicitamente "
         "que não encontrou — não preencha lacunas com suposições.\n"
+        "- Para registrar ou atualizar texto em Docs (ata, plano, anotação), use "
+        "propor_documento / propor_edicao_documento (leia antes com ler_documento). "
+        "Isso só PROPÕE: um sócio precisa aprovar na tela de Aprovações. Diga que "
+        "propôs e que aguarda aprovação; nunca afirme que criou ou alterou.\n"
         "Responda em português do Brasil, de forma direta e objetiva."
     )
 
@@ -155,12 +176,17 @@ def _prompt_negocios() -> str:
         "assinaturas e decisões de negócio do Orion.\n"
         f"Data e hora atual: {config.agora_formatado()} (fuso America/Sao_Paulo).\n\n"
         "Regras inegociáveis:\n"
-        "- Nada inventado. Consulte o histórico (changelog) com as ferramentas "
-        "antes de responder e cite a fonte (PR/nota/decisão) e a data.\n"
+        "- Nada inventado. Consulte o histórico (changelog) e os documentos dos "
+        "sócios (buscar_documentos / ler_documento) com as ferramentas antes de "
+        "responder e cite a fonte (PR/nota/decisão/documento) e a data.\n"
         "- Nunca invente números (custos, métricas, receitas). Se não houver o "
         "dado no histórico, diga explicitamente que não há esse dado.\n"
         "- Quando os sócios combinarem algo que deva ficar registrado, use a "
         "ferramenta de registrar decisão.\n"
+        "- Para registrar ou atualizar texto em Docs (ata, plano, anotação), use "
+        "propor_documento / propor_edicao_documento (leia antes com ler_documento). "
+        "Isso só PROPÕE: um sócio precisa aprovar na tela de Aprovações. Diga que "
+        "propôs e que aguarda aprovação; nunca afirme que criou ou alterou.\n"
         "Responda em português do Brasil, de forma direta e objetiva."
     )
 

@@ -20,6 +20,7 @@ type Aprovacao = { id: number };
 const LINKS = [
   { href: "/chat", rotulo: "Chat" },
   { href: "/escritorio", rotulo: "Escritório" },
+  { href: "/docs", rotulo: "Docs" },
   { href: "/incidentes", rotulo: "Incidentes" },
   { href: "/aprovacoes", rotulo: "Aprovações" },
 ] as const;
@@ -140,7 +141,7 @@ export default function Header() {
 
       <nav style={{ display: "flex", gap: "8px", flex: 1 }}>
         {LINKS.map((link) => {
-          const ativo = caminho === link.href;
+          const ativo = caminho === link.href || caminho.startsWith(`${link.href}/`);
           return (
             <Link
               key={link.href}

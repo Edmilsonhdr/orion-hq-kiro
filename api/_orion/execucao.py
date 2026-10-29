@@ -30,7 +30,7 @@ from typing import Any, Optional
 
 from langgraph.types import Command
 
-from . import db
+from . import db, propostas_docs
 from .atividades import emitir
 
 logger = logging.getLogger("orion.execucao")
@@ -238,13 +238,17 @@ def decidir_aprovacao(aprovacao_id: int, usuario: str, aprovado: bool) -> dict:
         update aprovacoes
            set status = %s, aprovado = %s, decidido_por = %s, decidido_em = now()
          where id = %s and status = 'pendente'
-        returning run_id
+        returning id, run_id, tipo, proposta, pedido_por
         """,
         (novo_status, aprovado, usuario, aprovacao_id),
     )
     if linha is None:
         # Já decidida por alguém (ou id inexistente): a segunda decisão perde.
         return {"status": "ja_decidida"}
+
+    # Propostas de documento não têm run pausado: aplicam direto (spec docs-escrita).
+    if linha["tipo"] in propostas_docs.TIPOS:
+        return _decidir_documento(linha, aprovado, usuario)
 
     # 2 e 3. Retoma o grafo com a decisão humana (Requirement 6.7) e finaliza.
     return _retomar(aprovacao_id, linha["run_id"], aprovado, usuario)
@@ -263,12 +267,14 @@ def retomar_aprovacao(aprovacao_id: int) -> dict:
         update aprovacoes
            set status = case when aprovado then 'aprovada' else 'recusada' end
          where id = %s and status = 'erro' and aprovado is not null
-        returning run_id, aprovado, decidido_por
+        returning id, run_id, tipo, proposta, pedido_por, aprovado, decidido_por
         """,
         (aprovacao_id,),
     )
     if linha is None:
         return {"status": "nao_retomavel"}
+    if linha["tipo"] in propostas_docs.TIPOS:
+        return _decidir_documento(linha, bool(linha["aprovado"]), linha["decidido_por"] or "")
     return _retomar(
         aprovacao_id, linha["run_id"], bool(linha["aprovado"]), linha["decidido_por"] or ""
     )
@@ -303,3 +309,44 @@ def _retomar(aprovacao_id: int, run_id: str, aprovado: bool, por: str) -> dict:
         except Exception:  # noqa: BLE001 — não deixa o tratamento de erro derrubar o fluxo
             logger.exception("Falha ao marcar aprovação %s com erro", aprovacao_id)
         return _tratar_erro(run_id, MSG_ERRO_APROVACAO)
+
+
+def _decidir_documento(aprovacao: dict, aprovado: bool, por: str) -> dict:
+    """Efeito da decisão sobre uma proposta de documento (sem retomar o grafo).
+
+    Recusada: não grava nada. Aprovada: `propostas_docs.aplicar`; edição desatualizada vira status
+    `obsoleta`; falha vira status `erro` (e "Tentar de novo" reaplica sem duplicar). Em todos os casos
+    o Orquestrador avisa no chat e o agente emite `concluiu`.
+    """
+    run_id = aprovacao["run_id"]
+    agente = aprovacao.get("pedido_por") or "orq"
+    proposta = aprovacao["proposta"] or {}
+    acao = propostas_docs.descricao(aprovacao["tipo"], proposta)
+
+    if not aprovado:
+        texto = f"{por} recusou a proposta de {acao}. Nada foi alterado."
+        emitir(run_id, agente, "concluiu", texto)
+        db.salvar_mensagem(AUTOR_ORQ, texto, run_id)
+        return {"status": "respondido", "run_id": run_id, "resposta": texto}
+
+    try:
+        resultado = propostas_docs.aplicar(aprovacao, por)
+    except Exception:  # noqa: BLE001 — falha ao aplicar vira status `erro` + aviso
+        logger.exception("Falha ao aplicar proposta de documento (aprovacao=%s)", aprovacao["id"])
+        try:
+            db.executar("update aprovacoes set status = 'erro' where id = %s", (aprovacao["id"],))
+        except Exception:  # noqa: BLE001
+            logger.exception("Falha ao marcar aprovação %s com erro", aprovacao["id"])
+        return _tratar_erro(run_id, MSG_ERRO_APROVACAO)
+
+    if resultado["resultado"] == "obsoleta":
+        db.executar("update aprovacoes set status = 'obsoleta' where id = %s", (aprovacao["id"],))
+
+    texto = (
+        f"{por} aprovou. {resultado['mensagem']}"
+        if resultado["resultado"] == "aplicada"
+        else resultado["mensagem"]
+    )
+    emitir(run_id, agente, "concluiu", texto[:200])
+    db.salvar_mensagem(AUTOR_ORQ, texto, run_id)
+    return {"status": "respondido", "run_id": run_id, "resposta": texto}

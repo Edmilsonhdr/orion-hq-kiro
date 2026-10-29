@@ -5,6 +5,7 @@
 // Aprovar/Recusar. Reutilizável no topo do chat e na tela de aprovações.
 // A decisão é delegada ao pai via `onDecidir(id, aprovado)`.
 
+import Markdown from "./Markdown";
 import { agentePorId } from "../lib/agents";
 import { nomeEm } from "../lib/exibicao";
 
@@ -19,6 +20,21 @@ export type Aprovacao = {
   criado_em: string;
   decidido_em: string | null;
 };
+
+// Propostas de documento (Docs): criar = campos soltos; editar = `campos` com o que muda.
+type PropostaDocumento = {
+  acao?: "criar" | "editar";
+  titulo?: string;
+  conteudo?: string;
+  pasta?: string | null;
+  tags?: string[];
+  documento_id?: number;
+  documento_titulo?: string;
+  campos?: { titulo?: string; conteudo?: string; pasta?: string | null; tags?: string[] };
+};
+
+const TIPOS_DOCUMENTO = ["criar_documento", "editar_documento"];
+const PREVIA_MAX = 1500;
 
 type PropostaReuniao = {
   titulo?: string;
@@ -47,6 +63,57 @@ function quemPediu(pedidoPor: string, criadoEm: string): string {
   const agente = agentePorId(pedidoPor);
   if (!agente) return pedidoPor;
   return `${nomeEm(agente.id, criadoEm, [])} (${agente.papel})`;
+}
+
+function DetalhesDocumento({ proposta }: { proposta: PropostaDocumento }) {
+  const editar = proposta.acao === "editar";
+  const dados = editar ? proposta.campos ?? {} : proposta;
+  const conteudo = dados.conteudo ?? "";
+  const previa =
+    conteudo.length > PREVIA_MAX ? `${conteudo.slice(0, PREVIA_MAX)}\n\n…` : conteudo;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      <div>
+        <span className="texto-secundario">Ação: </span>
+        <span>
+          {editar
+            ? `Editar o documento #${proposta.documento_id} “${proposta.documento_titulo ?? ""}”`
+            : "Criar um documento novo"}
+        </span>
+      </div>
+      {editar && dados.titulo && (
+        <div>
+          <span className="texto-secundario">Novo título: </span>
+          <span>{dados.titulo}</span>
+        </div>
+      )}
+      {dados.pasta !== undefined && (
+        <div>
+          <span className="texto-secundario">Pasta: </span>
+          <span>{dados.pasta || "(nenhuma)"}</span>
+        </div>
+      )}
+      {dados.tags !== undefined && (
+        <div>
+          <span className="texto-secundario">Tags: </span>
+          <span className="mono">{dados.tags.length ? dados.tags.join(", ") : "(nenhuma)"}</span>
+        </div>
+      )}
+      {conteudo && (
+        <div
+          style={{
+            border: "1px solid var(--borda)",
+            borderRadius: "6px",
+            padding: "8px 12px",
+            maxHeight: "260px",
+            overflow: "auto",
+          }}
+        >
+          <Markdown texto={previa} />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function DetalhesReuniao({ proposta }: { proposta: PropostaReuniao }) {
@@ -97,8 +164,12 @@ export default function ApprovalCard({
   onRetomar?: (id: number) => void;
   ocupado?: boolean;
 }) {
+  const ehDocumento = TIPOS_DOCUMENTO.includes(aprovacao.tipo);
   const proposta = (aprovacao.proposta ?? {}) as PropostaReuniao;
-  const titulo = proposta.titulo || "Proposta de reunião";
+  const propostaDoc = (aprovacao.proposta ?? {}) as PropostaDocumento;
+  const titulo = ehDocumento
+    ? propostaDoc.titulo || propostaDoc.documento_titulo || "Proposta de documento"
+    : proposta.titulo || "Proposta de reunião";
   const pendente = aprovacao.status === "pendente";
   const comErro = aprovacao.status === "erro";
   const destaque = pendente || comErro;
@@ -133,7 +204,11 @@ export default function ApprovalCard({
         </span>
       </div>
 
-      <DetalhesReuniao proposta={proposta} />
+      {ehDocumento ? (
+        <DetalhesDocumento proposta={propostaDoc} />
+      ) : (
+        <DetalhesReuniao proposta={proposta} />
+      )}
 
       {aprovacao.pedido_por && (
         <div className="texto-secundario" style={{ fontSize: "13px" }}>
@@ -182,7 +257,11 @@ export default function ApprovalCard({
         </div>
       ) : !pendente ? (
         <div className="texto-secundario" style={{ fontSize: "13px" }}>
-          {aprovacao.status === "aprovada" ? "Aprovada" : "Recusada"}
+          {aprovacao.status === "aprovada"
+            ? "Aprovada"
+            : aprovacao.status === "obsoleta"
+              ? "Aprovada, mas não aplicada: o documento mudou desde a proposta"
+              : "Recusada"}
           {aprovacao.decidido_por ? ` por ${aprovacao.decidido_por}` : ""}
           {aprovacao.decidido_em ? ` · ${dataHora(aprovacao.decidido_em)}` : ""}
         </div>
