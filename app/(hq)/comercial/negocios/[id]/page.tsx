@@ -10,6 +10,7 @@ import MensagensModelo from "../../../../../components/MensagensModelo";
 import ContatoRapido from "../../../../../components/ContatoRapido";
 import ChecklistPiloto from "../../../../../components/ChecklistPiloto";
 import Anexos from "../../../../../components/Anexos";
+import TarefasRelacionadas from "../../../../../components/TarefasRelacionadas";
 import NegocioForm, { type DadosNegocio } from "../../../../../components/NegocioForm";
 import { ErroApi, atualizar, enviar, obter } from "../../../../../lib/api";
 import {
@@ -193,6 +194,8 @@ export default function NegocioPage() {
         )}
 
         <MensagensModelo negocio={n} contatos={n.contatos} usuario={usuario} />
+
+        <TarefasRelacionadas entidade="negocio" id={n.id} />
 
         <Anexos entidade="negocio" id={n.id} />
 

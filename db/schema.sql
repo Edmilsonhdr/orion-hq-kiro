@@ -279,3 +279,19 @@ create table if not exists tarefas (
   concluida_em timestamptz
 );
 create index if not exists tarefas_quadro_idx on tarefas (responsavel, status, ordem);
+
+-- Tarefas: colunas do quadro (compartilhadas por todos) e vínculos com Docs e Comercial.
+create table if not exists tarefa_colunas (
+  chave text primary key,
+  nome text not null,
+  ordem integer not null default 0,
+  concluida boolean not null default false   -- coluna de "feito": marca a conclusão e some do quadro após 14 dias
+);
+insert into tarefa_colunas (chave, nome, ordem, concluida) values
+  ('a_fazer', 'A fazer', 0, false), ('fazendo', 'Fazendo', 1, false),
+  ('bloqueada', 'Bloqueada', 2, false), ('feito', 'Feito', 3, true)
+on conflict (chave) do nothing;
+alter table tarefas add column if not exists documento_id bigint references documentos(id) on delete set null;
+alter table tarefas add column if not exists negocio_id bigint references negocios(id) on delete set null;
+create index if not exists tarefas_negocio_idx on tarefas (negocio_id);
+create index if not exists tarefas_documento_idx on tarefas (documento_id);

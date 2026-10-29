@@ -24,6 +24,7 @@ TABELAS = (
     "negocios",
     "interacoes",
     "piloto_itens",
+    "tarefa_colunas",
     "tarefas",
     "conversas",
     "mensagens",

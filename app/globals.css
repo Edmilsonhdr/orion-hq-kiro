@@ -4130,7 +4130,7 @@ a.botao {
 /* Tarefas: quadro Kanban */
 .tar-quadro {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--tar-colunas, 4), minmax(0, 1fr));
   gap: 12px;
   align-items: start;
 }
@@ -4154,15 +4154,27 @@ a.botao {
   padding: 10px;
 }
 
-.tar-fazendo {
+.tar-cor-1 {
   border-top-color: var(--destaque);
 }
 
-.tar-bloqueada {
+.tar-cor-2 {
   border-top-color: #ff7a59;
 }
 
-.tar-feito {
+.tar-cor-3 {
+  border-top-color: #b58cff;
+}
+
+.tar-cor-4 {
+  border-top-color: var(--espera);
+}
+
+.tar-cor-5 {
+  border-top-color: #3fc1c9;
+}
+
+.tar-concluida {
   border-top-color: #3fb68b;
 }
 
@@ -4203,7 +4215,7 @@ a.botao {
   opacity: 0.45;
 }
 
-.tar-feito .tar-titulo {
+.tar-concluida .tar-titulo {
   text-decoration: line-through;
   color: var(--texto-secundario);
 }
@@ -4267,4 +4279,116 @@ a.botao {
   color: #0b1020;
   font-size: 12px;
   font-weight: 700;
+}
+
+@media (max-width: 1000px) {
+  .tar-quadro {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+.tar-vinculos {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tar-vinculo {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tar-colunas-lista {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tar-colunas-lista li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tar-colunas-lista li > input:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.tar-colunas-concluida {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.tar-colunas-concluida input {
+  min-height: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.tar-colunas-n {
+  min-width: 22px;
+  text-align: right;
+}
+
+.tar-rel-lista {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tar-rel-lista li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tar-rel-lista input[type="checkbox"] {
+  min-height: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  padding: 0;
+  flex: none;
+}
+
+.tar-rel-titulo.feito a {
+  text-decoration: line-through;
+  color: var(--texto-secundario);
+}
+
+/* Início: blocos em colunas balanceadas (sem buracos quando os blocos têm alturas diferentes) */
+.ini-grade {
+  display: block;
+  column-count: 3;
+  column-gap: 14px;
+  align-items: initial;
+}
+
+.ini-grade > * {
+  break-inside: avoid;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 1100px) {
+  .ini-grade {
+    column-count: 2;
+  }
+}
+
+@media (max-width: 700px) {
+  .ini-grade {
+    column-count: 1;
+  }
 }

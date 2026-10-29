@@ -3,7 +3,7 @@
 // Formulário de uma tarefa (editar, trocar de responsável, prazo, prioridade, excluir).
 
 import { useState, type FormEvent } from "react";
-import { PRIORIDADES, ROTULO_PRIORIDADE, ROTULO_STATUS, STATUS, type Prioridade, type StatusTarefa, type Tarefa } from "../lib/tarefas";
+import { PRIORIDADES, ROTULO_PRIORIDADE, type ColunaTarefa, type Prioridade, type Tarefa } from "../lib/tarefas";
 
 export type DadosTarefa = {
   titulo: string;
@@ -11,12 +11,20 @@ export type DadosTarefa = {
   responsavel: string;
   prioridade: Prioridade;
   prazo: string | null;
-  status: StatusTarefa;
+  status: string;
+  documento_id: number | null;
+  negocio_id: number | null;
 };
+
+export type OpcaoNegocio = { id: number; titulo: string; organizacao_nome: string };
+export type OpcaoDocumento = { id: number; titulo: string };
 
 type Props = {
   tarefa: Tarefa;
   usuarios: string[];
+  colunas: ColunaTarefa[];
+  negocios: OpcaoNegocio[];
+  documentos: OpcaoDocumento[];
   onSalvar: (dados: DadosTarefa) => Promise<void>;
   onExcluir: () => Promise<void>;
   onCancelar: () => void;
@@ -24,13 +32,15 @@ type Props = {
 
 const maiuscula = (s: string) => s[0]?.toUpperCase() + s.slice(1);
 
-export default function TarefaForm({ tarefa, usuarios, onSalvar, onExcluir, onCancelar }: Props) {
+export default function TarefaForm({ tarefa, usuarios, colunas, negocios, documentos, onSalvar, onExcluir, onCancelar }: Props) {
   const [titulo, setTitulo] = useState(tarefa.titulo);
   const [descricao, setDescricao] = useState(tarefa.descricao ?? "");
   const [responsavel, setResponsavel] = useState(tarefa.responsavel);
   const [prioridade, setPrioridade] = useState<Prioridade>(tarefa.prioridade);
   const [prazo, setPrazo] = useState(tarefa.prazo?.slice(0, 10) ?? "");
-  const [status, setStatus] = useState<StatusTarefa>(tarefa.status);
+  const [status, setStatus] = useState<string>(tarefa.status);
+  const [negocioId, setNegocioId] = useState<string>(tarefa.negocio_id ? String(tarefa.negocio_id) : "");
+  const [documentoId, setDocumentoId] = useState<string>(tarefa.documento_id ? String(tarefa.documento_id) : "");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -40,7 +50,8 @@ export default function TarefaForm({ tarefa, usuarios, onSalvar, onExcluir, onCa
     setSalvando(true);
     setErro(null);
     try {
-      await onSalvar({ titulo: titulo.trim(), descricao: descricao.trim() || null, responsavel, prioridade, prazo: prazo || null, status });
+      await onSalvar({ titulo: titulo.trim(), descricao: descricao.trim() || null, responsavel, prioridade, prazo: prazo || null, status,
+        negocio_id: negocioId ? Number(negocioId) : null, documento_id: documentoId ? Number(documentoId) : null });
     } catch (e2) {
       setErro(e2 instanceof Error ? e2.message : "Não foi possível salvar.");
       setSalvando(false);
@@ -79,10 +90,10 @@ export default function TarefaForm({ tarefa, usuarios, onSalvar, onExcluir, onCa
         </div>
         <div className="com-campo">
           <label htmlFor="tf-status">Status</label>
-          <select id="tf-status" value={status} onChange={(e) => setStatus(e.target.value as StatusTarefa)}>
-            {STATUS.map((s) => (
-              <option key={s} value={s}>
-                {ROTULO_STATUS[s]}
+          <select id="tf-status" value={status} onChange={(e) => setStatus(e.target.value)}>
+            {colunas.map((c) => (
+              <option key={c.chave} value={c.chave}>
+                {c.nome}
               </option>
             ))}
           </select>
@@ -102,6 +113,30 @@ export default function TarefaForm({ tarefa, usuarios, onSalvar, onExcluir, onCa
         <div className="com-campo">
           <label htmlFor="tf-prazo">Prazo</label>
           <input id="tf-prazo" type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} />
+        </div>
+      </div>
+      <div className="com-linha">
+        <div className="com-campo">
+          <label htmlFor="tf-negocio">Negócio (Comercial)</label>
+          <select id="tf-negocio" value={negocioId} onChange={(e) => setNegocioId(e.target.value)}>
+            <option value="">Nenhum</option>
+            {negocios.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.organizacao_nome} · {n.titulo}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="com-campo">
+          <label htmlFor="tf-doc">Documento (Docs)</label>
+          <select id="tf-doc" value={documentoId} onChange={(e) => setDocumentoId(e.target.value)}>
+            <option value="">Nenhum</option>
+            {documentos.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.titulo}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
       {erro && (

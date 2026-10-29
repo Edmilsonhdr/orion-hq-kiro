@@ -44,7 +44,7 @@ def test_mover_entre_colunas_e_posicao(banco):
     assert [t["titulo"] for t in tarefas.listar("dimi")] == ["A", "B", "C"]
     tarefas.mover(c["id"], "fazendo")
     tarefas.mover(a["id"], "fazendo", 0)  # A entra antes de C
-    por_status = {s: [t["titulo"] for t in tarefas.listar("dimi") if t["status"] == s] for s in tarefas.STATUS}
+    por_status = {s: [t["titulo"] for t in tarefas.listar("dimi") if t["status"] == s] for s in ("a_fazer", "fazendo", "bloqueada", "feito")}
     assert por_status == {"a_fazer": ["B"], "fazendo": ["A", "C"], "bloqueada": [], "feito": []}
     feita = tarefas.mover(b["id"], "feito")
     assert feita["concluida_em"] is not None
@@ -103,3 +103,91 @@ def test_rotas_exigem_sessao_e_backup_inclui_tarefas(cliente):
     assert anon.get("/api/tarefas").status_code == 401 and anon.get("/api/usuarios").status_code == 401
     tarefas.criar({"titulo": "No backup"}, "dimi")
     assert backup.gerar()["contagem"]["tarefas"] == 1
+
+
+def test_colunas_padrao_criar_renomear_e_ordenar(banco):
+    assert [c["chave"] for c in tarefas.colunas()] == ["a_fazer", "fazendo", "bloqueada", "feito"]
+    revisao = tarefas.criar_coluna("Em revisão")
+    assert revisao["chave"] == "em_revisao" and revisao["ordem"] == 4 and revisao["concluida"] is False
+    with pytest.raises(ValueError):
+        tarefas.criar_coluna("em REVISÃO")  # nome repetido (sem diferenciar caixa)
+    for ruim in ("", "  ", "x" * 31):
+        with pytest.raises(ValueError):
+            tarefas.criar_coluna(ruim)
+    assert tarefas.editar_coluna("em_revisao", nome="Aguardando cliente")["nome"] == "Aguardando cliente"
+    assert tarefas.editar_coluna("nao_existe", nome="x") is None
+    ordem = tarefas.mover_coluna("em_revisao", 1)
+    assert [c["chave"] for c in ordem] == ["a_fazer", "em_revisao", "fazendo", "bloqueada", "feito"]
+    t = tarefas.criar({"titulo": "Cliente respondeu?"}, "dimi")
+    assert tarefas.mover(t["id"], "em_revisao")["status"] == "em_revisao"
+    tarefas.criar_coluna("Publicado", concluida=True)
+    assert tarefas.mover(t["id"], "publicado")["concluida_em"] is not None
+
+
+def test_excluir_coluna_move_as_tarefas(banco):
+    extra = tarefas.criar_coluna("Ideias")
+    t = tarefas.criar({"titulo": "Pensar nisso"}, "dimi")
+    tarefas.mover(t["id"], extra["chave"])
+    with pytest.raises(ValueError):
+        tarefas.excluir_coluna("ideias")  # tem tarefa e não disse para onde vão
+    assert tarefas.excluir_coluna("ideias", mover_para="a_fazer") is True
+    assert tarefas.obter(t["id"])["status"] == "a_fazer"
+    assert tarefas.excluir_coluna("ideias") is False
+    for chave in ("fazendo", "bloqueada", "feito"):
+        tarefas.excluir_coluna(chave)
+    with pytest.raises(ValueError):
+        tarefas.excluir_coluna("a_fazer")  # a última coluna fica
+
+
+def test_limite_de_colunas(banco):
+    for i in range(tarefas.COLUNAS_MAX - 4):
+        tarefas.criar_coluna(f"Extra {i}")
+    with pytest.raises(ValueError):
+        tarefas.criar_coluna("Demais")
+
+
+def test_tarefa_vinculada_a_documento_e_negocio(banco):
+    from _orion import comercial, documentos
+
+    doc = documentos.criar("Roteiro", "x", autor="dimi")
+    org = comercial.criar_organizacao({"nome": "Clínica Sol", "tipo": "clinica"})
+    neg = comercial.criar_negocio(org["id"], {"titulo": "Piloto Sol"}, "dimi")
+    t = tarefas.criar({"titulo": "Revisar roteiro", "documento_id": doc["id"], "negocio_id": neg["id"]}, "dimi")
+    assert (t["documento_titulo"], t["negocio_titulo"], t["organizacao_nome"]) == ("Roteiro", "Piloto Sol", "Clínica Sol")
+    assert [x["id"] for x in tarefas.listar(negocio_id=neg["id"])] == [t["id"]]
+    assert [x["id"] for x in tarefas.listar(documento_id=doc["id"])] == [t["id"]]
+    assert tarefas.listar(negocio_id=99999) == []
+    # relacionadas aparecem mesmo depois de concluídas há muito tempo
+    tarefas.mover(t["id"], "feito")
+    from _orion import db
+
+    db.executar("update tarefas set concluida_em = now() - interval '30 days'")
+    assert tarefas.listar() == [] and len(tarefas.listar(negocio_id=neg["id"])) == 1
+    assert tarefas.editar(t["id"], {"negocio_id": None})["negocio_titulo"] is None
+    with pytest.raises(ValueError):
+        tarefas.criar({"titulo": "x", "documento_id": 99999}, "dimi")
+    with pytest.raises(ValueError):
+        tarefas.criar({"titulo": "x", "negocio_id": "abc"}, "dimi")
+    # apagar o documento só solta o vínculo
+    documentos_antes = tarefas.obter(t["id"])
+    assert documentos_antes["documento_id"] == doc["id"]
+    db.executar("delete from documentos where id = %s", (doc["id"],))
+    assert tarefas.obter(t["id"])["documento_id"] is None
+
+
+def test_rotas_de_colunas(cliente):
+    c = cliente()
+    assert [x["chave"] for x in c.get("/api/tarefas/colunas").json()][:2] == ["a_fazer", "fazendo"]
+    r = c.post("/api/tarefas/colunas", json={"nome": "Em revisão"})
+    assert r.status_code == 201 and r.json()["chave"] == "em_revisao"
+    assert c.post("/api/tarefas/colunas", json={"nome": "em revisão"}).status_code == 422
+    assert c.put("/api/tarefas/colunas/em_revisao", json={"nome": "Revisão", "concluida": False}).json()["nome"] == "Revisão"
+    assert c.put("/api/tarefas/colunas/xyz", json={"nome": "A"}).status_code == 404
+    mov = c.post("/api/tarefas/colunas/em_revisao/mover", json={"posicao": 0}).json()
+    assert mov[0]["chave"] == "em_revisao"
+    tid = c.post("/api/tarefas", json={"titulo": "Algo"}).json()["id"]
+    c.post(f"/api/tarefas/{tid}/mover", json={"status": "em_revisao"})
+    assert c.delete("/api/tarefas/colunas/em_revisao").status_code == 422
+    assert c.delete("/api/tarefas/colunas/em_revisao?mover_para=fazendo").status_code == 200
+    assert c.get("/api/tarefas?responsavel=dimi").json()[0]["status"] == "fazendo"
+    assert c.delete("/api/tarefas/colunas/em_revisao").status_code == 404

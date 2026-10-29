@@ -1288,6 +1288,17 @@ class TarefaCorpo(BaseModel):
     prioridade: str | None = None
     responsavel: str | None = None
     prazo: str | None = None
+    documento_id: int | None = None
+    negocio_id: int | None = None
+
+
+class ColunaCorpo(BaseModel):
+    nome: str | None = None
+    concluida: bool | None = None
+
+
+class MoverColunaCorpo(BaseModel):
+    posicao: int
 
 
 class MoverTarefaCorpo(BaseModel):
@@ -1302,8 +1313,40 @@ def listar_usuarios(usuario: str = Depends(auth.usuario_atual)) -> list[str]:
 
 
 @app.get("/api/tarefas")
-def listar_tarefas(responsavel: str | None = None, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
-    return tarefas.listar(responsavel)
+def listar_tarefas(
+    responsavel: str | None = None,
+    negocio_id: int | None = None,
+    documento_id: int | None = None,
+    usuario: str = Depends(auth.usuario_atual),
+) -> list[dict]:
+    return tarefas.listar(responsavel, negocio_id, documento_id)
+
+
+@app.get("/api/tarefas/colunas")
+def listar_colunas_tarefas(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return tarefas.colunas()
+
+
+@app.post("/api/tarefas/colunas", status_code=status.HTTP_201_CREATED)
+def criar_coluna_tarefas(corpo: ColunaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial(lambda: tarefas.criar_coluna(corpo.nome, bool(corpo.concluida)))
+
+
+@app.put("/api/tarefas/colunas/{chave}")
+def editar_coluna_tarefas(chave: str, corpo: ColunaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(_comercial(lambda: tarefas.editar_coluna(chave, corpo.nome, corpo.concluida)), "Coluna")
+
+
+@app.post("/api/tarefas/colunas/{chave}/mover")
+def mover_coluna_tarefas(chave: str, corpo: MoverColunaCorpo, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return _comercial_404(tarefas.mover_coluna(chave, corpo.posicao), "Coluna")
+
+
+@app.delete("/api/tarefas/colunas/{chave}")
+def excluir_coluna_tarefas(chave: str, mover_para: str | None = None, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    achou = _comercial(lambda: tarefas.excluir_coluna(chave, mover_para))
+    _comercial_404(True if achou else None, "Coluna")
+    return {"ok": True}
 
 
 @app.get("/api/tarefas/resumo")
