@@ -15,7 +15,8 @@ import { ErroApi, enviar, obter } from "../../../lib/api";
 import { usePoll } from "../../../lib/usePoll";
 import { nomeEm, pessoaEm } from "../../../lib/exibicao";
 import ListaConversas from "../../../components/ListaConversas";
-import ChatMessage, { Mensagem, fontesDe } from "../../../components/ChatMessage";
+import ChatMessage, { Mensagem } from "../../../components/ChatMessage";
+import { fontesDe } from "../../../lib/fontes";
 import ApprovalCard, { Aprovacao } from "../../../components/ApprovalCard";
 
 type Atividade = {
@@ -226,6 +227,7 @@ function ChatConversa({ conversaId }: { conversaId: number | null }) {
         gap: "12px",
       }}
     >
+      <h1 className="so-leitor">Chat</h1>
       {/* Cartões de aprovação pendente no topo (Requirement 9.3) */}
       {pendentes.length > 0 && (
         <section
@@ -308,7 +310,10 @@ function ChatConversa({ conversaId }: { conversaId: number | null }) {
           }}
         >
           <span aria-hidden="true">⌁</span>
-          <span>trabalhando… {trabalho}</span>
+          <span>
+            <strong style={{ color: "var(--texto)", fontWeight: 600 }}>{trabalho.split(" · ")[0]}</strong> está trabalhando…
+            {trabalho.includes(" · ") && <> {trabalho.split(" · ").slice(1).join(" · ")}</>}
+          </span>
         </div>
       )}
 

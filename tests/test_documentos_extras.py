@@ -74,3 +74,37 @@ def test_exporta_e_importa_subpaginas(banco, tmp_path: Path):
     filho = db.um("select pai_id from documentos where titulo = 'Capítulo 1'")
     raiz = db.um("select id from documentos where titulo = 'Manual'")
     assert filho["pai_id"] == raiz["id"]
+
+
+def test_mover_na_arvore_muda_pai_e_posicao(banco):
+    a = documentos.criar("A", "x", autor="dimi")
+    b = documentos.criar("B", "x", autor="dimi")
+    c = documentos.criar("C", "x", autor="dimi", pai_id=a["id"])
+    # B vira filha de A, antes de C
+    assert documentos.mover(b["id"], a["id"], 0) == [b["id"], c["id"]]
+    assert [s["titulo"] for s in documentos.subpaginas(a["id"])] == ["B", "C"]
+    assert documentos.obter(b["id"])["pai_id"] == a["id"]
+    # C sobe para o topo, depois de A (posição além do fim é limitada)
+    documentos.mover(c["id"], None, 99)
+    assert documentos.obter(c["id"])["pai_id"] is None
+    assert [n["titulo"] for n in documentos.arvore() if n["pai_id"] is None] == ["A", "C"]
+    assert documentos.mover(9999, None, 0) is None
+
+
+def test_mover_na_arvore_recusa_ciclo(banco):
+    a = documentos.criar("A", "x", autor="dimi")
+    b = documentos.criar("B", "x", autor="dimi", pai_id=a["id"])
+    with pytest.raises(ValueError):
+        documentos.mover(a["id"], b["id"], 0)
+    with pytest.raises(ValueError):
+        documentos.mover(a["id"], a["id"], 0)
+
+
+def test_rota_mover_na_arvore(cliente):
+    c = cliente("dimi", "senha-dimi")
+    a = c.post("/api/documentos", json={"titulo": "A", "conteudo": "x"}).json()
+    b = c.post("/api/documentos", json={"titulo": "B", "conteudo": "x"}).json()
+    r = c.post(f"/api/documentos/{b['id']}/mover", json={"pai_id": a["id"], "posicao": 0})
+    assert r.status_code == 200 and r.json() == [b["id"]]
+    assert c.post(f"/api/documentos/{a['id']}/mover", json={"pai_id": b["id"], "posicao": 0}).status_code == 422
+    assert c.post("/api/documentos/9999/mover", json={"pai_id": None, "posicao": 0}).status_code == 404

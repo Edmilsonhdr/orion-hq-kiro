@@ -234,6 +234,7 @@ export default function IncidenteCard({
     >
       <button
         type="button"
+        className="inc-cabeca-botao"
         onClick={() => onAbrir(incidente.id)}
         aria-expanded={aberto}
         style={{

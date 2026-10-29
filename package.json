@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:front": "node --test lib/rotina.test.ts lib/markdown.test.ts lib/docs.test.ts lib/comercial.test.ts lib/paleta.test.ts lib/blocos.test.ts lib/modelos.test.ts lib/diff.test.ts lib/aprovacoes.test.ts"
+    "test:front": "node --test lib/rotina.test.ts lib/markdown.test.ts lib/docs.test.ts lib/comercial.test.ts lib/paleta.test.ts lib/blocos.test.ts lib/modelos.test.ts lib/diff.test.ts lib/aprovacoes.test.ts lib/fontes.test.ts lib/incidentes.test.ts lib/linkPagina.test.ts lib/arvore.test.ts"
   },
   "dependencies": {
     "@tiptap/core": "^3.32.1",

@@ -10,6 +10,7 @@
 //   "Propor correção · em breve" desabilitado ficam no IncidenteCard (6.4, 6.5).
 // - Polling leve com refetch completo (~3 s), no mesmo padrão das aprovações.
 
+import GraficoIncidentes from "../../../components/GraficoIncidentes";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { obter, enviar } from "../../../lib/api";
 import IncidenteCard, {
@@ -175,6 +176,7 @@ export default function IncidentesPage() {
           aria-label="Lista de incidentes"
           style={{ display: "flex", flexDirection: "column", gap: "10px" }}
         >
+          <GraficoIncidentes incidentes={incidentes} />
           <div className="inc-resumo" role="group" aria-label="Incidentes por projeto">
             {porProjeto.map((g) => (
               <div key={g.projeto} className="painel inc-resumo-item">

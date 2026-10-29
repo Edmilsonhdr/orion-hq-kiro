@@ -13,3 +13,12 @@ test("filtrarAprovacoes mantém tudo em 'todas'", () => {
   assert.equal(filtrarAprovacoes(l, "todas").length, 2);
   assert.deepEqual(filtrarAprovacoes(l, "comercial"), [{ tipo: "comercial_novo_negocio" }]);
 });
+
+import { agentesDasAprovacoes, filtrarPorAgente } from "./aprovacoes.ts";
+
+test("filtro por agente", () => {
+  const l = [{ pedido_por: "docs" }, { pedido_por: "comercial" }, { pedido_por: "docs" }, { pedido_por: null }];
+  assert.deepEqual(agentesDasAprovacoes(l), ["comercial", "docs"]);
+  assert.equal(filtrarPorAgente(l, "docs").length, 2);
+  assert.equal(filtrarPorAgente(l, "").length, 4);
+});

@@ -11,7 +11,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Markdown from "./Markdown";
 import { BLOCOS, detectarBarra, filtrarBlocos, inserirBloco, type Barra, type Bloco } from "../lib/blocos";
-import { CONTEUDO_MAX, contarPalavras, tagsDoTexto, type DadosDocumento, type OpcaoPai } from "../lib/docs";
+import { obter } from "../lib/api";
+import { CONTEUDO_MAX, contarPalavras, tagsDoTexto, type DadosDocumento, type NoArvore, type OpcaoPai } from "../lib/docs";
+import { aplicarLink, detectarLink, filtrarTitulos, type LinkAberto } from "../lib/linkPagina";
 
 // O editor visual (Tiptap) só carrega no navegador e só quando é usado.
 const EditorVisual = dynamic(() => import("./EditorVisual"), {
@@ -253,6 +255,32 @@ export default function DocEditor({
     { rotulo: "▦", titulo: "Tabela", acao: inserirTabela },
   ];
 
+  // --- Sugestão de páginas ao digitar [[ ---
+
+  const [paginas, setPaginas] = useState<NoArvore[]>([]);
+  const [link, setLink] = useState<LinkAberto | null>(null);
+  const [indiceLink, setIndiceLink] = useState(0);
+  useEffect(() => {
+    obter<NoArvore[]>("/documentos/arvore")
+      .then(setPaginas)
+      .catch(() => {
+        // sem a lista não há sugestões; o link continua podendo ser digitado
+      });
+  }, []);
+  const sugestoesLink = link ? filtrarTitulos(paginas, link.consulta) : [];
+
+  function escolherPagina(titulo: string) {
+    const ta = areaRef.current;
+    if (!ta || !link) return;
+    const r = aplicarLink(ta.value, link, ta.selectionStart, titulo);
+    setConteudo(r.valor);
+    setLink(null);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(r.cursor, r.cursor);
+    });
+  }
+
   // --- Menu "/" ---
 
   const blocosBarra: Bloco[] = barra ? filtrarBlocos(barra.consulta) : [];
@@ -276,6 +304,22 @@ export default function DocEditor({
   }
 
   function aoTeclarTexto(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (link && sugestoesLink.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setIndiceLink((i) => Math.min(i + 1, sugestoesLink.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setIndiceLink((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        escolherPagina(sugestoesLink[indiceLink].titulo);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setLink(null);
+      }
+      return;
+    }
     if (!barra || blocosBarra.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -427,10 +471,15 @@ export default function DocEditor({
           onChange={(e) => {
             setConteudo(e.target.value);
             atualizarBarra(e.target.value, e.target.selectionStart);
+            setLink(detectarLink(e.target.value, e.target.selectionStart));
+            setIndiceLink(0);
           }}
           onKeyDown={aoTeclarTexto}
           onClick={(e) => atualizarBarra(e.currentTarget.value, e.currentTarget.selectionStart)}
-          onBlur={() => setBarra(null)}
+          onBlur={() => {
+            setBarra(null);
+            setLink(null);
+          }}
         />
         {barra && blocosBarra.length > 0 && (
           <ul className="doc-barra-menu" role="listbox" aria-label="Inserir bloco">
@@ -448,6 +497,25 @@ export default function DocEditor({
               >
                 <span>{b.rotulo}</span>
                 <span className="mono texto-secundario">{b.dica}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {link && sugestoesLink.length > 0 && (
+          <ul className="doc-barra-menu" role="listbox" aria-label="Linkar página">
+            {sugestoesLink.map((p, i) => (
+              <li
+                key={p.id}
+                role="option"
+                aria-selected={i === indiceLink}
+                className={i === indiceLink ? "ativo" : undefined}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  escolherPagina(p.titulo);
+                }}
+              >
+                <span>{p.titulo}</span>
+                <span className="mono texto-secundario">{p.pasta ?? "página"}</span>
               </li>
             ))}
           </ul>

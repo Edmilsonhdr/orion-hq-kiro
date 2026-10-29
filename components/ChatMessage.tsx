@@ -10,6 +10,7 @@ import type { Pessoa } from "../lib/agents";
 import { useState } from "react";
 import Link from "next/link";
 import { enviar } from "../lib/api";
+import type { Fonte } from "../lib/fontes";
 import type { Documento } from "../lib/docs";
 import Markdown from "./Markdown";
 import { FiguraMini } from "./Personagem";
@@ -66,20 +67,6 @@ function comLinks(texto: string): ReactNode[] {
 
 // `assinatura`: quem estava de plantão no horário da mensagem (as mensagens
 // do Orquestrador são assinadas por essa pessoa; o banco guarda "Orquestrador").
-// Nome amigável das ferramentas que os agentes usam (atividade `ferramenta`).
-const ROTULO_FERRAMENTA: Record<string, string> = {
-  buscar_documentos: "documentos",
-  ler_documento: "documentos",
-  resumo_funil: "funil comercial",
-  buscar_negocios: "negócios",
-  ver_negocio: "negócios",
-  negocios_parados: "negócios parados",
-  agenda_comercial: "agenda comercial",
-};
-
-export function fontesDe(ferramentas: string[]): string[] {
-  return [...new Set(ferramentas.map((f) => ROTULO_FERRAMENTA[f]).filter((r): r is string => !!r))];
-}
 
 function tituloDe(texto: string): string {
   const linha = texto.split("\n").find((l) => l.trim().length > 0) ?? "Resposta do chat";
@@ -93,8 +80,8 @@ export default function ChatMessage({
 }: {
   mensagem: Mensagem;
   assinatura?: Pessoa | null;
-  // Ferramentas usadas no run desta resposta (já traduzidas por `fontesDe`).
-  fontes?: string[];
+  // Fontes consultadas no run desta resposta (de `fontesDe`), com link quando há.
+  fontes?: Fonte[];
 }) {
   const [salvo, setSalvo] = useState<number | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -199,7 +186,17 @@ export default function ChatMessage({
         )}
         {doOrquestrador && (
           <div className="chat-rodape-msg">
-            {fontes.length > 0 && <span className="texto-secundario">consultou: {fontes.join(", ")}</span>}
+            {fontes.length > 0 && (
+              <span className="texto-secundario">
+                consultou:{" "}
+                {fontes.map((f, i) => (
+                  <span key={f.rotulo}>
+                    {i > 0 && ", "}
+                    {f.href ? <Link href={f.href}>{f.rotulo}</Link> : f.rotulo}
+                  </span>
+                ))}
+              </span>
+            )}
             {salvo ? (
               <Link href={`/docs/${salvo}`}>Salvo no Docs — abrir</Link>
             ) : (

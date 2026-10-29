@@ -178,6 +178,9 @@ código e `[[links]]`) e tem o modo Markdown; o conteúdo é sempre markdown e s
 no modo visual. O chat tem várias conversas (a "Geral" reúne avisos e resumos dos agentes); cada conversa
 tem o seu histórico, que é o contexto dos agentes. Rode `scripts/setup_db.py` para criar a tabela `conversas`.
 
+**Árvore do Docs:** a lateral do Docs tem a árvore de páginas; arraste uma página para antes, dentro ou
+depois de outra (ou use Alt+↑/↓). No editor Markdown, digitar `[[` sugere páginas existentes.
+
 **Subpáginas:** cada documento pode ter uma página pai (até 6 níveis, sem ciclos). A tela do documento mostra
 as migalhas com os ancestrais, a lista de subpáginas e "Nova subpágina"; o editor tem o seletor "Página pai".
 Arquivar uma página arquiva as subpáginas; desarquivar reabre só ela. A `pasta` continua existindo. A

@@ -5,9 +5,10 @@
 // Sem polling: recarrega ao entrar e quando os filtros mudam. Os filtros iniciais vêm da URL
 // (?pasta=, ?tag=, ?q=), para os links do documento (migalhas) funcionarem.
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { obter } from "../../../lib/api";
+import ArvoreDocs from "../../../components/ArvoreDocs";
+import { enviar, obter } from "../../../lib/api";
 import {
   formatarData,
   tempoRelativo,
@@ -64,6 +65,7 @@ export default function DocsPage() {
   const [busca, setBusca] = useState("");
   const [termo, setTermo] = useState("");
   const [pasta, setPasta] = useState("");
+  const [nosArvore, setNosArvore] = useState<NoArvore[]>([]);
   const [titulosPorId, setTitulosPorId] = useState<Record<number, string>>({});
   const [tag, setTag] = useState("");
   const [arquivados, setArquivados] = useState(false);
@@ -82,12 +84,24 @@ export default function DocsPage() {
     setTermo(q.trim());
   }, []);
 
-  useEffect(() => {
+  const carregarArvore = useCallback(() => {
     obter<NoArvore[]>("/documentos/arvore")
-      .then((a) => setTitulosPorId(Object.fromEntries(a.map((n) => [n.id, n.titulo]))))
+      .then((a) => {
+        setNosArvore(a);
+        setTitulosPorId(Object.fromEntries(a.map((n) => [n.id, n.titulo])));
+      })
       .catch(() => {
-        // o "dentro de" do cartão é só uma conveniência
+        // a árvore e o "dentro de" do cartão são só uma conveniência
       });
+  }, []);
+
+  async function moverPagina(id: number, paiId: number | null, posicao: number) {
+    await enviar(`/documentos/${id}/mover`, { pai_id: paiId, posicao });
+    carregarArvore();
+  }
+
+  useEffect(() => {
+    carregarArvore();
     obter<Filtros>("/documentos/pastas")
       .then(setFiltros)
       .catch(() => {
@@ -177,6 +191,7 @@ export default function DocsPage() {
 
       <div className="docs-grade">
         <aside className="docs-lateral" aria-label="Pastas e tags">
+          <ArvoreDocs nos={nosArvore} onMover={moverPagina} />
           <div>
             <p className="docs-secao-titulo">Pastas</p>
             <nav className="docs-nav">

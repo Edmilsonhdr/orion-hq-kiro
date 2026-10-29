@@ -148,7 +148,8 @@ def subpaginas(documento_id: int) -> list[dict]:
 def arvore() -> list[dict]:
     """Documentos não arquivados (id, título, pai, pasta) para a árvore e o seletor de pai."""
     return db.consultar(
-        "select id, titulo, pai_id, pasta from documentos where not arquivado order by lower(titulo), id"
+        "select id, titulo, pai_id, pasta from documentos where not arquivado "
+        "order by ordem, lower(titulo), id"
     )
 
 
@@ -556,6 +557,32 @@ def mover_subpagina(documento_id: int, direcao: str) -> Optional[list[dict]]:
     alvo = posicao - 1 if direcao == "cima" else posicao + 1
     if 0 <= alvo < len(ids):
         ids[posicao], ids[alvo] = ids[alvo], ids[posicao]
+    for novo, i in enumerate(ids):
+        db.executar("update documentos set ordem = %s where id = %s", (novo, i))
+    return ids
+
+
+def mover(documento_id: int, pai_id: Any, posicao: int) -> Optional[list[int]]:
+    """Move a página para baixo de `pai_id` (ou para o topo, se `None`) na posição `posicao` entre as irmãs.
+
+    Valida o pai (sem ciclo e dentro da profundidade máxima), reescreve `ordem` das irmãs do destino
+    (0..n-1) e devolve os ids delas na nova ordem. `None` se o documento não existe. Mover não cria versão:
+    o conteúdo não muda.
+    """
+    if db.um("select id from documentos where id = %s", (documento_id,)) is None:
+        return None
+    pai = validar_pai(pai_id, documento_id)
+    irmas = db.consultar(
+        """
+        select id from documentos
+        where pai_id is not distinct from %s and not arquivado and id <> %s
+        order by ordem, lower(titulo), id
+        """,
+        (pai, documento_id),
+    )
+    ids = [i["id"] for i in irmas]
+    ids.insert(max(0, min(int(posicao), len(ids))), documento_id)
+    db.executar("update documentos set pai_id = %s where id = %s", (pai, documento_id))
     for novo, i in enumerate(ids):
         db.executar("update documentos set ordem = %s where id = %s", (novo, i))
     return ids

@@ -32,6 +32,7 @@ export default function MensagensModelo({
   const [texto, setTexto] = useState<string | null>(null);
   const atual = texto ?? modelo.texto;
   const fone = soDigitos(contato?.telefone ?? null);
+  const email = contato?.email?.trim() || null;
 
   async function copiar() {
     try {
@@ -78,11 +79,19 @@ export default function MensagensModelo({
           </select>
         )}
       </div>
+      <p className="texto-secundario com-mensagens-assunto">
+        Assunto (e-mail): <strong>{modelo.assunto}</strong>
+      </p>
       <textarea aria-label="Texto da mensagem" rows={4} value={atual} onChange={(e) => setTexto(e.target.value)} />
       <div className="com-mensagens-acoes">
         <button type="button" className="botao-destaque" onClick={copiar}>
           {copiado ? "Copiado!" : "Copiar"}
         </button>
+        {email && (
+          <a className="botao" href={`mailto:${email}?subject=${encodeURIComponent(modelo.assunto)}&body=${encodeURIComponent(atual)}`}>
+            Abrir no e-mail
+          </a>
+        )}
         {fone && (
           <a className="botao" href={`https://wa.me/${fone}?text=${encodeURIComponent(atual)}`} target="_blank" rel="noopener noreferrer">
             Abrir no WhatsApp

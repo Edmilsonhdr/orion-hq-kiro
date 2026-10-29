@@ -11,8 +11,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { obter, enviar, ErroApi } from "../../../lib/api";
+import { agentePorId } from "../../../lib/agents";
 import ApprovalCard, { Aprovacao } from "../../../components/ApprovalCard";
-import { filtrarAprovacoes, type FiltroAprovacao } from "../../../lib/aprovacoes";
+import { agentesDasAprovacoes, filtrarAprovacoes, filtrarPorAgente, type FiltroAprovacao } from "../../../lib/aprovacoes";
 
 // Intervalo do polling da lista completa (~3 s: leve, não é tempo real).
 const INTERVALO_APROV_MS = 3000;
@@ -22,6 +23,7 @@ export default function AprovacoesPage() {
   const [decidindo, setDecidindo] = useState<number | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<FiltroAprovacao>("todas");
+  const [agente, setAgente] = useState("");
   const [lote, setLote] = useState(false);
 
   // Evita atualizar estado depois que o componente desmonta.
@@ -54,7 +56,11 @@ export default function AprovacoesPage() {
     };
   }, [buscar]);
 
-  const filtradas = useMemo(() => filtrarAprovacoes(aprovacoes, filtro), [aprovacoes, filtro]);
+  const agentes = useMemo(() => agentesDasAprovacoes(aprovacoes), [aprovacoes]);
+  const filtradas = useMemo(
+    () => filtrarPorAgente(filtrarAprovacoes(aprovacoes, filtro), agente),
+    [aprovacoes, filtro, agente],
+  );
   const pendentes = useMemo(() => filtradas.filter((a) => a.status === "pendente"), [filtradas]);
   const historico = useMemo(() => filtradas.filter((a) => a.status !== "pendente"), [filtradas]);
 
@@ -142,6 +148,16 @@ export default function AprovacoesPage() {
             {{ todas: "Todas", documentos: "Documentos", comercial: "Comercial", reunioes: "Reuniões" }[f]}
           </button>
         ))}
+        {agentes.length > 1 && (
+          <select aria-label="Filtrar por agente" value={agente} onChange={(e) => setAgente(e.target.value)} className="aprov-filtro-agente">
+            <option value="">Todos os agentes</option>
+            {agentes.map((a) => (
+              <option key={a} value={a}>
+                {agentePorId(a)?.papel ?? a}
+              </option>
+            ))}
+          </select>
+        )}
         {pendentes.length > 1 && (
           <span className="aprov-lote">
             <button type="button" onClick={() => decidirLote(true)} disabled={lote}>

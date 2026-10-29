@@ -64,6 +64,7 @@ test("modelosDeMensagem usa o primeiro nome e não inclui preço", () => {
   assert.equal(ms.length, 5);
   assert.match(ms[0].texto, /Olá, Ana!/);
   assert.ok(ms.every((m) => !/R\$/.test(m.texto)));
+  assert.equal(ms[0].assunto, "Conheça o Orion para Clínica Sol");
   const auto = modelosDeMensagem({ organizacao_nome: "Dr. Leo", organizacao_tipo: "autonomo", plano_interesse: null }, null, "Jullyana");
   assert.match(auto[0].texto, /o seu trabalho/);
 });

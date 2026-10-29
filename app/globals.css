@@ -3788,3 +3788,133 @@ dialog.modal {
   display: flex;
   margin-top: 5px;
 }
+
+.aprov-filtro-agente {
+  min-height: 34px;
+  padding: 0 28px 0 10px;
+  font-size: 14px;
+}
+
+.inc-grafico {
+  padding: 14px 16px 10px;
+}
+
+.inc-grafico svg {
+  width: 100%;
+  height: auto;
+  max-height: 150px;
+  display: block;
+}
+
+.inc-barra {
+  fill: var(--destaque);
+}
+
+.inc-barra-vazia {
+  fill: var(--borda-forte);
+}
+
+.inc-eixo {
+  fill: var(--texto-secundario);
+  font-size: 12px;
+  font-family: var(--fonte-mono);
+}
+
+.com-mensagens-assunto {
+  margin: 8px 0 6px;
+  font-size: 13px;
+}
+
+/* Árvore de páginas (Docs) */
+.docs-arvore {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.docs-arvore-item {
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: grab;
+}
+
+.docs-arvore-item[data-arrastando="true"] {
+  opacity: 0.45;
+}
+
+.docs-arvore-item[data-alvo="dentro"] {
+  background: rgba(76, 141, 255, 0.2);
+  border-color: var(--destaque);
+}
+
+.docs-arvore-item[data-alvo="antes"] {
+  box-shadow: 0 -2px 0 var(--destaque);
+}
+
+.docs-arvore-item[data-alvo="depois"] {
+  box-shadow: 0 2px 0 var(--destaque);
+}
+
+.docs-arvore-linha {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 30px;
+}
+
+.docs-arvore-linha a {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--texto);
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.docs-arvore-linha a:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.docs-arvore-seta {
+  flex: none;
+  width: 20px;
+  min-height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--texto-secundario);
+  font-size: 12px;
+}
+
+.docs-arvore-dica {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+/* Texto só para leitores de tela */
+.so-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* O botão do cartão de incidente usa `all: unset` inline: devolve o contorno de foco por teclado */
+.inc-cabeca-botao:focus-visible {
+  outline: 2px solid var(--destaque) !important;
+  outline-offset: 4px !important;
+  border-radius: 6px;
+}

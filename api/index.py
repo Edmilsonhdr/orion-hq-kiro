@@ -543,6 +543,11 @@ class OrdemCorpo(BaseModel):
     direcao: str
 
 
+class MoverCorpo(BaseModel):
+    pai_id: int | None = None
+    posicao: int = 0
+
+
 class ComentarioCorpo(BaseModel):
     texto: str
 
@@ -554,6 +559,19 @@ def mover_documento(
     """Sobe ou desce a página entre as irmãs (`cima`/`baixo`). Devolve os ids na nova ordem."""
     try:
         ids = documentos.mover_subpagina(documento_id, corpo.direcao)
+    except ValueError as erro:
+        raise _invalido(erro)
+    _documento_ou_404({} if ids is not None else None)
+    return ids or []
+
+
+@app.post("/api/documentos/{documento_id}/mover")
+def mover_documento_na_arvore(
+    documento_id: int, corpo: MoverCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> list[int]:
+    """Move a página para outra página pai (ou o topo) numa posição entre as irmãs (árvore do Docs)."""
+    try:
+        ids = documentos.mover(documento_id, corpo.pai_id, corpo.posicao)
     except ValueError as erro:
         raise _invalido(erro)
     _documento_ou_404({} if ids is not None else None)

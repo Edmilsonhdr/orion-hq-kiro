@@ -182,7 +182,7 @@ export function resumoPorEtapa(negocios: Negocio[]): LinhaEtapa[] {
 
 // ---- Modelos de mensagem (WhatsApp/e-mail) para a sócia copiar. Sem preços: ela completa.
 
-export type ModeloMensagem = { id: string; rotulo: string; texto: string };
+export type ModeloMensagem = { id: string; rotulo: string; assunto: string; texto: string };
 
 export function modelosDeMensagem(
   n: Pick<Negocio, "organizacao_nome" | "organizacao_tipo" | "plano_interesse">,
@@ -195,26 +195,31 @@ export function modelosDeMensagem(
   return [
     {
       id: "primeiro",
+      assunto: `Conheça o Orion para ${lugar}`,
       rotulo: "Primeiro contato",
       texto: `${oi} Aqui é ${remetente}, do Orion. Posso te mostrar em 15 minutos como o Orion ajuda ${quem} a organizar o dia a dia? Qual o melhor horário para você?`,
     },
     {
       id: "demonstracao",
+      assunto: `Próximos passos do Orion para ${lugar}`,
       rotulo: "Depois da demonstração",
       texto: `${oi} Obrigada pelo tempo na demonstração! Ficou alguma dúvida sobre o Orion? Se fizer sentido, posso montar um piloto para ${quem} e combinar os próximos passos.`,
     },
     {
       id: "piloto",
+      assunto: `Seu piloto do Orion para ${lugar}`,
       rotulo: "Convite para o piloto",
       texto: `${oi} Preparei o piloto do Orion para ${quem}${n.plano_interesse ? ` (plano ${n.plano_interesse})` : ""}. Posso te enviar o acesso e agendar uma conversa de acompanhamento para esta semana?`,
     },
     {
       id: "proposta",
+      assunto: `Proposta do Orion para ${lugar}`,
       rotulo: "Envio de proposta",
       texto: `${oi} Segue a proposta do Orion para ${quem}. Se preferir, falo com você por ligação para tirar qualquer dúvida. Fico no aguardo!`,
     },
     {
       id: "retorno",
+      assunto: `Sobre o Orion para ${lugar}`,
       rotulo: "Retomar contato",
       texto: `${oi} Passando para saber como estão as coisas por aí. Ainda faz sentido conversarmos sobre o Orion para ${quem}?`,
     },
