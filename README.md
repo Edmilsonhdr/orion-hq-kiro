@@ -164,6 +164,10 @@ título na mesma pasta é pulado) e nunca sobrescreve. CSV, imagens e anexos sã
 Em "Nova página" há modelos (ata, one-pager, retrospectiva, plano de lançamento). No editor, digitar `/` no
 começo de uma linha abre o menu de blocos (títulos, listas, tarefas, tabela, citação, código).
 
+**Escritório:** clique numa sala (ou na legenda) para abrir o painel do agente e filtrar o feed; selos
+na planta levam a Aprovações e Incidentes; há mapa de calor de tokens, replay do dia, tema claro e quem
+está online (heartbeat em `/api/presenca`; rode `scripts/setup_db.py` para criar a tabela `presenca`).
+
 **Subpáginas:** cada documento pode ter uma página pai (até 6 níveis, sem ciclos). A tela do documento mostra
 as migalhas com os ancestrais, a lista de subpáginas e "Nova subpágina"; o editor tem o seletor "Página pai".
 Arquivar uma página arquiva as subpáginas; desarquivar reabre só ela. A `pasta` continua existindo. A

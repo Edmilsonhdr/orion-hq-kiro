@@ -178,6 +178,26 @@ def me(usuario: str = Depends(auth.usuario_atual)) -> dict:
     return {"usuario": usuario, "aprovador": usuario in config.aprovadores()}
 
 
+@app.post("/api/presenca")
+def marcar_presenca(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Heartbeat: registra que o usuário está com o HQ aberto agora."""
+    db.executar(
+        """insert into presenca (usuario, visto_em) values (%s, now())
+           on conflict (usuario) do update set visto_em = now()""",
+        (usuario,),
+    )
+    return {"ok": True}
+
+
+@app.get("/api/presenca")
+def quem_esta_online(usuario: str = Depends(auth.usuario_atual)) -> list[str]:
+    """Usuários vistos nos últimos 90 segundos (ordem alfabética)."""
+    linhas = db.consultar(
+        "select usuario from presenca where visto_em > now() - interval '90 seconds' order by usuario"
+    )
+    return [l["usuario"] for l in linhas]
+
+
 @app.get("/api/atividades")
 def listar_atividades(
     desde: int = 0, usuario: str = Depends(auth.usuario_atual)

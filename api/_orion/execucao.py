@@ -186,7 +186,7 @@ def receber(autor: str, texto: str) -> tuple[dict, Optional[dict]]:
         "historico": historico,
         "passos": 0,
     }
-    emitir(run_id, "orq", "inicio", texto[:200])
+    emitir(run_id, "orq", "inicio", texto[:200], dados={"autor": autor})
     return {"status": "processando", "run_id": run_id}, estado_inicial
 
 

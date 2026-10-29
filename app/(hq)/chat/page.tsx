@@ -82,6 +82,12 @@ export default function ChatPage() {
   const [enviando, setEnviando] = useState(false);
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
 
+  // Atalho vindo do Escritório: /chat?msg=... preenche o campo (não envia sozinho).
+  useEffect(() => {
+    const m = new URLSearchParams(window.location.search).get("msg");
+    if (m) setTexto(m);
+  }, []);
+
   // Aprovações pendentes: polling próprio e leve (Requirement 9.3).
   const [pendentes, setPendentes] = useState<Aprovacao[]>([]);
   const [decidindo, setDecidindo] = useState<number | null>(null);

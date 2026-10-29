@@ -188,6 +188,16 @@ export default function Header() {
     };
   }, []);
 
+  // Heartbeat de presença: avisa o HQ que este usuário está com a tela aberta.
+  useEffect(() => {
+    const bater = () => {
+      if (!document.hidden) enviar("/presenca").catch(() => {});
+    };
+    bater();
+    const timer = setInterval(bater, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Próximos passos vencidos do Comercial (spec comercial, Requirement 5.1).
   useEffect(() => {
     let ativo = true;

@@ -12,6 +12,7 @@
 // animações de transição (caminhadas pelo corredor e o envelope de cada
 // delegação), que não mudam o estado final.
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AGENTES, SALA_COPA, agentePorId, pessoaDoAgente, type Agente, type Sala } from "../lib/agents";
 import {
@@ -193,6 +194,9 @@ export default function Office({
   tokens = {},
   selecionado = null,
   onSelecionar,
+  qtdPendentes = 0,
+  qtdIncidentes = 0,
+  calor = false,
 }: {
   atividades: Atividade[];
   agora: number;
@@ -204,6 +208,10 @@ export default function Office({
   // Sala escolhida (filtra o painel lateral) e o callback do clique.
   selecionado?: string | null;
   onSelecionar?: (id: string) => void;
+  // Alertas clicáveis na planta e mapa de calor de tokens.
+  qtdPendentes?: number;
+  qtdIncidentes?: number;
+  calor?: boolean;
 }) {
   const reduzido = useMovimentoReduzido();
   const entrada: EntradaCena = useMemo(
@@ -296,9 +304,23 @@ export default function Office({
           andando={andando}
           tokens={tokens[agente.id] ?? 0}
           selecionada={selecionado === agente.id}
+          calor={calor ? (tokens[agente.id] ?? 0) / Math.max(1, ...Object.values(tokens)) : null}
           onSelecionar={onSelecionar}
         />
       ))}
+
+      {qtdPendentes > 0 && (
+        <Link href="/aprovacoes" className="esc-alerta aprovacao" style={{ left: 430, top: 300 }} title="Ir para as aprovações">
+          <span className="esc-alerta-icone" aria-hidden="true">✉</span>
+          {qtdPendentes} {qtdPendentes === 1 ? "aprovação" : "aprovações"}
+        </Link>
+      )}
+      {qtdIncidentes > 0 && (
+        <Link href="/incidentes" className="esc-alerta incidente" style={{ left: 40, top: 292 }} title="Ir para os incidentes">
+          <span className="esc-alerta-icone" aria-hidden="true">!</span>
+          {qtdIncidentes} {qtdIncidentes === 1 ? "incidente" : "incidentes"}
+        </Link>
+      )}
 
       <Sala_ sala={SALA_COPA}>
         <div
@@ -440,6 +462,7 @@ function SalaDeAgente({
   andando,
   tokens,
   selecionada,
+  calor,
   onSelecionar,
 }: {
   agente: Agente;
@@ -448,6 +471,8 @@ function SalaDeAgente({
   andando: Record<string, Trilha>;
   tokens: number;
   selecionada: boolean;
+  // 0..1 (tokens relativos ao maior gasto) ou null quando o mapa de calor está desligado.
+  calor: number | null;
   onSelecionar?: (id: string) => void;
 }) {
   const sala = agente.sala!;
@@ -531,6 +556,13 @@ function SalaDeAgente({
             }}
           />
         </div>
+      )}
+      {calor !== null && (
+        <div
+          aria-hidden="true"
+          className="esc-calor"
+          style={{ left: sala.x, top: sala.y, ["--calor" as string]: calor.toFixed(2) }}
+        />
       )}
       {escuro && <div className="esc-sombra-noite" style={{ left: sala.x, top: sala.y }} />}
       <div

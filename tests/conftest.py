@@ -54,6 +54,7 @@ _TABELAS_DOMINIO = (
     "negocios",
     "contatos",
     "organizacoes",
+    "presenca",
 )
 
 

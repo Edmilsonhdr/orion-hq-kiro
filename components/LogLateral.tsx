@@ -10,7 +10,7 @@
 // O polling incremental das atividades e o polling leve dos tokens ficam na
 // página (app/(hq)/escritorio/page.tsx).
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { AGENTES, agentePorId, pessoaDoAgente } from "../lib/agents";
 import { nomeEm } from "../lib/exibicao";
 import { Atividade } from "./Office";
@@ -39,6 +39,8 @@ function corAgente(id: string): string {
 
 // Texto legível do que a atividade representa (detalhe ou o tipo em fallback).
 function textoLinha(a: Atividade): string {
+  const autor = typeof a.dados?.autor === "string" ? a.dados.autor : null;
+  if (a.tipo === "inicio" && autor && a.detalhe) return `${autor} pediu: ${a.detalhe}`;
   if (a.detalhe && a.detalhe.trim().length > 0) return a.detalhe;
   return a.tipo;
 }
@@ -52,10 +54,13 @@ export default function LogLateral({
   tokens,
   filtro = null,
   onLimpar,
+  topo,
 }: {
   atividades: Atividade[];
   filtro?: string | null;
   onLimpar?: () => void;
+  // Conteúdo extra no alto da barra (painel do agente escolhido).
+  topo?: ReactNode;
   // {agente: tokens} de hoje (do endpoint /atividades/tokens).
   tokens: Record<string, number>;
 }) {
@@ -86,6 +91,7 @@ export default function LogLateral({
 
   return (
     <aside className="log-lateral esc-lateral" aria-label="Atividades e tokens">
+      {topo}
       {/* Tokens do dia: uma barra por agente, na cor dele */}
       <section className="painel esc-painel" aria-label="Tokens gastos hoje">
         <header className="esc-painel-topo">
