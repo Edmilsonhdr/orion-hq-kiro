@@ -45,11 +45,10 @@ export default function LoginPage() {
         <div className="login-marca titulo-pixel">
           <span className="hq-marca-ponto" /> Orion HQ
         </div>
-        <p className="login-frase">O escritório dos agentes de IA da Dimi e da Jullyana.</p>
+        <p className="login-frase">O escritório dos agentes de IA do orion</p>
         <ul className="login-pontos">
           <li>Chat com o Orquestrador e os especialistas</li>
           <li>Docs, Comercial e aprovações num lugar só</li>
-          <li>Nada é aplicado sem um sócio aprovar</li>
         </ul>
       </section>
       <form onSubmit={aoEnviar} className="painel login-form">
