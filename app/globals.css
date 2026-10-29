@@ -3774,3 +3774,17 @@ dialog.modal {
 .doc-visual-conteudo blockquote p {
   margin: 6px 0;
 }
+
+.doc-visual-conteudo ul[data-type="taskList"] input[type="checkbox"] {
+  min-height: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  display: block;
+}
+
+.doc-visual-conteudo ul[data-type="taskList"] li > label {
+  display: flex;
+  margin-top: 5px;
+}
