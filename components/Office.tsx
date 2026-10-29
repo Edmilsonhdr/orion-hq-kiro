@@ -129,7 +129,21 @@ function posicaoDe(chave: string, cena: Cena): Posicao {
   return local;
 }
 
-function Sala_({ sala, children, rotulo, cor }: { sala: Sala; children?: ReactNode; rotulo?: boolean; cor?: string }) {
+function Sala_({
+  sala,
+  children,
+  rotulo,
+  cor,
+  selecionada,
+  aoClicar,
+}: {
+  sala: Sala;
+  children?: ReactNode;
+  rotulo?: boolean;
+  cor?: string;
+  selecionada?: boolean;
+  aoClicar?: () => void;
+}) {
   return (
     <>
       <div
@@ -150,12 +164,18 @@ function Sala_({ sala, children, rotulo, cor }: { sala: Sala; children?: ReactNo
       {cor && (
         <div
           aria-hidden="true"
-          className="esc-sala-luz"
+          className={`esc-sala-luz${selecionada ? " selecionada" : ""}`}
           style={{ left: sala.x, top: sala.y, ["--cor" as string]: cor }}
         />
       )}
       {rotulo !== false && (
-        <div className="esc-rotulo" aria-hidden="true" style={{ left: sala.x + 14, top: sala.y + 14, zIndex: 6 }}>
+        <div
+          className={`esc-rotulo${aoClicar ? " clicavel" : ""}`}
+          {...(aoClicar
+            ? { role: "button", tabIndex: 0, "aria-pressed": !!selecionada, title: "Filtrar atividades deste agente", onClick: aoClicar, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); aoClicar(); } } }
+            : { "aria-hidden": true })}
+          style={{ left: sala.x + 14, top: sala.y + 14, zIndex: 9 }}
+        >
           {sala.rotulo}
         </div>
       )}
@@ -171,6 +191,8 @@ export default function Office({
   temAprovacaoPendente = false,
   incidenteAberto = false,
   tokens = {},
+  selecionado = null,
+  onSelecionar,
 }: {
   atividades: Atividade[];
   agora: number;
@@ -179,6 +201,9 @@ export default function Office({
   temAprovacaoPendente?: boolean;
   incidenteAberto?: boolean;
   tokens?: Record<string, number>;
+  // Sala escolhida (filtra o painel lateral) e o callback do clique.
+  selecionado?: string | null;
+  onSelecionar?: (id: string) => void;
 }) {
   const reduzido = useMovimentoReduzido();
   const entrada: EntradaCena = useMemo(
@@ -270,6 +295,8 @@ export default function Office({
           cena={cena}
           andando={andando}
           tokens={tokens[agente.id] ?? 0}
+          selecionada={selecionado === agente.id}
+          onSelecionar={onSelecionar}
         />
       ))}
 
@@ -412,12 +439,16 @@ function SalaDeAgente({
   cena,
   andando,
   tokens,
+  selecionada,
+  onSelecionar,
 }: {
   agente: Agente;
   indice: number;
   cena: Cena;
   andando: Record<string, Trilha>;
   tokens: number;
+  selecionada: boolean;
+  onSelecionar?: (id: string) => void;
 }) {
   const sala = agente.sala!;
   const ehOrq = agente.id === "orq";
@@ -444,7 +475,7 @@ function SalaDeAgente({
   const corPonto = estado === "espera" ? COR_ESPERA : estado === "ativo" ? agente.cor : "#6B7A99";
 
   return (
-    <Sala_ sala={sala} cor={agente.cor}>
+    <Sala_ sala={sala} cor={agente.cor} selecionada={selecionada} aoClicar={onSelecionar ? () => onSelecionar(agente.id) : undefined}>
       <div
         role="group"
         aria-label={`${pessoa.nome}, ${agente.papel}: ${linha}`}
@@ -502,7 +533,11 @@ function SalaDeAgente({
         </div>
       )}
       {escuro && <div className="esc-sombra-noite" style={{ left: sala.x, top: sala.y }} />}
-      <div className="esc-rodape" style={{ left: sala.x + 14, top: sala.y + 240 }}>
+      <div
+        className={`esc-rodape${onSelecionar ? " clicavel" : ""}`}
+        style={{ left: sala.x + 14, top: sala.y + 240 }}
+        onClick={onSelecionar ? () => onSelecionar(agente.id) : undefined}
+      >
         <div
           aria-hidden="true"
           style={{ width: 8, height: 8, borderRadius: "50%", background: corPonto, flexShrink: 0 }}

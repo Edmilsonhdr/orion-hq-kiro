@@ -2654,3 +2654,89 @@ dialog.modal {
   background: rgba(8, 12, 26, 0.55);
   border: 1px solid rgba(150, 200, 255, 0.14);
 }
+
+/* =========================================================================
+   Planta clicável e tema claro
+   ========================================================================= */
+
+.esc-rotulo.clicavel,
+.esc-rodape.clicavel {
+  cursor: pointer;
+}
+
+.esc-rotulo.clicavel:hover,
+.esc-rodape.clicavel:hover {
+  border-color: var(--destaque);
+}
+
+.esc-sala-luz.selecionada {
+  box-shadow: inset 0 0 0 3px var(--cor), 0 0 22px color-mix(in srgb, var(--cor) 60%, transparent);
+}
+
+.esc-moldura {
+  position: relative;
+}
+
+.esc-tema {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* Tema claro: escritório de dia, piso de porcelanato e salas de vidro foscas */
+.esc-claro {
+  background: linear-gradient(145deg, #dfe7f5 0%, #c9d5ea 100%);
+}
+
+.esc-claro .esc-planta.esc-madeira {
+  background-color: #e9eef7;
+  background-image:
+    linear-gradient(180deg, transparent 0, transparent 338px, rgba(76, 141, 255, 0.35) 338px, rgba(76, 141, 255, 0.35) 340px, transparent 340px, transparent 348px, rgba(76, 141, 255, 0.35) 348px, rgba(76, 141, 255, 0.35) 350px, transparent 350px),
+    linear-gradient(rgba(60, 80, 120, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(60, 80, 120, 0.08) 1px, transparent 1px),
+    linear-gradient(135deg, #f4f7fc 0%, #dde5f3 100%);
+  background-size: 100% 100%, 72px 72px, 72px 72px, 100% 100%;
+}
+
+.esc-claro .esc-planta::before {
+  background: radial-gradient(ellipse 120% 100% at 50% 50%, transparent 60%, rgba(60, 80, 120, 0.22) 100%);
+}
+
+.esc-claro .esc-planta::after {
+  display: none;
+}
+
+.esc-claro .esc-carpete,
+.esc-claro .esc-ladrilho {
+  background-color: #f8fafe !important;
+  border-color: #aebbd6 !important;
+  box-shadow:
+    0 10px 22px rgba(60, 80, 120, 0.25),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.8),
+    inset 0 18px 30px rgba(60, 80, 120, 0.08) !important;
+}
+
+.esc-claro .esc-ladrilho {
+  background-color: #f1f4fa !important;
+}
+
+.esc-claro .esc-sombra-noite {
+  background: rgba(40, 55, 90, 0.45);
+}
+
+.esc-claro .esc-rotulo {
+  color: #33415f;
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(60, 80, 120, 0.2);
+  text-shadow: none;
+}
+
+.esc-claro .esc-rodape {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(60, 80, 120, 0.25);
+}
+
+.esc-claro .esc-rodape > div:nth-child(2) {
+  color: #33415f !important;
+}
+

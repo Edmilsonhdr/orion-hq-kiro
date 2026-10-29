@@ -57,6 +57,23 @@ const formatarNumero = (n: number) => new Intl.NumberFormat("pt-BR").format(n);
 
 export default function EscritorioPage() {
   const [filtro, setFiltro] = useState<string | null>(null);
+  const [claro, setClaro] = useState(false);
+  useEffect(() => {
+    try {
+      setClaro(window.localStorage.getItem("hq:planta-clara") === "1");
+    } catch {
+      // sem armazenamento: tema escuro
+    }
+  }, []);
+  function alternarTema() {
+    const novo = !claro;
+    setClaro(novo);
+    try {
+      window.localStorage.setItem("hq:planta-clara", novo ? "1" : "0");
+    } catch {
+      // só uma conveniência
+    }
+  }
   const { itens, carregado } = usePollComEstado<Atividade>("/atividades", INTERVALO_ATIV_MS);
   const { agora, deslocamentoMs } = useRelogio();
   const atividades = useMemo(() => deslocarDatas(itens, deslocamentoMs), [itens, deslocamentoMs]);
@@ -113,6 +130,9 @@ export default function EscritorioPage() {
             </li>
           ))}
         </ul>
+        <button type="button" className="esc-tema" onClick={alternarTema} aria-pressed={claro}>
+          {claro ? "Tema escuro" : "Tema claro"}
+        </button>
       </div>
 
       <div className="com-indicadores esc-indicadores">
@@ -131,7 +151,7 @@ export default function EscritorioPage() {
       </div>
 
       <div className="esc-grade">
-        <div className="esc-moldura">
+        <div className={`esc-moldura${claro ? " esc-claro" : ""}`}>
         <EscalaPlanta>
         {agora === null ? (
           <div className="esc-planta esc-madeira" aria-label="Carregando o escritório" />
@@ -143,6 +163,8 @@ export default function EscritorioPage() {
             temAprovacaoPendente={qtdPendentes > 0}
             incidenteAberto={qtdIncidentes > 0}
             tokens={tokens}
+            selecionado={filtro}
+            onSelecionar={(id) => setFiltro(filtro === id ? null : id)}
           />
         )}
         </EscalaPlanta>
