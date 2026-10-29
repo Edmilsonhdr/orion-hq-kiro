@@ -14,7 +14,8 @@ orion-hq/
 │       ├── atividades.py        # emitir(), listar(), tokens_hoje()
 │       ├── auth.py              # login, cookie assinado (HMAC), dependência usuario_atual
 │       ├── llm.py               # modelos (principal/worker), texto(), tokens()
-│       ├── ferramentas.py       # tools dos especialistas (busca no changelog etc.)
+│       ├── ferramentas.py       # tools dos especialistas (changelog, documentos)
+│       ├── documentos.py        # Docs: CRUD, versões, busca full-text (+ fallback ILIKE)
 │       ├── especialistas.py     # tech, negocios, agenda (loop de ferramentas próprio)
 │       ├── grafo.py             # StateGraph: supervisor, especialistas, aprovacao, responder
 │       ├── execucao.py          # conversar(), decidir_aprovacao(), finalização
@@ -28,10 +29,13 @@ orion-hq/
 │       ├── layout.tsx           # checa sessão, cabeçalho e navegação
 │       ├── chat/page.tsx
 │       ├── escritorio/page.tsx
+│       ├── docs/                # lista, novo/ e [id]/ (leitura, edição, histórico)
 │       └── aprovacoes/page.tsx
 ├── components/                  # Office, Desk, ChatMessage, ApprovalCard, ActivityLog
 ├── lib/
 │   ├── api.ts                   # fetch + tratamento de 401
+│   ├── docs.ts                  # tipos e utilitários do módulo Docs
+│   ├── markdown.ts              # parser de markdown seguro (árvore, nunca HTML)
 │   ├── usePoll.ts               # hook de polling incremental
 │   └── agents.ts                # metadados dos agentes (id, nome, nível, cor, posição)
 ├── db/schema.sql

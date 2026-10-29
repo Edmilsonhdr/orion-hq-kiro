@@ -112,6 +112,45 @@ Para popular o escritório virtual com atividades de exemplo (sem gastar tokens)
 .venv/bin/python scripts/seed_demo.py
 ```
 
+## Docs (documentação própria)
+
+Espaço de documentos em markdown dentro do Orion HQ, no lugar de Notion/Confluence (sem custo extra: usa o
+mesmo Postgres). Acesse em **Docs** no cabeçalho (`/docs`).
+
+- Criar/editar documentos com pasta e tags; pré-visualização do markdown (renderizado de forma segura, sem
+  HTML bruto).
+- **Histórico de versões**: cada edição de título/conteúdo guarda a versão anterior (últimas 50), com
+  restauração. Não há exclusão definitiva: só **arquivar**.
+- **Busca** full-text em português (título pesa mais que o conteúdo), com fallback por substring para
+  siglas e nomes próprios. Limitação do stemmer do Postgres: variações como "decisão"/"decisões" não são
+  ligadas entre si.
+- **Os agentes leem os documentos**: o Tech e o Negócios têm as ferramentas `buscar_documentos` e
+  `ler_documento` e citam o documento (id, pasta e data) na resposta.
+- **Escrita pelos agentes, só com aprovação**: pedindo no chat ("registra em docs a ata de hoje"), o agente
+  usa `propor_documento` / `propor_edicao_documento`, que **só registram uma proposta**. Ela aparece em
+  **Aprovações** com prévia; só ao aprovar o documento é criado/editado (autor
+  `tech (aprovado por dimi)`), e o Orquestrador avisa no chat. Se o documento mudou depois da proposta,
+  a edição não é aplicada (status `obsoleta`). Spec em `.kiro/specs/docs-escrita/`.
+- Rotas: `/api/documentos*` (todas exigem sessão). Spec em `.kiro/specs/docs/`.
+
+### Importar do Notion / Confluence
+
+Para trazer o que vocês já escreveram: no Notion, **Exportar → Markdown & CSV** (para o Confluence,
+exporte as páginas para markdown). Depois, com `DATABASE_URL` configurada:
+
+```bash
+# simulação (padrão): mostra o que entraria, não grava nada
+.venv/bin/python scripts/importar_docs.py caminho/export.zip
+# grava de verdade
+.venv/bin/python scripts/importar_docs.py caminho/export.zip --aplicar --autor dimi
+```
+
+O id do Notion no nome é removido, o título vem do primeiro `# Título` (ou do nome do arquivo), as
+pastas viram a pasta do documento e tudo recebe a tag `importado`. Rodar de novo não duplica (mesmo
+título na mesma pasta é pulado) e nunca sobrescreve. CSV, imagens e anexos são ignorados.
+
+Fora do escopo por enquanto: busca semântica, anexos e edição simultânea.
+
 ## Criar o banco no Neon
 
 1. No painel da **Vercel**, abra o projeto → aba **Storage** → **Marketplace** → **Neon** e crie um banco
