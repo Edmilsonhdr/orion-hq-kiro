@@ -129,7 +129,7 @@ function posicaoDe(chave: string, cena: Cena): Posicao {
   return local;
 }
 
-function Sala_({ sala, children, rotulo }: { sala: Sala; children?: ReactNode; rotulo?: boolean }) {
+function Sala_({ sala, children, rotulo, cor }: { sala: Sala; children?: ReactNode; rotulo?: boolean; cor?: string }) {
   return (
     <>
       <div
@@ -147,6 +147,13 @@ function Sala_({ sala, children, rotulo }: { sala: Sala; children?: ReactNode; r
           boxShadow: sala.vidro ? "inset 0 0 0 2px rgba(127,176,255,.25)" : undefined,
         }}
       />
+      {cor && (
+        <div
+          aria-hidden="true"
+          className="esc-sala-luz"
+          style={{ left: sala.x, top: sala.y, ["--cor" as string]: cor }}
+        />
+      )}
       {rotulo !== false && (
         <div className="esc-rotulo" aria-hidden="true" style={{ left: sala.x + 14, top: sala.y + 14, zIndex: 6 }}>
           {sala.rotulo}
@@ -295,7 +302,10 @@ export default function Office({
       {ocupantesCopa.map((o) => {
         const quem = pessoaPorChave(o.chave);
         if (!quem) return null;
-        const p = o.lugar === "pe" ? EM_PE_COPA : LUGARES_COPA[o.lugar];
+        // Quem espera cadeira fica em fila (um acima do outro) para os nomes não se sobreporem.
+        const naFila = ocupantesCopa.filter((x) => x.lugar === "pe").indexOf(o);
+        const p =
+          o.lugar === "pe" ? { x: EM_PE_COPA.x, y: EM_PE_COPA.y - Math.max(0, naFila) * 40 } : LUGARES_COPA[o.lugar];
         return (
           <div
             key={o.chave}
@@ -434,7 +444,7 @@ function SalaDeAgente({
   const corPonto = estado === "espera" ? COR_ESPERA : estado === "ativo" ? agente.cor : "#6B7A99";
 
   return (
-    <Sala_ sala={sala}>
+    <Sala_ sala={sala} cor={agente.cor}>
       <div
         role="group"
         aria-label={`${pessoa.nome}, ${agente.papel}: ${linha}`}

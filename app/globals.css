@@ -2625,3 +2625,32 @@ dialog.modal {
 .esc-moldura .esc-planta {
   box-shadow: 0 0 0 1px rgba(150, 200, 255, 0.2), 0 12px 40px rgba(0, 0, 0, 0.55);
 }
+
+/* =========================================================================
+   Salas com identidade: luz do agente, rodapé e balão refinados
+   ========================================================================= */
+
+.esc-sala-luz {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 38%, color-mix(in srgb, var(--cor) 22%, transparent), transparent 72%),
+    linear-gradient(180deg, color-mix(in srgb, var(--cor) 14%, transparent) 0, transparent 22px);
+  box-shadow: inset 0 3px 0 color-mix(in srgb, var(--cor) 70%, transparent);
+}
+
+.esc-balao {
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.esc-rotulo {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(8, 12, 26, 0.55);
+  border: 1px solid rgba(150, 200, 255, 0.14);
+}
