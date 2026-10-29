@@ -80,20 +80,38 @@ def executar(sql: str, params: Params = None) -> int:
             return cur.rowcount
 
 
+def conversa_do_run(run_id: Optional[str]) -> Optional[int]:
+    """Conversa em que o run começou (gravada na atividade `inicio`), ou `None` (Geral)."""
+    if not run_id:
+        return None
+    linha = um(
+        """
+        select (dados->>'conversa_id')::bigint as conversa_id
+        from atividades where run_id = %s and tipo = 'inicio' order by id limit 1
+        """,
+        (run_id,),
+    )
+    return linha["conversa_id"] if linha else None
+
+
 def salvar_mensagem(
-    autor: str, texto: str, run_id: Optional[str] = None
+    autor: str, texto: str, run_id: Optional[str] = None, conversa_id: Optional[int] = None
 ) -> dict:
     """Insere uma mensagem no chat do grupo e devolve a linha inserida.
 
-    Colunas conforme `db/schema.sql`: autor, texto, run_id.
+    Colunas conforme `db/schema.sql`: autor, texto, run_id, conversa_id. Sem `conversa_id`, vale a
+    conversa em que o `run_id` começou (assim as respostas e as retomadas de aprovação caem no lugar
+    certo); sem as duas coisas, a mensagem é da conversa "Geral".
     """
+    if conversa_id is None:
+        conversa_id = conversa_do_run(run_id)
     linha = um(
         """
-        insert into mensagens (autor, texto, run_id)
-        values (%s, %s, %s)
+        insert into mensagens (autor, texto, run_id, conversa_id)
+        values (%s, %s, %s, %s)
         returning id, autor, texto, run_id, criado_em
         """,
-        (autor, texto, run_id),
+        (autor, texto, run_id, conversa_id),
     )
     # `um` só retorna None quando não há linha; um INSERT ... RETURNING sempre
     # devolve uma. O assert deixa isso explícito para o verificador de tipos.
@@ -101,7 +119,7 @@ def salvar_mensagem(
     return linha
 
 
-def historico_recente(limite: int = 12) -> str:
+def historico_recente(limite: int = 12, conversa_id: Optional[int] = None) -> str:
     """Últimas N mensagens do grupo, formatadas "Autor: texto".
 
     Uma mensagem por linha, em ordem cronológica (mais antiga primeiro).
@@ -112,16 +130,17 @@ def historico_recente(limite: int = 12) -> str:
         """
         select autor, texto
         from mensagens
+        where conversa_id is not distinct from %s
         order by id desc
         limit %s
         """,
-        (limite,),
+        (conversa_id, limite),
     )
     linhas.reverse()  # volta para ordem cronológica (mais antiga primeiro)
     return "\n".join(f"{m['autor']}: {m['texto']}" for m in linhas)
 
 
-def listar_mensagens(desde: int = 0) -> list[dict]:
+def listar_mensagens(desde: int = 0, conversa_id: Optional[int] = None) -> list[dict]:
     """Mensagens do chat para o polling incremental do front (Requirement 2.3).
 
     Espelha `atividades.listar`:
@@ -136,19 +155,21 @@ def listar_mensagens(desde: int = 0) -> list[dict]:
             """
             select id, autor, texto, run_id, criado_em
             from mensagens
-            where id > %s
+            where id > %s and conversa_id is not distinct from %s
             order by id asc
             """,
-            (desde,),
+            (desde, conversa_id),
         )
 
     recentes = consultar(
         """
         select id, autor, texto, run_id, criado_em
         from mensagens
+        where conversa_id is not distinct from %s
         order by id desc
         limit 50
-        """
+        """,
+        (conversa_id,),
     )
     recentes.reverse()
     return recentes

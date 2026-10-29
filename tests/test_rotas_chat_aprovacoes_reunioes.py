@@ -127,7 +127,7 @@ def test_chat_responde_ao_salvar_e_processa_em_segundo_plano(cliente, monkeypatc
 
     capturado = {}
 
-    def _fake_receber(usuario, texto):
+    def _fake_receber(usuario, texto, conversa_id=None):
         capturado["receber"] = (usuario, texto)
         return {"status": "processando", "run_id": "abc"}, {"run_id": "abc"}
 

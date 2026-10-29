@@ -173,6 +173,11 @@ gráfico, importação de CSV e modelos de mensagem, Aprovações com filtros, l
 projeto, Docs com links `[[Título]]`, comentários com `@menção` e ordem das subpáginas. O login bloqueia
 por 15 minutos após 5 falhas (tabela `login_tentativas`).
 
+**Editor visual e conversas:** o editor de documentos abre no modo Visual (Tiptap, com tabelas, tarefas,
+código e `[[links]]`) e tem o modo Markdown; o conteúdo é sempre markdown e só é reescrito quando você edita
+no modo visual. O chat tem várias conversas (a "Geral" reúne avisos e resumos dos agentes); cada conversa
+tem o seu histórico, que é o contexto dos agentes. Rode `scripts/setup_db.py` para criar a tabela `conversas`.
+
 **Subpáginas:** cada documento pode ter uma página pai (até 6 níveis, sem ciclos). A tela do documento mostra
 as migalhas com os ancestrais, a lista de subpáginas e "Nova subpágina"; o editor tem o seletor "Página pai".
 Arquivar uma página arquiva as subpáginas; desarquivar reabre só ela. A `pasta` continua existindo. A

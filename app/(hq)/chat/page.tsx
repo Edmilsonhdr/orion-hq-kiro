@@ -10,10 +10,11 @@
 //   quem abre a tela no meio de um run.
 // - Cartões de aprovação pendente no topo (Requirement 9.3).
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ErroApi, enviar, obter } from "../../../lib/api";
 import { usePoll } from "../../../lib/usePoll";
 import { nomeEm, pessoaEm } from "../../../lib/exibicao";
+import ListaConversas from "../../../components/ListaConversas";
 import ChatMessage, { Mensagem, fontesDe } from "../../../components/ChatMessage";
 import ApprovalCard, { Aprovacao } from "../../../components/ApprovalCard";
 
@@ -57,9 +58,9 @@ function indicadorTrabalho(atividades: Atividade[]): string | null {
   return detalhe ? `${nome} · ${detalhe}` : nome;
 }
 
-async function mensagemFoiSalva(desde: number, texto: string): Promise<boolean> {
+async function mensagemFoiSalva(desde: number, texto: string, conversaId: number | null): Promise<boolean> {
   try {
-    const novas = await obter<Mensagem[]>(`/mensagens?desde=${desde}`);
+    const novas = await obter<Mensagem[]>(`/mensagens?desde=${desde}${conversaId ? `&conversa=${conversaId}` : ""}`);
     return Array.isArray(novas) && novas.some((m) => m.texto === texto);
   } catch {
     return false;
@@ -75,7 +76,33 @@ const SUGESTOES = [
 ];
 
 export default function ChatPage() {
-  const mensagens = usePoll<Mensagem>("/mensagens", INTERVALO_MSG_MS);
+  const [conversaId, setConversaId] = useState<number | null>(null);
+  useEffect(() => {
+    try {
+      const salva = Number(window.localStorage.getItem("hq:conversa"));
+      if (salva > 0) setConversaId(salva);
+    } catch {
+      // sem armazenamento: começa na Geral
+    }
+  }, []);
+  const escolher = useCallback((id: number | null) => {
+    setConversaId(id);
+    try {
+      window.localStorage.setItem("hq:conversa", String(id ?? 0));
+    } catch {
+      // só uma conveniência
+    }
+  }, []);
+  return (
+    <div className="chat-layout">
+      <ListaConversas atual={conversaId} onEscolher={escolher} />
+      <ChatConversa key={conversaId ?? 0} conversaId={conversaId} />
+    </div>
+  );
+}
+
+function ChatConversa({ conversaId }: { conversaId: number | null }) {
+  const mensagens = usePoll<Mensagem>(conversaId ? `/mensagens?conversa=${conversaId}` : "/mensagens", INTERVALO_MSG_MS);
   const atividades = usePoll<Atividade>("/atividades", INTERVALO_ATIV_MS);
 
   const [texto, setTexto] = useState("");
@@ -158,11 +185,11 @@ export default function ChatPage() {
     // O POST /chat volta assim que a mensagem é salva; o run segue no servidor
     // e a resposta chega pelo polling de mensagens e atividades (design.md).
     try {
-      await enviar("/chat", { texto: conteudo });
+      await enviar("/chat", { texto: conteudo, conversa_id: conversaId });
     } catch (erro) {
       const recusada = erro instanceof ErroApi && erro.status < 500;
       // Timeout/erro de rede não significa que a mensagem se perdeu.
-      if (recusada || !(await mensagemFoiSalva(ultimoId, conteudo))) {
+      if (recusada || !(await mensagemFoiSalva(ultimoId, conteudo, conversaId))) {
         setErroEnvio("Não foi possível enviar a mensagem. Tente novamente.");
         setTexto((atual) => atual || conteudo);
       }
@@ -190,6 +217,8 @@ export default function ChatPage() {
       style={{
         maxWidth: "820px",
         margin: "0 auto",
+        flex: 1,
+        minWidth: 0,
         height: "100%",
         display: "flex",
         flexDirection: "column",

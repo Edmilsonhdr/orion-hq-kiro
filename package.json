@@ -12,6 +12,13 @@
     "test:front": "node --test lib/rotina.test.ts lib/markdown.test.ts lib/docs.test.ts lib/comercial.test.ts lib/paleta.test.ts lib/blocos.test.ts lib/modelos.test.ts lib/diff.test.ts lib/aprovacoes.test.ts"
   },
   "dependencies": {
+    "@tiptap/core": "^3.32.1",
+    "@tiptap/extension-list": "^3.32.1",
+    "@tiptap/extension-table": "^3.32.1",
+    "@tiptap/markdown": "^3.32.1",
+    "@tiptap/pm": "^3.32.1",
+    "@tiptap/react": "^3.32.1",
+    "@tiptap/starter-kit": "^3.32.1",
     "next": "^16.3.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

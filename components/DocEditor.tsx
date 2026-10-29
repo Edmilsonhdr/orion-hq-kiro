@@ -8,9 +8,18 @@
 // sem perder o que foi digitado.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Markdown from "./Markdown";
 import { BLOCOS, detectarBarra, filtrarBlocos, inserirBloco, type Barra, type Bloco } from "../lib/blocos";
 import { CONTEUDO_MAX, contarPalavras, tagsDoTexto, type DadosDocumento, type OpcaoPai } from "../lib/docs";
+
+// O editor visual (Tiptap) só carrega no navegador e só quando é usado.
+const EditorVisual = dynamic(() => import("./EditorVisual"), {
+  ssr: false,
+  loading: () => <div className="doc-visual doc-visual-carregando" aria-busy="true" />,
+});
+
+const CHAVE_FORMATO = "hq:editor-formato";
 
 type Props = {
   inicial: DadosDocumento;
@@ -61,6 +70,8 @@ export default function DocEditor({
   const [pai, setPai] = useState(inicial.pai_id === null ? "" : String(inicial.pai_id));
   const [tags, setTags] = useState(inicial.tags.join(", "));
   const [modo, setModo] = useState<"escrever" | "previa">("escrever");
+  // Visual (WYSIWYG) é o padrão; "markdown" mostra o texto cru com barra e pré-visualização.
+  const [formato, setFormato] = useState<"visual" | "markdown">("visual");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
@@ -101,6 +112,24 @@ export default function DocEditor({
     // só na montagem
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(CHAVE_FORMATO) === "markdown") setFormato("markdown");
+    } catch {
+      // sem armazenamento: modo visual
+    }
+  }, []);
+
+  function trocarFormato(novo: "visual" | "markdown") {
+    setFormato(novo);
+    setBarra(null);
+    try {
+      window.localStorage.setItem(CHAVE_FORMATO, novo);
+    } catch {
+      // só uma conveniência
+    }
+  }
 
   // Autosave do rascunho (com atraso) enquanto há alterações e o aviso de rascunho não está aberto.
   useEffect(() => {
@@ -335,6 +364,19 @@ export default function DocEditor({
         />
       </div>
 
+      <div className="doc-formato" role="tablist" aria-label="Formato do editor">
+        <button type="button" role="tab" aria-selected={formato === "visual"} className={formato === "visual" ? "ativo" : undefined} onClick={() => trocarFormato("visual")}>
+          Visual
+        </button>
+        <button type="button" role="tab" aria-selected={formato === "markdown"} className={formato === "markdown" ? "ativo" : undefined} onClick={() => trocarFormato("markdown")}>
+          Markdown
+        </button>
+      </div>
+
+      {formato === "visual" ? (
+        <EditorVisual valor={conteudo} onChange={setConteudo} />
+      ) : (
+      <>
       <div className="doc-barra" role="toolbar" aria-label="Formatação">
         {ferramentas.map((f) => (
           <span key={f.titulo} style={{ display: "contents" }}>
@@ -414,6 +456,8 @@ export default function DocEditor({
           <Markdown texto={conteudo} />
         </div>
       </div>
+      </>
+      )}
 
       {erro && (
         <p role="alert" className="doc-erro">

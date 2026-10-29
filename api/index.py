@@ -26,7 +26,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 
-from _orion import atividades, auth, comercial, config, db, documentos
+from _orion import atividades, auth, comercial, config, conversas, db, documentos
 
 app = FastAPI(title="Orion HQ")
 
@@ -42,6 +42,12 @@ class MensagemChat(BaseModel):
     """Corpo do `POST /chat`: o texto que o sócio enviou (Requirement 2.1)."""
 
     texto: str
+    # Conversa de destino; ausente = "Geral".
+    conversa_id: int | None = None
+
+
+class ConversaCorpo(BaseModel):
+    titulo: str | None = None
 
 
 class DecisaoAprovacao(BaseModel):
@@ -242,7 +248,7 @@ def tokens_atividades(
 
 @app.get("/api/mensagens")
 def listar_mensagens(
-    desde: int = 0, usuario: str = Depends(auth.usuario_atual)
+    desde: int = 0, conversa: int | None = None, usuario: str = Depends(auth.usuario_atual)
 ) -> list[dict]:
     """Mensagens do chat para o polling incremental (Requirements 2.1, 2.3).
 
@@ -250,7 +256,42 @@ def listar_mensagens(
     `id > desde` em ordem crescente. Se `desde=0`, as últimas 50 (também em
     ordem crescente). Exige sessão.
     """
-    return db.listar_mensagens(desde)
+    return db.listar_mensagens(desde, conversa or None)
+
+
+@app.get("/api/conversas")
+def listar_conversas(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    """Conversas ativas (a "Geral" é implícita e não aparece aqui)."""
+    return conversas.listar()
+
+
+@app.post("/api/conversas", status_code=status.HTTP_201_CREATED)
+def criar_conversa(corpo: ConversaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    try:
+        return conversas.criar(corpo.titulo, usuario)
+    except ValueError as erro:
+        raise _invalido(erro)
+
+
+@app.put("/api/conversas/{conversa_id}")
+def renomear_conversa(
+    conversa_id: int, corpo: ConversaCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    try:
+        linha = conversas.renomear(conversa_id, corpo.titulo)
+    except ValueError as erro:
+        raise _invalido(erro)
+    if linha is None:
+        raise HTTPException(status_code=404, detail="Conversa não encontrada.")
+    return linha
+
+
+@app.post("/api/conversas/{conversa_id}/arquivar")
+def arquivar_conversa(conversa_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    linha = conversas.arquivar(conversa_id)
+    if linha is None:
+        raise HTTPException(status_code=404, detail="Conversa não encontrada.")
+    return linha
 
 
 @app.post("/api/chat")
@@ -269,7 +310,12 @@ def chat(
     """
     from _orion import execucao
 
-    resultado, estado_inicial = execucao.receber(usuario, mensagem.texto)
+    conversa_id = mensagem.conversa_id or None
+    if conversa_id is not None:
+        if not conversas.ativa(conversa_id):
+            raise HTTPException(status_code=404, detail="Conversa não encontrada.")
+        conversas.titular_se_nova(conversa_id, mensagem.texto)
+    resultado, estado_inicial = execucao.receber(usuario, mensagem.texto, conversa_id)
     if estado_inicial is not None:
         tarefas.add_task(execucao.processar, estado_inicial)
     return resultado

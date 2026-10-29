@@ -139,7 +139,9 @@ def conversar(autor: str, texto: str) -> dict:
     return processar(estado_inicial)
 
 
-def receber(autor: str, texto: str) -> tuple[dict, Optional[dict]]:
+def receber(
+    autor: str, texto: str, conversa_id: Optional[int] = None
+) -> tuple[dict, Optional[dict]]:
     """Salva a mensagem do chat e prepara o run, sem rodar o grafo.
 
     Fluxo (Requirements 2.1, 2.2, 2.5, 2.7, 3.6):
@@ -163,21 +165,21 @@ def receber(autor: str, texto: str) -> tuple[dict, Optional[dict]]:
     if texto.startswith(PREFIXO_NOTA):
         conteudo_nota = texto[len(PREFIXO_NOTA):].strip()
         # Salva a própria mensagem do usuário no chat (autor + horário).
-        db.salvar_mensagem(autor, texto)
+        db.salvar_mensagem(autor, texto, conversa_id=conversa_id)
         if not conteudo_nota:
             resposta = "Nota vazia: escreva algo depois de /nota."
         else:
             _registrar_nota(conteudo_nota, autor)
             resposta = "Anotado no histórico do projeto."
-        db.salvar_mensagem(AUTOR_ORQ, resposta)
+        db.salvar_mensagem(AUTOR_ORQ, resposta, conversa_id=conversa_id)
         return {"status": "nota", "resposta": resposta}, None
 
     # 2. Mensagem normal: salva, monta o histórico e roda o grafo.
     # O histórico inclui a mensagem atual (salva antes), atendendo ao contexto
     # das últimas 12 mensagens (Requirement 2.6).
-    db.salvar_mensagem(autor, texto, run_id=None)
+    db.salvar_mensagem(autor, texto, run_id=None, conversa_id=conversa_id)
     run_id = _novo_run_id()
-    historico = db.historico_recente(12)
+    historico = db.historico_recente(12, conversa_id)
 
     estado_inicial = {
         "run_id": run_id,
@@ -186,7 +188,10 @@ def receber(autor: str, texto: str) -> tuple[dict, Optional[dict]]:
         "historico": historico,
         "passos": 0,
     }
-    emitir(run_id, "orq", "inicio", texto[:200], dados={"autor": autor})
+    emitir(
+        run_id, "orq", "inicio", texto[:200],
+        dados={"autor": autor, "conversa_id": conversa_id},
+    )
     return {"status": "processando", "run_id": run_id}, estado_inicial
 
 

@@ -139,3 +139,8 @@ test("[[Título]] vira link de página e @usuario vira menção", () => {
   assert.deepEqual(r.filter((x) => x.t === "pagina"), [{ t: "pagina", titulo: "Guia de vendas" }]);
   assert.deepEqual(r.filter((x) => x.t === "mencao"), [{ t: "mencao", usuario: "jullyana" }]);
 });
+
+test("escapes do markdown viram o caractere literal", () => {
+  const r = parseInline("R$ 10 \\* 2 e snake\\_case \\[x\\] C:\\dir");
+  assert.deepEqual(r, [{ t: "texto", v: "R$ 10 * 2 e snake_case [x] C:\\dir" }]);
+});

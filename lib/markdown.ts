@@ -47,6 +47,13 @@ export function parseInline(s: string): Inline[] {
   while (i < s.length) {
     const ch = s[i];
 
+    // Escape do markdown (\* \_ \[ …): vira o próprio caractere, sem significado especial.
+    if (ch === "\\" && i + 1 < s.length && /[!-/:-@[-`{-~]/.test(s[i + 1])) {
+      buf += s[i + 1];
+      i += 2;
+      continue;
+    }
+
     if (ch === "`") {
       const fim = s.indexOf("`", i + 1);
       if (fim > i + 1) {

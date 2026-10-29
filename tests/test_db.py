@@ -37,7 +37,7 @@ def test_historico_recente_passa_limite(monkeypatch):
     monkeypatch.setattr(db, "consultar", fake_consultar)
 
     assert db.historico_recente(limite=5) == ""
-    assert capturado["params"] == (5,)
+    assert capturado["params"] == (None, 5)
 
 
 def test_historico_recente_limite_padrao_12(monkeypatch):
@@ -50,7 +50,7 @@ def test_historico_recente_limite_padrao_12(monkeypatch):
     monkeypatch.setattr(db, "consultar", fake_consultar)
 
     db.historico_recente()
-    assert capturado["params"] == (12,)
+    assert capturado["params"] == (None, 12)
 
 
 def test_historico_recente_vazio(monkeypatch):

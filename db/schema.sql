@@ -225,3 +225,14 @@ create table if not exists documento_comentarios (
   criado_em timestamptz not null default now()
 );
 create index if not exists documento_comentarios_doc_idx on documento_comentarios (documento_id, criado_em);
+
+-- Chat: várias conversas. Mensagens sem conversa (conversa_id nulo) pertencem à conversa "Geral".
+create table if not exists conversas (
+  id bigserial primary key,
+  titulo text not null,
+  criado_por text not null,
+  criado_em timestamptz not null default now(),
+  arquivada boolean not null default false
+);
+alter table mensagens add column if not exists conversa_id bigint references conversas(id) on delete set null;
+create index if not exists mensagens_conversa_idx on mensagens (conversa_id, id);

@@ -3424,3 +3424,310 @@ dialog.modal {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =========================================================================
+   Chat: lista de conversas
+   ========================================================================= */
+
+.chat-layout {
+  display: flex;
+  height: 100%;
+  min-height: calc(100vh - 8px);
+}
+
+.chat-conversas {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 12px 16px 16px;
+  border-right: 1px solid var(--borda);
+  overflow-y: auto;
+}
+
+.chat-conversas ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-conversa-linha {
+  position: relative;
+}
+
+.chat-conversa {
+  width: 100%;
+  min-height: 0;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.chat-conversa.ativa {
+  border-color: var(--destaque);
+  background: rgba(76, 141, 255, 0.14);
+}
+
+.chat-conversa-titulo {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.chat-conversa-sub {
+  font-size: 12px;
+}
+
+.chat-conversa-acoes {
+  position: absolute;
+  right: 4px;
+  top: 6px;
+  display: none;
+  gap: 2px;
+}
+
+.chat-conversa-linha:hover .chat-conversa-acoes,
+.chat-conversa-linha:focus-within .chat-conversa-acoes {
+  display: inline-flex;
+}
+
+.chat-conversa-acoes button {
+  min-height: 24px;
+  width: 24px;
+  padding: 0;
+  font-size: 13px;
+}
+
+@media (max-width: 860px) {
+  .chat-layout {
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .chat-conversas {
+    flex: none;
+    max-height: 190px;
+    border-right: none;
+    border-bottom: 1px solid var(--borda);
+    padding: 10px 12px;
+  }
+
+  .chat-conversa-acoes {
+    display: inline-flex;
+  }
+}
+
+/* =========================================================================
+   Editor visual (Tiptap)
+   ========================================================================= */
+
+.doc-formato {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 0;
+  border: 1px solid var(--borda-forte);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.doc-formato button {
+  min-height: 32px;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  font-size: 14px;
+}
+
+.doc-formato button.ativo {
+  background: rgba(76, 141, 255, 0.22);
+  color: #fff;
+}
+
+.doc-visual {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--borda-forte);
+  border-radius: 10px;
+  background: var(--painel);
+  min-height: 420px;
+}
+
+.doc-visual-carregando {
+  opacity: 0.5;
+}
+
+.doc-visual-barra {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--borda);
+  background: var(--painel);
+  border-radius: 10px 10px 0 0;
+}
+
+.doc-visual-barra button {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 13px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.doc-visual-barra button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  transform: none;
+  box-shadow: none;
+}
+
+.doc-visual-barra button.ativo {
+  background: rgba(76, 141, 255, 0.24);
+  color: #fff;
+}
+
+.doc-visual-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--borda-forte);
+}
+
+.doc-visual-tabela {
+  border-top: none;
+  background: rgba(76, 141, 255, 0.06);
+  border-radius: 0;
+}
+
+.doc-visual-conteudo {
+  flex: 1;
+  min-height: 360px;
+  padding: 18px 22px;
+  outline: none;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.doc-visual-conteudo > :first-child {
+  margin-top: 0;
+}
+
+.doc-visual-conteudo h1 { font-size: 1.7em; }
+.doc-visual-conteudo h2 { font-size: 1.4em; }
+.doc-visual-conteudo h3 { font-size: 1.2em; }
+
+.doc-visual-conteudo blockquote {
+  margin: 12px 0;
+  padding: 2px 14px;
+  border-left: 3px solid var(--destaque);
+  color: var(--texto-secundario);
+}
+
+.doc-visual-conteudo pre {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  font-family: var(--fonte-mono);
+  font-size: 13px;
+  overflow-x: auto;
+}
+
+.doc-visual-conteudo code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  font-family: var(--fonte-mono);
+  font-size: 0.9em;
+}
+
+.doc-visual-conteudo pre code {
+  padding: 0;
+  background: none;
+}
+
+.doc-visual-conteudo hr {
+  border: none;
+  border-top: 1px solid var(--borda-forte);
+  margin: 18px 0;
+}
+
+.doc-visual-conteudo ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 4px;
+}
+
+.doc-visual-conteudo ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.doc-visual-conteudo ul[data-type="taskList"] li > label {
+  margin-top: 3px;
+}
+
+.doc-visual-conteudo ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+.doc-visual-conteudo table {
+  border-collapse: collapse;
+  margin: 12px 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.doc-visual-conteudo th,
+.doc-visual-conteudo td {
+  min-width: 60px;
+  padding: 6px 10px;
+  border: 1px solid var(--borda-forte);
+  vertical-align: top;
+}
+
+.doc-visual-conteudo th {
+  background: rgba(255, 255, 255, 0.05);
+  text-align: left;
+}
+
+.doc-visual-conteudo .selectedCell {
+  background: rgba(76, 141, 255, 0.22);
+}
+
+.doc-visual-conteudo p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--texto-secundario);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.doc-visual-conteudo li > p {
+  margin: 0;
+}
+
+.doc-visual-conteudo ul,
+.doc-visual-conteudo ol {
+  margin: 8px 0;
+}
+
+.doc-visual-conteudo li {
+  margin: 2px 0;
+}
