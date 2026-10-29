@@ -126,19 +126,15 @@ export default function IncidentesPage() {
   }
 
   return (
-    <div
-      style={{
-        maxWidth: "820px",
-        margin: "0 auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: "16px",
-        padding: "16px",
-      }}
-    >
-      <h1 className="titulo-pixel" style={{ fontSize: "16px", margin: 0 }}>
-        Incidentes
-      </h1>
+    <div className="docs-pagina pagina-estreita">
+      <div className="com-topo">
+        <div>
+          <h1 className="titulo-pixel com-titulo">Incidentes</h1>
+          <p className="texto-secundario" style={{ margin: "6px 0 0" }}>
+            Erros e instabilidades do app que o Vigia detectou, com diagnóstico quando você pedir.
+          </p>
+        </div>
+      </div>
 
       <div aria-live="polite">
         {aviso && (
@@ -153,9 +149,10 @@ export default function IncidentesPage() {
       </div>
 
       {incidentes.length === 0 ? (
-        <p className="texto-secundario" style={{ margin: 0 }}>
-          Nenhum incidente registrado.
-        </p>
+        <div className="docs-vazio">
+          <strong>Nenhum incidente registrado</strong>
+          Quando o app do Orion apresentar um erro novo, o Vigia registra aqui.
+        </div>
       ) : (
         <section
           aria-label="Lista de incidentes"

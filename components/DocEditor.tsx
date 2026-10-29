@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "./Markdown";
+import { BLOCOS, detectarBarra, filtrarBlocos, inserirBloco, type Barra, type Bloco } from "../lib/blocos";
 import { CONTEUDO_MAX, contarPalavras, tagsDoTexto, type DadosDocumento, type OpcaoPai } from "../lib/docs";
 
 type Props = {
@@ -64,6 +65,8 @@ export default function DocEditor({
   const [erro, setErro] = useState<string | null>(null);
   const [rascunho, setRascunho] = useState<Rascunho | null>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
+  const [barra, setBarra] = useState<Barra | null>(null);
+  const [indiceBarra, setIndiceBarra] = useState(0);
 
   const atual: DadosDocumento = useMemo(
     () => ({
@@ -221,6 +224,45 @@ export default function DocEditor({
     { rotulo: "▦", titulo: "Tabela", acao: inserirTabela },
   ];
 
+  // --- Menu "/" ---
+
+  const blocosBarra: Bloco[] = barra ? filtrarBlocos(barra.consulta) : [];
+
+  function atualizarBarra(valor: string, cursor: number) {
+    const nova = detectarBarra(valor, cursor);
+    setBarra(nova);
+    setIndiceBarra(0);
+  }
+
+  function escolherBloco(bloco: Bloco) {
+    const ta = areaRef.current;
+    if (!ta || !barra) return;
+    const r = inserirBloco(ta.value, barra, ta.selectionStart, bloco);
+    setConteudo(r.valor);
+    setBarra(null);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.setSelectionRange(r.cursor, r.cursor);
+    });
+  }
+
+  function aoTeclarTexto(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (!barra || blocosBarra.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setIndiceBarra((i) => Math.min(i + 1, blocosBarra.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setIndiceBarra((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      escolherBloco(blocosBarra[indiceBarra]);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setBarra(null);
+    }
+  }
+
   const caracteres = conteudo.length;
   const perto = caracteres > CONTEUDO_MAX * 0.9;
 
@@ -337,11 +379,37 @@ export default function DocEditor({
           ref={areaRef}
           className="doc-texto mono"
           aria-label="Conteúdo em markdown"
-          placeholder="Escreva em markdown. Use a barra acima ou atalhos como # título, **negrito**, - lista…"
+          placeholder="Escreva em markdown. Digite / no começo de uma linha para inserir um bloco, ou use a barra acima."
           value={conteudo}
           maxLength={CONTEUDO_MAX}
-          onChange={(e) => setConteudo(e.target.value)}
+          onChange={(e) => {
+            setConteudo(e.target.value);
+            atualizarBarra(e.target.value, e.target.selectionStart);
+          }}
+          onKeyDown={aoTeclarTexto}
+          onClick={(e) => atualizarBarra(e.currentTarget.value, e.currentTarget.selectionStart)}
+          onBlur={() => setBarra(null)}
         />
+        {barra && blocosBarra.length > 0 && (
+          <ul className="doc-barra-menu" role="listbox" aria-label="Inserir bloco">
+            {blocosBarra.map((b, i) => (
+              <li
+                key={b.id}
+                role="option"
+                aria-selected={i === indiceBarra}
+                className={i === indiceBarra ? "ativo" : undefined}
+                // mouseDown (não click): o blur da textarea fecharia o menu antes do clique
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  escolherBloco(b);
+                }}
+              >
+                <span>{b.rotulo}</span>
+                <span className="mono texto-secundario">{b.dica}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="painel doc-editor-previa" aria-label="Pré-visualização">
           <Markdown texto={conteudo} />
         </div>

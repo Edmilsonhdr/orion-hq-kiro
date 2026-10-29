@@ -7,6 +7,7 @@
 // atividades via lib/rotina.ts.
 
 import { useEffect, useMemo, useState } from "react";
+import EscalaPlanta from "../../../components/EscalaPlanta";
 import { obter } from "../../../lib/api";
 import { usePollComEstado } from "../../../lib/usePoll";
 import { deslocarDatas, useRelogio } from "../../../lib/useRelogio";
@@ -78,6 +79,8 @@ export default function EscritorioPage() {
       </div>
       <div
         style={{
+          width: "100%",
+          maxWidth: "100%",
           display: "flex",
           justifyContent: "center",
           alignItems: "flex-start",
@@ -85,6 +88,7 @@ export default function EscritorioPage() {
           gap: "16px",
         }}
       >
+        <EscalaPlanta>
         {agora === null ? (
           <div className="esc-planta esc-madeira" aria-label="Carregando o escritório" />
         ) : (
@@ -97,6 +101,7 @@ export default function EscritorioPage() {
             tokens={tokens}
           />
         )}
+        </EscalaPlanta>
         <LogLateral atividades={atividades} tokens={tokens} />
       </div>
     </div>

@@ -1,8 +1,7 @@
 // Layout autenticado do grupo (hq) (Requirements 1.4, 9.2).
-// O cabeçalho (client) checa a sessão via GET /api/me — se 401, o wrapper de
-// lib/api.ts redireciona para /login — e mostra a navegação, o contador de
-// aprovações pendentes e a ação de sair. Aqui só montamos a estrutura e
-// renderizamos os filhos.
+// O menu lateral (client) checa a sessão via GET /api/me — se 401, o wrapper de lib/api.ts redireciona
+// para /login — e mostra a navegação, os contadores e a ação de sair. Aqui só montamos a estrutura
+// (menu à esquerda, conteúdo à direita; no celular o menu vira barra no topo).
 
 import Header from "../../components/Header";
 
@@ -12,15 +11,9 @@ export default function LayoutHq({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <div className="hq-app">
       <Header />
-      <main style={{ flex: 1, minHeight: 0 }}>{children}</main>
+      <main className="hq-conteudo">{children}</main>
     </div>
   );
 }

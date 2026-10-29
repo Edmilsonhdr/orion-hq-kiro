@@ -66,6 +66,14 @@ async function mensagemFoiSalva(desde: number, texto: string): Promise<boolean> 
   }
 }
 
+// Primeiras perguntas sugeridas no chat vazio (clicar só preenche a caixa; o envio é do sócio).
+const SUGESTOES = [
+  "O que mudou no Orion esta semana?",
+  "Como está o funil comercial?",
+  "Quais negócios estão parados há mais de uma semana?",
+  "Marca uma reunião amanhã às 15h com a pauta da semana",
+];
+
 export default function ChatPage() {
   const mensagens = usePoll<Mensagem>("/mensagens", INTERVALO_MSG_MS);
   const atividades = usePoll<Atividade>("/atividades", INTERVALO_ATIV_MS);
@@ -197,9 +205,17 @@ export default function ChatPage() {
         }}
       >
         {mensagens.length === 0 && (
-          <p className="texto-secundario" style={{ textAlign: "center" }}>
-            Nenhuma mensagem ainda. Comece a conversa com o Orquestrador.
-          </p>
+          <div className="docs-vazio">
+            <strong>Nenhuma mensagem ainda</strong>
+            Comece a conversa com o Orquestrador. Algumas ideias:
+            <div className="chat-sugestoes">
+              {SUGESTOES.map((s) => (
+                <button key={s} type="button" className="botao" onClick={() => setTexto(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
         {mensagens.map((m) => (
           <ChatMessage key={m.id} mensagem={m} assinatura={assinaturas.get(m.id)} />
@@ -246,7 +262,7 @@ export default function ChatPage() {
               (e.currentTarget.form as HTMLFormElement)?.requestSubmit();
             }
           }}
-          placeholder="Escreva para o Orquestrador… (Enter envia, Shift+Enter quebra linha)"
+          placeholder="Mensagem para o Orquestrador (Enter envia)"
           rows={2}
           style={{ flex: 1, resize: "none" }}
           aria-label="Mensagem"

@@ -515,6 +515,28 @@ def _comercial(chamada):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(erro))
 
 
+@app.get("/api/busca")
+def busca_global(q: str = "", usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Busca global (Ctrl+K): até 5 documentos, negócios e organizações."""
+    q = q.strip()
+    if not q:
+        return {"documentos": [], "negocios": [], "organizacoes": []}
+    return {
+        "documentos": [
+            {"id": d["id"], "titulo": d["titulo"], "pasta": d.get("pasta")}
+            for d in documentos.buscar(q)[:5]
+        ],
+        "negocios": [
+            {"id": n["id"], "titulo": n["titulo"], "organizacao": n["organizacao_nome"], "etapa": n["etapa"]}
+            for n in comercial.listar_negocios(busca=q)[:5]
+        ],
+        "organizacoes": [
+            {"id": o["id"], "nome": o["nome"], "tipo": o["tipo"]}
+            for o in comercial.listar_organizacoes(busca=q)[:5]
+        ],
+    }
+
+
 @app.get("/api/comercial/resumo")
 def resumo_comercial(usuario: str = Depends(auth.usuario_atual)) -> dict:
     """Números do funil (Comercial — Requirement 4.2)."""

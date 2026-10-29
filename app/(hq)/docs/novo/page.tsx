@@ -7,18 +7,31 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import DocEditor from "../../../../components/DocEditor";
 import { enviar, obter } from "../../../../lib/api";
+import { formatarDia, hojeISO } from "../../../../lib/comercial";
+import { modelos, type Modelo } from "../../../../lib/modelos";
 import { opcoesPai, type DadosDocumento, type Documento, type Filtros, type NoArvore } from "../../../../lib/docs";
+
+function dadosDoModelo(m: Modelo, pai: number | null): DadosDocumento {
+  return { titulo: m.titulo, conteudo: m.conteudo, pasta: null, pai_id: pai, tags: m.tags };
+}
 
 export default function NovoDocumentoPage() {
   const router = useRouter();
   const [pastas, setPastas] = useState<string[]>([]);
   const [arvore, setArvore] = useState<NoArvore[]>([]);
   const [inicial, setInicial] = useState<DadosDocumento | null>(null);
+  const [pai, setPai] = useState<number | null>(null);
+  const lista = modelos(formatarDia(hojeISO()));
 
   useEffect(() => {
     // ?pai=ID abre o formulário já como subpágina (botão "Nova subpágina").
-    const pai = Number(new URLSearchParams(window.location.search).get("pai"));
-    setInicial({ titulo: "", conteudo: "", pasta: null, pai_id: Number.isInteger(pai) && pai > 0 ? pai : null, tags: [] });
+    const params = new URLSearchParams(window.location.search);
+    const paiUrl = Number(params.get("pai"));
+    const paiOk = Number.isInteger(paiUrl) && paiUrl > 0 ? paiUrl : null;
+    setPai(paiOk);
+    // ?modelo=ata pula a escolha de modelo.
+    const escolhido = modelos(formatarDia(hojeISO())).find((m) => m.id === params.get("modelo"));
+    if (escolhido) setInicial(dadosDoModelo(escolhido, paiOk));
     obter<Filtros>("/documentos/pastas")
       .then((f) => setPastas(f.pastas))
       .catch(() => {
@@ -43,6 +56,24 @@ export default function NovoDocumentoPage() {
         <span aria-hidden="true">›</span>
         <span>Novo documento</span>
       </nav>
+      {!inicial && (
+        <section aria-label="Escolha um modelo">
+          <h1 className="doc-titulo" style={{ marginBottom: 4 }}>
+            Nova página
+          </h1>
+          <p className="texto-secundario" style={{ margin: 0 }}>
+            Comece com um modelo ou em branco.
+          </p>
+          <div className="modelos-grade">
+            {lista.map((m) => (
+              <button key={m.id} type="button" className="modelo-cartao" onClick={() => setInicial(dadosDoModelo(m, pai))}>
+                <strong>{m.nome}</strong>
+                <span className="texto-secundario">{m.descricao}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       {inicial && (
       <DocEditor
         inicial={inicial}

@@ -109,16 +109,15 @@ export default function AprovacoesPage() {
   }
 
   return (
-    <div
-      style={{
-        maxWidth: "820px",
-        margin: "0 auto",
-        display: "flex",
-        flexDirection: "column",
-        gap: "20px",
-        padding: "16px",
-      }}
-    >
+    <div className="docs-pagina pagina-estreita">
+      <div className="com-topo">
+        <div>
+          <h1 className="titulo-pixel com-titulo">Aprovações</h1>
+          <p className="texto-secundario" style={{ margin: "6px 0 0" }}>
+            Nada que os agentes propõem é aplicado antes de um sócio aprovar aqui.
+          </p>
+        </div>
+      </div>
       {/* Aviso de "já decidida" e afins (6.6). */}
       <div aria-live="polite">
         {aviso && (
@@ -136,13 +135,14 @@ export default function AprovacoesPage() {
         aria-label="Aprovações pendentes"
         style={{ display: "flex", flexDirection: "column", gap: "10px" }}
       >
-        <h2 className="titulo-pixel" style={{ fontSize: "14px", margin: 0 }}>
-          Pendentes
+        <h2 className="com-grupo-titulo" style={{ margin: 0 }}>
+          Pendentes <span className="mono texto-secundario">{pendentes.length}</span>
         </h2>
         {pendentes.length === 0 ? (
-          <p className="texto-secundario" style={{ margin: 0 }}>
-            Nenhuma aprovação pendente.
-          </p>
+          <div className="docs-vazio">
+            <strong>Nenhuma aprovação pendente</strong>
+            Quando um agente propor uma reunião, um documento ou uma mudança no Comercial, ela aparece aqui.
+          </div>
         ) : (
           pendentes.map((a) => (
             <ApprovalCard
@@ -159,13 +159,14 @@ export default function AprovacoesPage() {
         aria-label="Histórico de aprovações"
         style={{ display: "flex", flexDirection: "column", gap: "10px" }}
       >
-        <h2 className="titulo-pixel" style={{ fontSize: "14px", margin: 0 }}>
-          Histórico
+        <h2 className="com-grupo-titulo" style={{ margin: 0 }}>
+          Histórico <span className="mono texto-secundario">{historico.length}</span>
         </h2>
         {historico.length === 0 ? (
-          <p className="texto-secundario" style={{ margin: 0 }}>
-            Nenhuma aprovação decidida ainda.
-          </p>
+          <div className="docs-vazio">
+            <strong>Nenhuma aprovação decidida ainda</strong>
+            As decisões aprovadas, recusadas e obsoletas ficam registradas aqui.
+          </div>
         ) : (
           historico.map((a) => (
             <ApprovalCard

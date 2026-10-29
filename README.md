@@ -160,6 +160,10 @@ O id do Notion no nome é removido, o título vem do primeiro `# Título` (ou do
 pastas viram a pasta do documento e tudo recebe a tag `importado`. Rodar de novo não duplica (mesmo
 título na mesma pasta é pulado) e nunca sobrescreve. CSV, imagens e anexos são ignorados.
 
+**Atalhos:** `Ctrl+K` abre a busca global (documentos, negócios, organizações e atalhos de navegação).
+Em "Nova página" há modelos (ata, one-pager, retrospectiva, plano de lançamento). No editor, digitar `/` no
+começo de uma linha abre o menu de blocos (títulos, listas, tarefas, tabela, citação, código).
+
 **Subpáginas:** cada documento pode ter uma página pai (até 6 níveis, sem ciclos). A tela do documento mostra
 as migalhas com os ancestrais, a lista de subpáginas e "Nova subpágina"; o editor tem o seletor "Página pai".
 Arquivar uma página arquiva as subpáginas; desarquivar reabre só ela. A `pasta` continua existindo. A
