@@ -168,6 +168,11 @@ começo de uma linha abre o menu de blocos (títulos, listas, tarefas, tabela, c
 na planta levam a Aprovações e Incidentes; há mapa de calor de tokens, replay do dia, tema claro e quem
 está online (heartbeat em `/api/presenca`; rode `scripts/setup_db.py` para criar a tabela `presenca`).
 
+**Telas:** Início (resumo do dia), Chat com markdown, "consultou: …" e "Salvar no Docs", Comercial com
+gráfico, importação de CSV e modelos de mensagem, Aprovações com filtros, lote e diff, Incidentes por
+projeto, Docs com links `[[Título]]`, comentários com `@menção` e ordem das subpáginas. O login bloqueia
+por 15 minutos após 5 falhas (tabela `login_tentativas`).
+
 **Subpáginas:** cada documento pode ter uma página pai (até 6 níveis, sem ciclos). A tela do documento mostra
 as migalhas com os ancestrais, a lista de subpáginas e "Nova subpágina"; o editor tem o seletor "Página pai".
 Arquivar uma página arquiva as subpáginas; desarquivar reabre só ela. A `pasta` continua existindo. A

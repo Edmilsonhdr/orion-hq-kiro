@@ -22,6 +22,7 @@ const GRUPOS: { titulo: string; itens: Item[] }[] = [
   {
     titulo: "Trabalho",
     itens: [
+      { href: "/inicio", rotulo: "Início", icone: "inicio" },
       { href: "/chat", rotulo: "Chat", icone: "chat" },
       { href: "/comercial", rotulo: "Comercial", icone: "comercial", contador: "comercial" },
       { href: "/docs", rotulo: "Docs", icone: "docs" },
@@ -44,6 +45,7 @@ const INTERVALO_COMERCIAL_MS = 60000;
 const CHAVE_MENU = "hq:menu-recolhido";
 
 const CAMINHOS: Record<string, ReactNode> = {
+  inicio: <path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z" />,
   chat: <path d="M4 5h16v10H9l-5 4V5z" />,
   comercial: (
     <>
@@ -242,7 +244,7 @@ export default function Header() {
   return (
     <aside className={`hq-menu${recolhido ? " recolhido" : ""}${gaveta ? " gaveta-aberta" : ""}`}>
       <div className="hq-menu-topo">
-        <Link href="/chat" className="hq-marca titulo-pixel" aria-label="Orion HQ">
+        <Link href="/inicio" className="hq-marca titulo-pixel" aria-label="Orion HQ">
           <span className="hq-marca-ponto" aria-hidden="true" />
           <span className="hq-rotulo">Orion HQ</span>
         </Link>

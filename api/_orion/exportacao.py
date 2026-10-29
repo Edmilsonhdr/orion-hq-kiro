@@ -29,7 +29,7 @@ def _aspas(valor: str) -> str:
     return '"' + valor.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ") + '"'
 
 
-def _arquivo(doc: dict) -> str:
+def _arquivo(doc: dict, pai: Optional[dict] = None) -> str:
     """Conteúdo do `.md`: frontmatter + `# Título` + corpo."""
     tags = ", ".join(_aspas(t) for t in doc["tags"])
     cabecalho = [
@@ -37,6 +37,7 @@ def _arquivo(doc: dict) -> str:
         f"titulo: {_aspas(doc['titulo'])}",
         f"pasta: {_aspas(doc['pasta'])}" if doc["pasta"] else "pasta:",
         f"tags: [{tags}]",
+        *( [f"pai: {_aspas(pai['titulo'])}", f"pai_pasta: {_aspas(pai['pasta'])}" if pai["pasta"] else "pai_pasta:"] if pai else [] ),
         f"autor: {_aspas(doc['autor'])}",
         f"criado_em: {doc['criado_em'].isoformat()}",
         f"atualizado_em: {doc['atualizado_em'].isoformat()}",
@@ -64,7 +65,8 @@ def montar(arquivados: bool = False) -> dict[str, str]:
         while str(caminho).lower() in {k.lower() for k in saida}:
             caminho = PurePosixPath(*pastas, f"{base} ({n}).md")
             n += 1
-        saida[str(caminho)] = _arquivo(doc)
+        pai = documentos.obter(doc["pai_id"]) if doc.get("pai_id") else None
+        saida[str(caminho)] = _arquivo(doc, pai)
     return saida
 
 

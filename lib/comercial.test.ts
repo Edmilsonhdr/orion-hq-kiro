@@ -1,12 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import type { Negocio } from "./comercial";
 import {
   ETAPAS,
   ETAPAS_ABERTAS,
   formatarDia,
   formatarReais,
   hojeISO,
+  modelosDeMensagem,
   numeroOuNulo,
+  resumoPorEtapa,
   porcentagem,
   situacaoPasso,
 } from "./comercial.ts";
@@ -42,4 +45,25 @@ test("porcentagem e números do formulário", () => {
   assert.equal(numeroOuNulo(" 12,5 "), 12.5);
   assert.equal(numeroOuNulo(""), null);
   assert.ok(Number.isNaN(numeroOuNulo("abc")));
+});
+
+test("resumoPorEtapa soma só etapas em aberto", () => {
+  const base = { valor_mensal: null } as Negocio;
+  const linhas = resumoPorEtapa([
+    { ...base, etapa: "lead", valor_mensal: 100 },
+    { ...base, etapa: "lead", valor_mensal: 50 },
+    { ...base, etapa: "ganho", valor_mensal: 999 },
+  ]);
+  assert.equal(linhas.find((l) => l.etapa === "lead")?.quantidade, 2);
+  assert.equal(linhas.find((l) => l.etapa === "lead")?.valor, 150);
+  assert.equal(linhas.some((l) => l.etapa === "ganho"), false);
+});
+
+test("modelosDeMensagem usa o primeiro nome e não inclui preço", () => {
+  const ms = modelosDeMensagem({ organizacao_nome: "Clínica Sol", organizacao_tipo: "clinica", plano_interesse: null }, "Ana Souza", "Jullyana");
+  assert.equal(ms.length, 5);
+  assert.match(ms[0].texto, /Olá, Ana!/);
+  assert.ok(ms.every((m) => !/R\$/.test(m.texto)));
+  const auto = modelosDeMensagem({ organizacao_nome: "Dr. Leo", organizacao_tipo: "autonomo", plano_interesse: null }, null, "Jullyana");
+  assert.match(auto[0].texto, /o seu trabalho/);
 });

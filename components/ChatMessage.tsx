@@ -7,6 +7,11 @@
 
 import type { ReactNode } from "react";
 import type { Pessoa } from "../lib/agents";
+import { useState } from "react";
+import Link from "next/link";
+import { enviar } from "../lib/api";
+import type { Documento } from "../lib/docs";
+import Markdown from "./Markdown";
 import { FiguraMini } from "./Personagem";
 
 export type Mensagem = {
@@ -61,13 +66,60 @@ function comLinks(texto: string): ReactNode[] {
 
 // `assinatura`: quem estava de plantão no horário da mensagem (as mensagens
 // do Orquestrador são assinadas por essa pessoa; o banco guarda "Orquestrador").
+// Nome amigável das ferramentas que os agentes usam (atividade `ferramenta`).
+const ROTULO_FERRAMENTA: Record<string, string> = {
+  buscar_documentos: "documentos",
+  ler_documento: "documentos",
+  resumo_funil: "funil comercial",
+  buscar_negocios: "negócios",
+  ver_negocio: "negócios",
+  negocios_parados: "negócios parados",
+  agenda_comercial: "agenda comercial",
+};
+
+export function fontesDe(ferramentas: string[]): string[] {
+  return [...new Set(ferramentas.map((f) => ROTULO_FERRAMENTA[f]).filter((r): r is string => !!r))];
+}
+
+function tituloDe(texto: string): string {
+  const linha = texto.split("\n").find((l) => l.trim().length > 0) ?? "Resposta do chat";
+  return linha.replace(/^[#>*\-\s]+/, "").slice(0, 80) || "Resposta do chat";
+}
+
 export default function ChatMessage({
   mensagem,
   assinatura,
+  fontes = [],
 }: {
   mensagem: Mensagem;
   assinatura?: Pessoa | null;
+  // Ferramentas usadas no run desta resposta (já traduzidas por `fontesDe`).
+  fontes?: string[];
 }) {
+  const [salvo, setSalvo] = useState<number | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function salvarNoDocs() {
+    if (salvando) return;
+    setSalvando(true);
+    setErro(null);
+    try {
+      const doc = await enviar<Documento>("/documentos", {
+        titulo: tituloDe(mensagem.texto),
+        conteudo: mensagem.texto,
+        pasta: "Do chat",
+        pai_id: null,
+        tags: ["chat"],
+      });
+      setSalvo(doc.id);
+    } catch {
+      setErro("Não foi possível salvar no Docs.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
   const doOrquestrador = mensagem.autor === AUTOR_ORQ;
   const corOrq = assinatura?.corChat ?? "var(--destaque)";
 
@@ -138,9 +190,26 @@ export default function ChatMessage({
             {horario(mensagem.criado_em)}
           </span>
         </div>
-        <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-          {comLinks(mensagem.texto)}
-        </div>
+        {doOrquestrador ? (
+          <div className="chat-markdown">
+            <Markdown texto={mensagem.texto} />
+          </div>
+        ) : (
+          <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{comLinks(mensagem.texto)}</div>
+        )}
+        {doOrquestrador && (
+          <div className="chat-rodape-msg">
+            {fontes.length > 0 && <span className="texto-secundario">consultou: {fontes.join(", ")}</span>}
+            {salvo ? (
+              <Link href={`/docs/${salvo}`}>Salvo no Docs — abrir</Link>
+            ) : (
+              <button type="button" className="chat-salvar" onClick={salvarNoDocs} disabled={salvando}>
+                {salvando ? "Salvando…" : "Salvar no Docs"}
+              </button>
+            )}
+            {erro && <span role="alert" className="doc-erro">{erro}</span>}
+          </div>
+        )}
       </div>
     </div>
   );

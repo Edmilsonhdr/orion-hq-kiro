@@ -205,3 +205,23 @@ create table if not exists presenca (
   usuario text primary key,
   visto_em timestamptz not null default now()
 );
+
+-- Login: tentativas falhas recentes por usuário (limite de tentativas contra adivinhação de senha).
+create table if not exists login_tentativas (
+  id bigserial primary key,
+  usuario text not null,
+  criado_em timestamptz not null default now()
+);
+create index if not exists login_tentativas_idx on login_tentativas (usuario, criado_em);
+
+-- Docs: ordem manual das subpáginas (menor primeiro) e comentários com menção (@usuario).
+alter table documentos add column if not exists ordem integer not null default 0;
+
+create table if not exists documento_comentarios (
+  id bigserial primary key,
+  documento_id bigint not null references documentos(id) on delete cascade,
+  autor text not null,
+  texto text not null,
+  criado_em timestamptz not null default now()
+);
+create index if not exists documento_comentarios_doc_idx on documento_comentarios (documento_id, criado_em);

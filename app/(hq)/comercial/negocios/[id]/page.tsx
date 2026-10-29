@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Modal from "../../../../../components/Modal";
+import MensagensModelo from "../../../../../components/MensagensModelo";
 import NegocioForm, { type DadosNegocio } from "../../../../../components/NegocioForm";
 import { ErroApi, atualizar, enviar, obter } from "../../../../../lib/api";
 import {
@@ -26,6 +27,7 @@ export default function NegocioPage() {
   const { id } = useParams<{ id: string }>();
   const [n, setN] = useState<NegocioDetalhe | null>(null);
   const [naoEncontrado, setNaoEncontrado] = useState(false);
+  const [usuario, setUsuario] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState(false);
   const [perdendo, setPerdendo] = useState(false);
@@ -44,6 +46,10 @@ export default function NegocioPage() {
       else setErro(e instanceof Error ? e.message : "Erro ao carregar o negócio.");
     }
   }, [id]);
+
+  useEffect(() => {
+    obter<{ usuario: string }>("/me").then((m) => setUsuario(m.usuario)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     carregar();
@@ -172,6 +178,8 @@ export default function NegocioPage() {
             </ul>
           )}
         </section>
+
+        <MensagensModelo negocio={n} contatos={n.contatos} usuario={usuario} />
 
         <section className="painel com-bloco">
           <h2 className="com-grupo-titulo">Histórico</h2>

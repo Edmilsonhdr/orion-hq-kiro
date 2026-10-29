@@ -7,6 +7,8 @@
 // monoespaçada com motivo e PR relacionado como link.
 // As ações (mudar status, diagnosticar) são delegadas ao pai.
 
+import Link from "next/link";
+
 // --- Tipos das respostas de /api/incidentes ---
 
 export type ArquivoSuspeito = {
@@ -323,6 +325,13 @@ export default function IncidenteCard({
                 Diagnosticar agora
               </button>
             )}
+            <Link
+              href={`/chat?msg=${encodeURIComponent(`Pergunte ao Tech: analise o incidente "${incidente.titulo}" (projeto ${incidente.projeto}, ${incidente.ocorrencias} ocorrências) e sugira a causa provável.`)}`}
+              className="botao"
+              style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}
+            >
+              Pedir análise ao Tech
+            </Link>
             <button
               type="button"
               className="botao"

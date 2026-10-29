@@ -163,3 +163,60 @@ export function numeroOuNulo(texto: string): number | null {
   const n = Number(limpo);
   return Number.isFinite(n) ? n : NaN;
 }
+
+// ---- Resumo por etapa (gráfico do funil)
+
+export type LinhaEtapa = { etapa: Etapa; quantidade: number; valor: number };
+
+// Quantidade e valor mensal por etapa, só das etapas em aberto (ganho/perdido ficam de fora).
+export function resumoPorEtapa(negocios: Negocio[]): LinhaEtapa[] {
+  return ETAPAS.filter((e) => e !== "ganho" && e !== "perdido").map((etapa) => {
+    const doEstagio = negocios.filter((n) => n.etapa === etapa);
+    return {
+      etapa,
+      quantidade: doEstagio.length,
+      valor: doEstagio.reduce((s, n) => s + (n.valor_mensal ?? 0), 0),
+    };
+  });
+}
+
+// ---- Modelos de mensagem (WhatsApp/e-mail) para a sócia copiar. Sem preços: ela completa.
+
+export type ModeloMensagem = { id: string; rotulo: string; texto: string };
+
+export function modelosDeMensagem(
+  n: Pick<Negocio, "organizacao_nome" | "organizacao_tipo" | "plano_interesse">,
+  contato: string | null,
+  remetente: string
+): ModeloMensagem[] {
+  const oi = contato ? `Olá, ${contato.split(" ")[0]}!` : "Olá!";
+  const lugar = n.organizacao_nome;
+  const quem = n.organizacao_tipo === "autonomo" ? "o seu trabalho" : `a ${lugar}`;
+  return [
+    {
+      id: "primeiro",
+      rotulo: "Primeiro contato",
+      texto: `${oi} Aqui é ${remetente}, do Orion. Posso te mostrar em 15 minutos como o Orion ajuda ${quem} a organizar o dia a dia? Qual o melhor horário para você?`,
+    },
+    {
+      id: "demonstracao",
+      rotulo: "Depois da demonstração",
+      texto: `${oi} Obrigada pelo tempo na demonstração! Ficou alguma dúvida sobre o Orion? Se fizer sentido, posso montar um piloto para ${quem} e combinar os próximos passos.`,
+    },
+    {
+      id: "piloto",
+      rotulo: "Convite para o piloto",
+      texto: `${oi} Preparei o piloto do Orion para ${quem}${n.plano_interesse ? ` (plano ${n.plano_interesse})` : ""}. Posso te enviar o acesso e agendar uma conversa de acompanhamento para esta semana?`,
+    },
+    {
+      id: "proposta",
+      rotulo: "Envio de proposta",
+      texto: `${oi} Segue a proposta do Orion para ${quem}. Se preferir, falo com você por ligação para tirar qualquer dúvida. Fico no aguardo!`,
+    },
+    {
+      id: "retorno",
+      rotulo: "Retomar contato",
+      texto: `${oi} Passando para saber como estão as coisas por aí. Ainda faz sentido conversarmos sobre o Orion para ${quem}?`,
+    },
+  ];
+}

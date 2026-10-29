@@ -12,8 +12,13 @@ export default function LayoutHq({
 }) {
   return (
     <div className="hq-app">
+      <a className="pular-conteudo" href="#conteudo">
+        Pular para o conteúdo
+      </a>
       <Header />
-      <main className="hq-conteudo">{children}</main>
+      <main id="conteudo" tabIndex={-1} className="hq-conteudo">
+        {children}
+      </main>
     </div>
   );
 }

@@ -13,7 +13,7 @@ export class ErroApi extends Error {
 
 function redirecionarParaLogin() {
   if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-    window.location.href = "/login";
+    window.location.href = "/login?expirou=1";
   }
 }
 
@@ -62,4 +62,8 @@ export function enviar<T>(caminho: string, dados?: unknown): Promise<T> {
 
 export function atualizar<T>(caminho: string, dados: unknown): Promise<T> {
   return requisitar<T>(caminho, { method: "PUT", body: JSON.stringify(dados) });
+}
+
+export function excluir<T>(caminho: string): Promise<T> {
+  return requisitar<T>(caminho, { method: "DELETE" });
 }

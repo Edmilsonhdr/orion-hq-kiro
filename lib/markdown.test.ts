@@ -133,3 +133,9 @@ test("textoPuro remove a marcação e encurta", () => {
   assert.ok(textoPuro("palavra ".repeat(100), 50).length <= 50);
   assert.equal(textoPuro(""), "");
 });
+
+test("[[Título]] vira link de página e @usuario vira menção", () => {
+  const r = parseInline("veja [[Guia de vendas]] e fale com @jullyana (a@b.com não conta)");
+  assert.deepEqual(r.filter((x) => x.t === "pagina"), [{ t: "pagina", titulo: "Guia de vendas" }]);
+  assert.deepEqual(r.filter((x) => x.t === "mencao"), [{ t: "mencao", usuario: "jullyana" }]);
+});

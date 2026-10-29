@@ -17,7 +17,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Iterator, Optional
 
-from . import documentos
+from . import db, documentos
 
 EXTENSOES = {".md", ".markdown", ".txt"}
 _ID_NOTION = re.compile(r"\s+[0-9a-f]{32}$", re.IGNORECASE)
@@ -71,7 +71,7 @@ def _frontmatter(texto: str) -> tuple[dict, str]:
     for linha in linhas[1:fim]:
         chave, _, valor = linha.partition(":")
         chave, valor = chave.strip(), valor.strip()
-        if chave in ("titulo", "pasta", "tags") and valor:
+        if chave in ("titulo", "pasta", "tags", "pai", "pai_pasta") and valor:
             try:
                 dados[chave] = json.loads(valor)
             except ValueError:
@@ -111,7 +111,9 @@ def importar(
 
     existentes = {(d["titulo"].lower(), d["pasta"] or "") for d in documentos.listar(arquivados=True)}
     vistos: set[tuple[str, str]] = set()
-    relatorio: dict = {"novos": [], "pulados": [], "ignorados": [], "erros": []}
+    relatorio: dict = {"novos": [], "pulados": [], "ignorados": [], "erros": [], "subpaginas": 0}
+    # (id criado, título do pai, pasta do pai): ligadas depois que todas as páginas existem.
+    ligacoes: list[tuple[int, str, Optional[str]]] = []
 
     for pastas, nome, texto in _arquivos(origem):
         caminho = "/".join((*pastas, nome))
@@ -152,9 +154,26 @@ def importar(
 
         vistos.add(chave)
         if aplicar:
-            documentos.criar(
+            criado = documentos.criar(
                 dados["titulo"], dados["conteudo"], dados["pasta"], dados["tags"], autor=autor
             )
+            if isinstance(meta.get("pai"), str) and meta["pai"].strip():
+                pai_pasta = meta.get("pai_pasta") if isinstance(meta.get("pai_pasta"), str) else None
+                ligacoes.append((criado["id"], meta["pai"].strip(), (pai_pasta or "").strip() or None))
         relatorio["novos"].append({"titulo": dados["titulo"], "pasta": dados["pasta"]})
+
+    for filho_id, pai_titulo, pai_pasta in ligacoes:
+        pai = db.um(
+            "select id from documentos where lower(titulo) = lower(%s) and pasta is not distinct from %s "
+            "and not arquivado order by id limit 1",
+            (pai_titulo, pai_pasta),
+        )
+        if pai is None or pai["id"] == filho_id:
+            continue
+        try:
+            documentos.editar(filho_id, {"pai_id": pai["id"]}, autor)
+            relatorio["subpaginas"] += 1
+        except ValueError:
+            pass  # profundidade máxima ou ciclo: a página fica no topo
 
     return relatorio

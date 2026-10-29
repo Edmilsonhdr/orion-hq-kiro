@@ -5,7 +5,10 @@
 // Aprovar/Recusar. Reutilizável no topo do chat e na tela de aprovações.
 // A decisão é delegada ao pai via `onDecidir(id, aprovado)`.
 
+import { useEffect, useState } from "react";
 import Markdown from "./Markdown";
+import { obter } from "../lib/api";
+import { diffLinhas, resumoDiff, type LinhaDiff } from "../lib/diff";
 import { agentePorId } from "../lib/agents";
 import { nomeEm } from "../lib/exibicao";
 
@@ -98,6 +101,19 @@ function DetalhesDocumento({ proposta }: { proposta: PropostaDocumento }) {
   const conteudo = dados.conteudo ?? "";
   const previa =
     conteudo.length > PREVIA_MAX ? `${conteudo.slice(0, PREVIA_MAX)}\n\n…` : conteudo;
+  const [atual, setAtual] = useState<string | null>(null);
+  useEffect(() => {
+    if (!editar || !proposta.documento_id || dados.conteudo === undefined) return;
+    let ativo = true;
+    obter<{ conteudo: string }>(`/documentos/${proposta.documento_id}`)
+      .then((d) => ativo && setAtual(d.conteudo))
+      .catch(() => {});
+    return () => {
+      ativo = false;
+    };
+  }, [editar, proposta.documento_id, dados.conteudo]);
+  const diff: LinhaDiff[] | null = atual !== null && dados.conteudo !== undefined ? diffLinhas(atual, dados.conteudo) : null;
+  const resumo = diff ? resumoDiff(diff) : null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
       <div>
@@ -126,7 +142,22 @@ function DetalhesDocumento({ proposta }: { proposta: PropostaDocumento }) {
           <span className="mono">{dados.tags.length ? dados.tags.join(", ") : "(nenhuma)"}</span>
         </div>
       )}
-      {conteudo && (
+      {diff && resumo && (
+        <div className="diff" role="group" aria-label="Mudanças no texto">
+          <div className="diff-resumo mono">
+            <span className="diff-mais">+{resumo.adicionadas}</span> <span className="diff-menos">−{resumo.removidas}</span> linhas
+          </div>
+          {diff
+            .filter((l, i) => l.tipo !== "igual" || diff.slice(Math.max(0, i - 1), i + 2).some((x) => x.tipo !== "igual"))
+            .map((l, i) => (
+              <div key={i} className={`diff-linha diff-${l.tipo}`}>
+                <span aria-hidden="true">{l.tipo === "adicionada" ? "+" : l.tipo === "removida" ? "−" : " "}</span>
+                {l.texto || " "}
+              </div>
+            ))}
+        </div>
+      )}
+      {conteudo && !diff && (
         <div
           style={{
             border: "1px solid var(--borda)",

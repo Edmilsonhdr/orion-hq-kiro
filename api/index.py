@@ -143,6 +143,10 @@ class ArquivarDocumento(BaseModel):
 
 
 
+# Falhas de login por usuário em 15 minutos antes de bloquear (429).
+LOGIN_MAX_FALHAS = 5
+
+
 @app.post("/api/login")
 def login(
     credenciais: Credenciais, request: Request, response: Response
@@ -153,11 +157,24 @@ def login(
     Falha (Requirement 1.2): responde 401 com mensagem genérica que não revela
     qual campo (usuário ou senha) estava errado.
     """
+    chave = credenciais.usuario.strip().lower()[:50]
+    falhas = db.um(
+        """select count(*) as n from login_tentativas
+           where usuario = %s and criado_em > now() - interval '15 minutes'""",
+        (chave,),
+    )
+    if falhas and falhas["n"] >= LOGIN_MAX_FALHAS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Muitas tentativas. Aguarde alguns minutos e tente de novo.",
+        )
     if not auth.autenticar(credenciais.usuario, credenciais.senha):
+        db.executar("insert into login_tentativas (usuario) values (%s)", (chave,))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuário ou senha inválidos.",
         )
+    db.executar("delete from login_tentativas where usuario = %s", (chave,))
     auth.definir_cookie_sessao(response, credenciais.usuario, request)
     return {"usuario": credenciais.usuario}
 
@@ -476,6 +493,59 @@ def arquivar_documento(
     return _documento_ou_404(documentos.arquivar(documento_id, corpo.arquivado))
 
 
+class OrdemCorpo(BaseModel):
+    direcao: str
+
+
+class ComentarioCorpo(BaseModel):
+    texto: str
+
+
+@app.post("/api/documentos/{documento_id}/ordem")
+def mover_documento(
+    documento_id: int, corpo: OrdemCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> list[int]:
+    """Sobe ou desce a página entre as irmãs (`cima`/`baixo`). Devolve os ids na nova ordem."""
+    try:
+        ids = documentos.mover_subpagina(documento_id, corpo.direcao)
+    except ValueError as erro:
+        raise _invalido(erro)
+    _documento_ou_404({} if ids is not None else None)
+    return ids or []
+
+
+@app.get("/api/documentos/{documento_id}/comentarios")
+def listar_comentarios(documento_id: int, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    _documento_ou_404(documentos.obter(documento_id))
+    return documentos.comentarios(documento_id)
+
+
+@app.post("/api/documentos/{documento_id}/comentarios", status_code=status.HTTP_201_CREATED)
+def criar_comentario(
+    documento_id: int, corpo: ComentarioCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    try:
+        return _documento_ou_404(documentos.comentar(documento_id, corpo.texto, usuario))
+    except ValueError as erro:
+        raise _invalido(erro)
+
+
+@app.delete("/api/documentos/comentarios/{comentario_id}")
+def excluir_comentario(comentario_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    resultado = documentos.excluir_comentario(comentario_id, usuario)
+    if resultado == "nao_encontrado":
+        raise HTTPException(status_code=404, detail="Comentário não encontrado.")
+    if resultado == "proibido":
+        raise HTTPException(status_code=403, detail="Só quem escreveu pode apagar o comentário.")
+    return {"ok": True}
+
+
+@app.get("/api/mencoes")
+def minhas_mencoes(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    """Comentários recentes de outras pessoas que citam o usuário (@usuario)."""
+    return documentos.mencoes_para(usuario)
+
+
 @app.get("/api/documentos/{documento_id}/versoes")
 def versoes_documento(
     documento_id: int, usuario: str = Depends(auth.usuario_atual)
@@ -665,6 +735,16 @@ def excluir_interacao_comercial(
             status_code=409, detail="Mudanças de etapa são automáticas e não podem ser excluídas."
         )
     return {"status": "excluida"}
+
+
+class ImportacaoCorpo(BaseModel):
+    csv: str
+
+
+@app.post("/api/comercial/importar")
+def importar_comercial(corpo: ImportacaoCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Importa organizações/contatos/negócios de uma planilha CSV (texto no corpo)."""
+    return _comercial(lambda: comercial.importar_csv(corpo.csv, usuario))
 
 
 @app.get("/api/comercial/organizacoes")

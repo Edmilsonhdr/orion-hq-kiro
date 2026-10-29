@@ -10,7 +10,7 @@
 //   "Propor correção · em breve" desabilitado ficam no IncidenteCard (6.4, 6.5).
 // - Polling leve com refetch completo (~3 s), no mesmo padrão das aprovações.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { obter, enviar } from "../../../lib/api";
 import IncidenteCard, {
   IncidenteDetalhe,
@@ -125,6 +125,23 @@ export default function IncidentesPage() {
     }
   }
 
+  // Agrupa por projeto (a ordem por status do backend se mantém dentro de cada grupo).
+  const ordenados = useMemo(
+    () => incidentes.map((inc, i) => ({ inc, i })).sort((a, b) => a.inc.projeto.localeCompare(b.inc.projeto) || a.i - b.i).map((x) => x.inc),
+    [incidentes]
+  );
+  const porProjeto = useMemo(() => {
+    const mapa = new Map<string, { projeto: string; abertos: number; ocorrencias: number }>();
+    for (const i of incidentes) {
+      const g = mapa.get(i.projeto) ?? { projeto: i.projeto, abertos: 0, ocorrencias: 0 };
+      g.ocorrencias += i.ocorrencias;
+      if (i.status === "aberto") g.abertos += 1;
+      mapa.set(i.projeto, g);
+    }
+    return [...mapa.values()].sort((a, b) => b.ocorrencias - a.ocorrencias);
+  }, [incidentes]);
+  const maiorOcorrencias = Math.max(1, ...porProjeto.map((g) => g.ocorrencias));
+
   return (
     <div className="docs-pagina pagina-estreita">
       <div className="com-topo">
@@ -158,7 +175,24 @@ export default function IncidentesPage() {
           aria-label="Lista de incidentes"
           style={{ display: "flex", flexDirection: "column", gap: "10px" }}
         >
-          {incidentes.map((inc) => (
+          <div className="inc-resumo" role="group" aria-label="Incidentes por projeto">
+            {porProjeto.map((g) => (
+              <div key={g.projeto} className="painel inc-resumo-item">
+                <div className="inc-resumo-nome">{g.projeto}</div>
+                <div className="inc-resumo-barra" aria-hidden="true">
+                  <span style={{ width: `${(g.ocorrencias / maiorOcorrencias) * 100}%` }} />
+                </div>
+                <div className="mono texto-secundario">
+                  {g.abertos} abertos · {g.ocorrencias} ocorrências
+                </div>
+              </div>
+            ))}
+          </div>
+          {ordenados.map((inc, i) => (
+            <Fragment key={inc.id}>
+              {(i === 0 || ordenados[i - 1].projeto !== inc.projeto) && (
+                <h2 className="com-grupo-titulo inc-grupo">{inc.projeto}</h2>
+              )}
             <IncidenteCard
               key={inc.id}
               incidente={inc}
@@ -169,6 +203,7 @@ export default function IncidentesPage() {
               onStatus={mudarStatus}
               onDiagnosticar={diagnosticar}
             />
+            </Fragment>
           ))}
         </section>
       )}

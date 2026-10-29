@@ -11,7 +11,11 @@ export type Inline =
   | { t: "codigo"; v: string }
   | { t: "negrito"; c: Inline[] }
   | { t: "italico"; c: Inline[] }
-  | { t: "link"; href: string; c: Inline[] };
+  | { t: "link"; href: string; c: Inline[] }
+  // [[Título]]: link para outra página do Docs (resolvido pelo título ao clicar).
+  | { t: "pagina"; titulo: string }
+  // @usuario: menção (só realce; o aviso aparece no Início de quem foi citado).
+  | { t: "mencao"; usuario: string };
 
 export type ItemLista = { c: Inline[]; feito?: boolean };
 
@@ -73,6 +77,27 @@ export function parseInline(s: string): Inline[] {
       }
     }
 
+    if (ch === "[" && s[i + 1] === "[") {
+      const fim = s.indexOf("]]", i + 2);
+      const titulo = fim > i + 2 ? s.slice(i + 2, fim).trim() : "";
+      if (titulo && !titulo.includes("[") && titulo.length <= 200) {
+        esvaziar();
+        saida.push({ t: "pagina", titulo });
+        i = fim + 2;
+        continue;
+      }
+    }
+
+    if (ch === "@" && !/[A-Za-z0-9_]/.test(s[i - 1] ?? " ")) {
+      const m = /^@([A-Za-z][A-Za-z0-9_]{1,30})/.exec(s.slice(i));
+      if (m) {
+        esvaziar();
+        saida.push({ t: "mencao", usuario: m[1].toLowerCase() });
+        i += m[0].length;
+        continue;
+      }
+    }
+
     if (ch === "[") {
       const m = LINK.exec(s.slice(i));
       if (m) {
@@ -94,7 +119,17 @@ export function parseInline(s: string): Inline[] {
 }
 
 function textoDe(c: Inline[]): string {
-  return c.map((x) => (x.t === "texto" || x.t === "codigo" ? x.v : textoDe(x.c))).join("");
+  return c
+    .map((x) =>
+      x.t === "texto" || x.t === "codigo"
+        ? x.v
+        : x.t === "pagina"
+          ? x.titulo
+          : x.t === "mencao"
+            ? `@${x.usuario}`
+            : textoDe(x.c)
+    )
+    .join("");
 }
 
 function slug(texto: string): string {

@@ -14,7 +14,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ErroApi, enviar, obter } from "../../../lib/api";
 import { usePoll } from "../../../lib/usePoll";
 import { nomeEm, pessoaEm } from "../../../lib/exibicao";
-import ChatMessage, { Mensagem } from "../../../components/ChatMessage";
+import ChatMessage, { Mensagem, fontesDe } from "../../../components/ChatMessage";
 import ApprovalCard, { Aprovacao } from "../../../components/ApprovalCard";
 
 type Atividade = {
@@ -79,6 +79,7 @@ export default function ChatPage() {
   const atividades = usePoll<Atividade>("/atividades", INTERVALO_ATIV_MS);
 
   const [texto, setTexto] = useState("");
+  const [busca, setBusca] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
 
@@ -98,6 +99,21 @@ export default function ChatPage() {
   const assinaturas = useMemo(
     () => new Map(mensagens.map((m) => [m.id, pessoaEm("orq", m.criado_em, atividades)])),
     [mensagens, atividades]
+  );
+
+  // Ferramentas usadas por run (para o "consultou: …" de cada resposta).
+  const fontesPorRun = useMemo(() => {
+    const mapa = new Map<string, string[]>();
+    for (const a of atividades) {
+      if (a.tipo !== "ferramenta" || !a.run_id) continue;
+      mapa.set(a.run_id, [...(mapa.get(a.run_id) ?? []), a.detalhe ?? ""]);
+    }
+    return mapa;
+  }, [atividades]);
+  const termo = busca.trim().toLowerCase();
+  const visiveis = useMemo(
+    () => (termo ? mensagens.filter((m) => m.texto.toLowerCase().includes(termo)) : mensagens),
+    [mensagens, termo]
   );
 
   // Rola para o fim quando chegam mensagens novas ou muda o indicador.
@@ -198,6 +214,15 @@ export default function ChatPage() {
         </section>
       )}
 
+      <input
+        type="search"
+        className="chat-busca"
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        placeholder="Buscar no histórico do chat"
+        aria-label="Buscar no histórico do chat"
+      />
+
       {/* Lista de mensagens */}
       <div
         style={{
@@ -223,8 +248,18 @@ export default function ChatPage() {
             </div>
           </div>
         )}
-        {mensagens.map((m) => (
-          <ChatMessage key={m.id} mensagem={m} assinatura={assinaturas.get(m.id)} />
+        {termo && visiveis.length === 0 && (
+          <p className="texto-secundario" style={{ textAlign: "center" }}>
+            Nenhuma mensagem com “{busca.trim()}”.
+          </p>
+        )}
+        {visiveis.map((m) => (
+          <ChatMessage
+            key={m.id}
+            mensagem={m}
+            assinatura={assinaturas.get(m.id)}
+            fontes={m.run_id ? fontesDe(fontesPorRun.get(m.run_id) ?? []) : []}
+          />
         ))}
         <div ref={fimRef} />
       </div>

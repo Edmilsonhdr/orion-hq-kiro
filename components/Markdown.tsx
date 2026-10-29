@@ -1,6 +1,7 @@
 // Renderiza markdown dos Docs como elementos React (nunca HTML bruto — spec docs, Requirement 5.4).
 // O parser (lib/markdown.ts) devolve uma árvore de dados; aqui só a convertemos em elementos.
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { parseMarkdown, type Bloco, type Inline } from "../lib/markdown";
 
@@ -19,6 +20,18 @@ function inline(itens: Inline[]): ReactNode[] {
         return <strong key={i}>{inline(item.c)}</strong>;
       case "italico":
         return <em key={i}>{inline(item.c)}</em>;
+      case "pagina":
+        return (
+          <Link key={i} href={`/docs/ir?titulo=${encodeURIComponent(item.titulo)}`} className="doc-link-pagina">
+            {item.titulo}
+          </Link>
+        );
+      case "mencao":
+        return (
+          <span key={i} className="mencao">
+            @{item.usuario}
+          </span>
+        );
       case "link":
         return (
           <a key={i} href={item.href} target="_blank" rel="noopener noreferrer nofollow">

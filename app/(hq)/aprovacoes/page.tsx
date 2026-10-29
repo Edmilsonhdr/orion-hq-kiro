@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { obter, enviar, ErroApi } from "../../../lib/api";
 import ApprovalCard, { Aprovacao } from "../../../components/ApprovalCard";
+import { filtrarAprovacoes, type FiltroAprovacao } from "../../../lib/aprovacoes";
 
 // Intervalo do polling da lista completa (~3 s: leve, não é tempo real).
 const INTERVALO_APROV_MS = 3000;
@@ -20,6 +21,8 @@ export default function AprovacoesPage() {
   const [aprovacoes, setAprovacoes] = useState<Aprovacao[]>([]);
   const [decidindo, setDecidindo] = useState<number | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<FiltroAprovacao>("todas");
+  const [lote, setLote] = useState(false);
 
   // Evita atualizar estado depois que o componente desmonta.
   const ativoRef = useRef(true);
@@ -51,14 +54,29 @@ export default function AprovacoesPage() {
     };
   }, [buscar]);
 
-  const pendentes = useMemo(
-    () => aprovacoes.filter((a) => a.status === "pendente"),
-    [aprovacoes]
-  );
-  const historico = useMemo(
-    () => aprovacoes.filter((a) => a.status !== "pendente"),
-    [aprovacoes]
-  );
+  const filtradas = useMemo(() => filtrarAprovacoes(aprovacoes, filtro), [aprovacoes, filtro]);
+  const pendentes = useMemo(() => filtradas.filter((a) => a.status === "pendente"), [filtradas]);
+  const historico = useMemo(() => filtradas.filter((a) => a.status !== "pendente"), [filtradas]);
+
+  // Decide todas as pendentes visíveis, uma a uma (a mesma rota de cada cartão).
+  async function decidirLote(aprovado: boolean) {
+    if (lote || pendentes.length === 0) return;
+    const verbo = aprovado ? "Aprovar" : "Recusar";
+    if (!window.confirm(`${verbo} as ${pendentes.length} propostas pendentes listadas?`)) return;
+    setLote(true);
+    setAviso(null);
+    let falhas = 0;
+    for (const a of pendentes) {
+      try {
+        await enviar(`/aprovacoes/${a.id}`, { aprovado });
+      } catch {
+        falhas++;
+      }
+    }
+    setLote(false);
+    if (falhas > 0) setAviso(`${falhas} proposta(s) não puderam ser decididas agora.`);
+    await buscar();
+  }
 
   async function decidir(id: number, aprovado: boolean) {
     // Guarda o id em decisão para passar `ocupado` e evitar cliques duplos.
@@ -117,6 +135,23 @@ export default function AprovacoesPage() {
             Nada que os agentes propõem é aplicado antes de um sócio aprovar aqui.
           </p>
         </div>
+      </div>
+      <div className="aprov-filtros" role="group" aria-label="Filtrar por tipo">
+        {(["todas", "documentos", "comercial", "reunioes"] as FiltroAprovacao[]).map((f) => (
+          <button key={f} type="button" className={`aprov-filtro${filtro === f ? " ativo" : ""}`} aria-pressed={filtro === f} onClick={() => setFiltro(f)}>
+            {{ todas: "Todas", documentos: "Documentos", comercial: "Comercial", reunioes: "Reuniões" }[f]}
+          </button>
+        ))}
+        {pendentes.length > 1 && (
+          <span className="aprov-lote">
+            <button type="button" onClick={() => decidirLote(true)} disabled={lote}>
+              Aprovar todas ({pendentes.length})
+            </button>
+            <button type="button" onClick={() => decidirLote(false)} disabled={lote}>
+              Recusar todas
+            </button>
+          </span>
+        )}
       </div>
       {/* Aviso de "já decidida" e afins (6.6). */}
       <div aria-live="polite">

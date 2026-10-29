@@ -603,3 +603,90 @@ def texto_resumo_semanal() -> Optional[str]:
     if etapas:
         linhas.append(f"- Por etapa — {etapas}.")
     return "\n".join(linhas)
+
+
+# --- importação de planilha (CSV) ---
+
+IMPORTAR_MAX_LINHAS = 500
+IMPORTAR_MAX_CARACTERES = 300_000
+
+_ALIAS_COLUNAS = {
+    "organizacao": "organizacao", "nome da organizacao": "organizacao", "empresa": "organizacao",
+    "clinica": "organizacao", "nome": "organizacao",
+    "tipo": "tipo", "cidade": "cidade", "origem": "origem", "area": "area",
+    "contato": "contato", "nome do contato": "contato", "responsavel": "contato",
+    "cargo": "cargo", "email": "email", "e-mail": "email",
+    "telefone": "telefone", "celular": "telefone", "whatsapp": "telefone",
+    "titulo": "titulo", "negocio": "titulo",
+}
+
+
+def importar_csv(texto: str, autor: str) -> dict:
+    """Importa organizações, contatos e um negócio em `lead` por linha de uma planilha CSV.
+
+    Colunas reconhecidas (com ou sem acento, vírgula ou ponto e vírgula): organização, tipo, cidade,
+    origem, contato, cargo, e-mail, telefone, título. Linhas com erro não impedem as demais.
+    """
+    import csv
+    import io
+
+    from .texto import sem_acento
+
+    if len(texto) > IMPORTAR_MAX_CARACTERES:
+        raise ValueError("Arquivo grande demais (limite de 300 mil caracteres).")
+    amostra = texto[:2000]
+    delimitador = ";" if amostra.count(";") > amostra.count(",") else ","
+    leitor = csv.reader(io.StringIO(texto.lstrip("\ufeff")), delimiter=delimitador)
+    linhas = [l for l in leitor if any(c.strip() for c in l)]
+    if len(linhas) < 2:
+        raise ValueError("A planilha precisa de um cabeçalho e ao menos uma linha.")
+    if len(linhas) - 1 > IMPORTAR_MAX_LINHAS:
+        raise ValueError(f"Máximo de {IMPORTAR_MAX_LINHAS} linhas por importação.")
+    colunas = [_ALIAS_COLUNAS.get(sem_acento(c).strip().lower()) for c in linhas[0]]
+    if "organizacao" not in colunas:
+        raise ValueError("Falta a coluna da organização (use o cabeçalho \"organização\" ou \"empresa\").")
+
+    resultado = {"organizacoes": 0, "contatos": 0, "negocios": 0, "erros": []}
+    for numero, linha in enumerate(linhas[1:], start=2):
+        campos = {c: v.strip() for c, v in zip(colunas, linha) if c and v.strip()}
+        try:
+            existia = db.um(
+                "select 1 as ok from organizacoes where lower(nome) = lower(%s) and not arquivada",
+                (campos.get("organizacao", ""),),
+            )
+            tipo = sem_acento(campos.get("tipo", "")).lower()
+            org = obter_ou_criar_organizacao(
+                campos.get("organizacao", ""), tipo if tipo in TIPOS_ORG else "clinica"
+            )
+            if not existia:
+                resultado["organizacoes"] += 1
+                extras = {k: campos[k] for k in ("cidade",) if k in campos}
+                if extras:
+                    editar_organizacao(org["id"], extras)
+            if campos.get("contato"):
+                repetido = db.um(
+                    "select 1 as ok from contatos where organizacao_id = %s and lower(nome) = lower(%s)",
+                    (org["id"], campos["contato"]),
+                )
+                if not repetido:
+                    criar_contato(
+                        org["id"],
+                        {k: campos[k] for k in ("cargo", "email", "telefone") if k in campos}
+                        | {"nome": campos["contato"]},
+                    )
+                    resultado["contatos"] += 1
+            aberto = db.um(
+                "select 1 as ok from negocios where organizacao_id = %s and etapa = any(%s)",
+                (org["id"], list(ETAPAS_ABERTAS)),
+            )
+            if not aberto:
+                criar_negocio(
+                    org["id"],
+                    {"titulo": campos.get("titulo") or f"Primeiro contato — {org['nome']}"}
+                    | ({"origem": campos["origem"]} if "origem" in campos else {}),
+                    autor,
+                )
+                resultado["negocios"] += 1
+        except (ValueError, ConflitoError) as erro:
+            resultado["erros"].append({"linha": numero, "erro": str(erro)})
+    return resultado

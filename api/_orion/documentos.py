@@ -10,6 +10,8 @@ Validação por `ValueError` com mensagem em português; as rotas convertem em 4
 
 from __future__ import annotations
 
+import re
+
 from typing import Any, Optional
 
 from . import db
@@ -132,12 +134,12 @@ def validar_pai(pai_id: Any, documento_id: Optional[int] = None) -> Optional[int
 
 
 def subpaginas(documento_id: int) -> list[dict]:
-    """Filhas diretas não arquivadas, mais antigas primeiro, com trecho."""
+    """Filhas diretas não arquivadas, na ordem manual (depois as mais antigas), com trecho."""
     return db.consultar(
         f"""
         select {_COLUNAS_RESUMO}, left(conteudo, {TRECHO_MAX}) as trecho
         from documentos where pai_id = %s and not arquivado
-        order by criado_em, id
+        order by ordem, criado_em, id
         """,
         (documento_id,),
     )
@@ -528,3 +530,89 @@ def restaurar(documento_id: int, versao_id: int, editor: str) -> Optional[dict]:
         {"titulo": antiga["titulo"], "conteudo": antiga["conteudo"]},
         editor,
     )
+
+
+def mover_subpagina(documento_id: int, direcao: str) -> Optional[list[dict]]:
+    """Troca a posição da página com a vizinha (`cima` ou `baixo`) entre as irmãs.
+
+    Devolve as irmãs na nova ordem, ou `None` se o documento não existe. Normaliza `ordem`
+    (0..n-1) antes de trocar, então funciona mesmo com tudo zerado.
+    """
+    if direcao not in ("cima", "baixo"):
+        raise ValueError("Direção inválida (use 'cima' ou 'baixo').")
+    doc = db.um("select id, pai_id from documentos where id = %s", (documento_id,))
+    if doc is None:
+        return None
+    irmas = db.consultar(
+        """
+        select id from documentos
+        where pai_id is not distinct from %s and not arquivado
+        order by ordem, criado_em, id
+        """,
+        (doc["pai_id"],),
+    )
+    ids = [i["id"] for i in irmas]
+    posicao = ids.index(documento_id)
+    alvo = posicao - 1 if direcao == "cima" else posicao + 1
+    if 0 <= alvo < len(ids):
+        ids[posicao], ids[alvo] = ids[alvo], ids[posicao]
+    for novo, i in enumerate(ids):
+        db.executar("update documentos set ordem = %s where id = %s", (novo, i))
+    return ids
+
+
+# --- comentários e menções ---
+
+COMENTARIO_MAX = 2000
+_MENCAO = re.compile(r"(?<![A-Za-z0-9_])@([A-Za-z][A-Za-z0-9_]{1,30})")
+
+
+def comentarios(documento_id: int) -> list[dict]:
+    return db.consultar(
+        "select id, documento_id, autor, texto, criado_em from documento_comentarios "
+        "where documento_id = %s order by criado_em, id",
+        (documento_id,),
+    )
+
+
+def comentar(documento_id: int, texto: Any, autor: str) -> Optional[dict]:
+    """Grava um comentário; `None` se o documento não existe."""
+    if not isinstance(texto, str) or not texto.strip():
+        raise ValueError("Escreva o comentário.")
+    texto = texto.strip()
+    if len(texto) > COMENTARIO_MAX:
+        raise ValueError(f"Comentário grande demais (máximo {COMENTARIO_MAX} caracteres).")
+    if db.um("select 1 as ok from documentos where id = %s", (documento_id,)) is None:
+        return None
+    return db.um(
+        "insert into documento_comentarios (documento_id, autor, texto) values (%s, %s, %s) "
+        "returning id, documento_id, autor, texto, criado_em",
+        (documento_id, autor, texto),
+    )
+
+
+def excluir_comentario(comentario_id: int, usuario: str) -> str:
+    """`ok`, `nao_encontrado` ou `proibido` (só o autor apaga)."""
+    c = db.um("select autor from documento_comentarios where id = %s", (comentario_id,))
+    if c is None:
+        return "nao_encontrado"
+    if c["autor"] != usuario:
+        return "proibido"
+    db.executar("delete from documento_comentarios where id = %s", (comentario_id,))
+    return "ok"
+
+
+def mencoes_para(usuario: str, dias: int = 14) -> list[dict]:
+    """Comentários recentes de outras pessoas que citam `@usuario`, com o título do documento."""
+    linhas = db.consultar(
+        """
+        select c.id, c.documento_id, d.titulo as documento_titulo, c.autor, c.texto, c.criado_em
+        from documento_comentarios c join documentos d on d.id = c.documento_id
+        where c.autor <> %s and not d.arquivado
+          and c.criado_em > now() - make_interval(days => %s)
+        order by c.criado_em desc limit 50
+        """,
+        (usuario, dias),
+    )
+    alvo = usuario.lower()
+    return [l for l in linhas if alvo in {m.lower() for m in _MENCAO.findall(l["texto"])}][:10]

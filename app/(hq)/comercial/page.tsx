@@ -5,6 +5,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import GraficoFunil from "../../../components/GraficoFunil";
+import ImportarPlanilha from "../../../components/ImportarPlanilha";
 import Funil from "../../../components/Funil";
 import Modal from "../../../components/Modal";
 import NegocioForm, { type DadosNegocio } from "../../../components/NegocioForm";
@@ -71,6 +73,7 @@ export default function ComercialPage() {
 
   const [novoAberto, setNovoAberto] = useState(false);
   const [orgNovaAberta, setOrgNovaAberta] = useState(false);
+  const [importarAberto, setImportarAberto] = useState(false);
   const [perda, setPerda] = useState<Negocio | null>(null);
   const [motivo, setMotivo] = useState("");
   const [erroModal, setErroModal] = useState<string | null>(null);
@@ -136,6 +139,9 @@ export default function ComercialPage() {
       <div className="com-topo">
         <h1 className="titulo-pixel com-titulo">Comercial</h1>
         <div className="com-acoes">
+          <button type="button" className="botao" onClick={() => setImportarAberto(true)}>
+            Importar planilha
+          </button>
           <button type="button" className="botao" onClick={() => setOrgNovaAberta(true)}>
             Nova organização
           </button>
@@ -195,7 +201,12 @@ export default function ComercialPage() {
         </div>
       )}
 
-      {!carregando && aba === "funil" && <Funil negocios={negocios} onMover={(n, e) => mover(n, e)} />}
+      {!carregando && aba === "funil" && (
+        <>
+          <GraficoFunil negocios={negocios} />
+          <Funil negocios={negocios} onMover={(n, e) => mover(n, e)} />
+        </>
+      )}
 
       {!carregando && aba === "organizacoes" && (
         <div className="com-orgs">
@@ -223,6 +234,10 @@ export default function ComercialPage() {
           onSalvar={criarNegocio}
           onCancelar={() => setNovoAberto(false)}
         />
+      </Modal>
+
+      <Modal titulo="Importar planilha" aberto={importarAberto} onFechar={() => setImportarAberto(false)}>
+        <ImportarPlanilha onImportado={carregar} />
       </Modal>
 
       <Modal titulo="Nova organização" aberto={orgNovaAberta} onFechar={() => setOrgNovaAberta(false)}>

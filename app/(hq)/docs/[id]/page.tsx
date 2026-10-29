@@ -8,6 +8,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import DocEditor from "../../../../components/DocEditor";
 import Markdown from "../../../../components/Markdown";
+import Comentarios from "../../../../components/Comentarios";
 import Sumario from "../../../../components/Sumario";
 import { ErroApi, atualizar, enviar, obter } from "../../../../lib/api";
 import {
@@ -84,6 +85,19 @@ export default function DocumentoPage() {
     setEditando(false);
     setErro(null);
     if (mostrarHistorico) carregarHistorico();
+  }
+
+  async function moverSubpagina(subId: number, direcao: "cima" | "baixo") {
+    if (ocupado) return;
+    setOcupado(true);
+    try {
+      await enviar(`/documentos/${subId}/ordem`, { direcao });
+      setDoc(await obter<Documento>(`/documentos/${id}`));
+    } catch {
+      setErro("Não foi possível mudar a ordem.");
+    } finally {
+      setOcupado(false);
+    }
   }
 
   async function alternarArquivado() {
@@ -299,9 +313,19 @@ export default function DocumentoPage() {
             <section className="doc-subpaginas" aria-label="Subpáginas">
               <h2>Subpáginas</h2>
               <ul>
-                {doc.subpaginas.map((s) => (
-                  <li key={s.id}>
+                {doc.subpaginas.map((s, i) => (
+                  <li key={s.id} className="doc-subpagina-item">
                     <Link href={`/docs/${s.id}`}>{s.titulo}</Link>
+                    {doc.subpaginas && doc.subpaginas.length > 1 && (
+                      <span className="doc-subpagina-ordem">
+                        <button type="button" aria-label={`Subir ${s.titulo}`} disabled={i === 0 || ocupado} onClick={() => moverSubpagina(s.id, "cima")}>
+                          ↑
+                        </button>
+                        <button type="button" aria-label={`Descer ${s.titulo}`} disabled={i === doc.subpaginas!.length - 1 || ocupado} onClick={() => moverSubpagina(s.id, "baixo")}>
+                          ↓
+                        </button>
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -310,6 +334,8 @@ export default function DocumentoPage() {
         </article>
         <Sumario texto={doc.conteudo} />
       </div>
+
+      <Comentarios documentoId={doc.id} />
     </div>
   );
 }
