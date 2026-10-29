@@ -152,8 +152,14 @@ def test_listagem_ordem_e_filtros(banco):
 def test_pastas_e_tags(banco):
     _criar(pasta="Produto", tags=["api"])
     _criar(pasta="Time", tags=["rh", "api"])
+    _criar(pasta="Produto")
+    arquivado = _criar(pasta="Time", tags=["rh"])
+    documentos.arquivar(arquivado["id"], True)
     resultado = documentos.pastas_e_tags()
-    assert resultado == {"pastas": ["Produto", "Time"], "tags": ["api", "rh"]}
+    assert resultado["pastas"] == ["Produto", "Time"] and resultado["tags"] == ["api", "rh"]
+    assert resultado["contagem_pastas"] == {"Produto": 2, "Time": 1}
+    assert resultado["contagem_tags"] == {"api": 2, "rh": 1}  # arquivado não conta
+    assert resultado["total"] == 3
 
 
 # --- busca ---
@@ -212,3 +218,41 @@ def test_busca_limitada_a_20(banco):
     for i in range(documentos.BUSCA_MAX + 5):
         _criar(f"Doc {i}", "palavra-chave comum")
     assert len(documentos.buscar("comum")) == documentos.BUSCA_MAX
+
+
+# --- busca aproximada (acento e plural) ---
+
+
+def test_busca_ignora_acento_e_liga_singular_e_plural(banco):
+    d = _criar("Decisões de preço", "Fechamos as decisões sobre mensalidade.")
+    _criar("Outro", "nada a ver")
+    for consulta in ("decisão", "decisao", "DECISÕES", "decisoes"):
+        assert [x["id"] for x in documentos.buscar(consulta)] == [d["id"]], consulta
+
+
+def test_busca_aproximada_exige_todas_as_palavras(banco):
+    a = _criar("Política de reembolso", "Reembolso em até 7 dias.")
+    _criar("Política de férias", "Dias de descanso.")
+    assert [x["id"] for x in documentos.buscar("politica reembolsos")] == [a["id"]]
+    assert documentos.buscar("politica inexistente") == []
+
+
+def test_busca_aproximada_titulo_pesa_mais(banco):
+    so_texto = _criar("Reunião", "falamos de integração com o banco")
+    no_titulo = _criar("Integração bancária", "passos")
+    ids = [x["id"] for x in documentos.buscar("integracao")]
+    assert ids == [no_titulo["id"], so_texto["id"]]
+
+
+def test_busca_aproximada_trecho_e_arquivados(banco):
+    d = _criar("Notas", "início " * 30 + "a decisão final foi adiada " + "fim " * 30)
+    trecho = documentos.buscar("decisoes")[0]["trecho"]
+    assert "decisão" in trecho
+    documentos.arquivar(d["id"], True)
+    assert documentos.buscar("decisoes") == []
+    assert len(documentos.buscar("decisoes", arquivados=True)) == 1
+
+
+def test_busca_aproximada_ignora_palavras_curtas(banco):
+    _criar("Plano", "de a o um xyz")
+    assert documentos.buscar("do ao") == []  # só palavras curtas e fora do texto: nada a buscar

@@ -1,6 +1,6 @@
 "use client";
 
-// Documento: leitura, edição, arquivar e histórico de versões com restauração
+// Documento: leitura (com sumário), edição, arquivar e histórico de versões com restauração
 // (spec docs, Requirements 2, 3.3, 5.3, 5.5, 5.6).
 
 import { useCallback, useEffect, useState } from "react";
@@ -8,9 +8,11 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import DocEditor from "../../../../components/DocEditor";
 import Markdown from "../../../../components/Markdown";
+import Sumario from "../../../../components/Sumario";
 import { ErroApi, atualizar, enviar, obter } from "../../../../lib/api";
 import {
   formatarData,
+  tempoRelativo,
   type DadosDocumento,
   type Documento,
   type Filtros,
@@ -53,6 +55,11 @@ export default function DocumentoPage() {
       ativo = false;
     };
   }, [id]);
+
+  // Título da aba do navegador acompanha o documento.
+  useEffect(() => {
+    if (doc) document.title = `${doc.titulo} · Docs · Orion HQ`;
+  }, [doc]);
 
   const carregarHistorico = useCallback(async () => {
     try {
@@ -114,129 +121,158 @@ export default function DocumentoPage() {
     }
   }
 
-  const voltar = (
-    <p style={{ margin: "0 0 8px" }}>
-      <Link href="/docs">← Docs</Link>
-    </p>
+  const migalhas = (titulo: string, pasta?: string | null) => (
+    <nav className="doc-migalhas" aria-label="Você está em">
+      <Link href="/docs">Docs</Link>
+      {pasta && (
+        <>
+          <span aria-hidden="true">›</span>
+          <Link href={`/docs?pasta=${encodeURIComponent(pasta)}`}>{pasta}</Link>
+        </>
+      )}
+      <span aria-hidden="true">›</span>
+      <span aria-current="page" style={{ color: "var(--texto)" }}>
+        {titulo}
+      </span>
+    </nav>
   );
 
   if (naoEncontrado) {
     return (
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "24px 20px" }}>
-        {voltar}
-        <p>Documento não encontrado.</p>
+      <div className="docs-pagina">
+        {migalhas("Não encontrado")}
+        <div className="docs-vazio">
+          <strong>Documento não encontrado</strong>
+          <p style={{ margin: "0 0 14px" }}>Ele pode ter sido apagado ou o endereço está errado.</p>
+          <Link href="/docs" className="botao" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+            Voltar para Docs
+          </Link>
+        </div>
       </div>
     );
   }
 
   if (!doc) {
     return (
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "24px 20px" }}>
-        {voltar}
+      <div className="docs-pagina">
+        {migalhas("Carregando…")}
         {erro ? (
-          <p role="alert" style={{ color: "#FF7A59" }}>
+          <p role="alert" className="doc-erro">
             {erro}
           </p>
         ) : (
-          <p className="texto-secundario">Carregando…</p>
+          <div className="docs-lista" aria-busy="true">
+            <div className="docs-esqueleto" style={{ height: 44, maxWidth: 480 }} />
+            <div className="docs-esqueleto" style={{ height: 260 }} />
+          </div>
         )}
       </div>
     );
   }
 
-  return (
-    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "24px 20px" }}>
-      {voltar}
-
-      {editando ? (
+  if (editando) {
+    return (
+      <div className="docs-pagina" style={{ maxWidth: "1280px" }}>
+        {migalhas(`Editando: ${doc.titulo}`, doc.pasta)}
         <DocEditor
           inicial={{ titulo: doc.titulo, conteudo: doc.conteudo, pasta: doc.pasta, tags: doc.tags }}
           pastasSugeridas={pastas}
+          chaveRascunho={id}
           onSalvar={salvar}
           onCancelar={() => setEditando(false)}
         />
-      ) : (
-        <>
-          <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", flexWrap: "wrap" }}>
-            <h1 style={{ margin: 0, fontSize: "24px", flex: "1 1 300px", overflowWrap: "anywhere" }}>
-              {doc.titulo}
-            </h1>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <button type="button" className="botao-destaque" onClick={() => setEditando(true)}>
-                Editar
-              </button>
-              <button type="button" onClick={alternarHistorico} aria-pressed={mostrarHistorico}>
-                Histórico
-              </button>
-              <button type="button" onClick={alternarArquivado} disabled={ocupado}>
-                {doc.arquivado ? "Desarquivar" : "Arquivar"}
-              </button>
-            </div>
-          </div>
+      </div>
+    );
+  }
 
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", margin: "10px 0" }}>
-            {doc.arquivado && <span className="doc-etiqueta">arquivado</span>}
-            {doc.pasta && <span className="doc-etiqueta">{doc.pasta}</span>}
-            {doc.tags.map((t) => (
-              <span key={t} className="doc-etiqueta mono">
-                #{t}
-              </span>
-            ))}
-          </div>
-          <p className="texto-secundario mono" style={{ margin: "0 0 16px", fontSize: "12px" }}>
-            {doc.autor} · criado em {formatarData(doc.criado_em)} · atualizado em{" "}
-            {formatarData(doc.atualizado_em)}
-          </p>
+  return (
+    <div className="docs-pagina">
+      {migalhas(doc.titulo, doc.pasta)}
 
-          {erro && (
-            <p role="alert" style={{ color: "#FF7A59" }}>
-              {erro}
+      <div className="doc-cabecalho">
+        <h1 className="doc-titulo">{doc.titulo}</h1>
+        <div className="doc-acoes">
+          <button type="button" className="botao-destaque" onClick={() => setEditando(true)}>
+            Editar
+          </button>
+          <button type="button" onClick={alternarHistorico} aria-pressed={mostrarHistorico}>
+            Histórico
+          </button>
+          <button type="button" onClick={alternarArquivado} disabled={ocupado}>
+            {doc.arquivado ? "Desarquivar" : "Arquivar"}
+          </button>
+        </div>
+      </div>
+
+      <div className="doc-meta">
+        {doc.arquivado && <span className="doc-etiqueta">arquivado</span>}
+        {doc.tags.map((t) => (
+          <span key={t} className="mono">
+            #{t}
+          </span>
+        ))}
+        <span title={`Criado em ${formatarData(doc.criado_em)}`}>
+          {doc.autor} · atualizado {tempoRelativo(doc.atualizado_em)}
+        </span>
+        <span className="mono" title="Data da última atualização">
+          {formatarData(doc.atualizado_em)}
+        </span>
+      </div>
+
+      {erro && (
+        <p role="alert" className="doc-erro" style={{ marginBottom: 12 }}>
+          {erro}
+        </p>
+      )}
+
+      {mostrarHistorico && (
+        <section className="painel doc-historico" aria-label="Histórico de versões">
+          <h2 style={{ margin: "0 0 6px", fontSize: "16px", fontFamily: "var(--fonte-texto)", fontWeight: 600 }}>
+            Histórico de versões
+          </h2>
+          {historico === null && <p className="texto-secundario">Carregando…</p>}
+          {historico?.length === 0 && (
+            <p className="texto-secundario" style={{ margin: 0 }}>
+              Ainda não há versões anteriores: elas aparecem quando o título ou o texto mudam.
             </p>
           )}
-
-          {mostrarHistorico && (
-            <section className="painel" style={{ padding: "14px 16px", marginBottom: "16px" }}>
-              <h2 style={{ margin: "0 0 10px", fontSize: "16px" }}>Histórico de versões</h2>
-              {historico === null && <p className="texto-secundario">Carregando…</p>}
-              {historico?.length === 0 && (
-                <p className="texto-secundario" style={{ margin: 0 }}>
-                  Ainda não há versões anteriores: elas aparecem quando o título ou o texto mudam.
-                </p>
-              )}
-              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: "8px" }}>
-                {historico?.map((v) => (
-                  <li
-                    key={v.id}
-                    style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}
-                  >
-                    <span className="mono" style={{ fontSize: "13px", flex: "1 1 240px" }}>
-                      {formatarData(v.criado_em)} · {v.editado_por} · “{v.titulo}”
-                    </span>
-                    <button type="button" onClick={() => verVersao(v.id)}>
-                      Ver
-                    </button>
-                    <button type="button" onClick={() => restaurar(v.id)} disabled={ocupado}>
-                      Restaurar
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {versaoAberta && (
-                <div style={{ marginTop: "14px", borderTop: "1px solid var(--borda)", paddingTop: "12px" }}>
-                  <p className="texto-secundario" style={{ marginTop: 0 }}>
-                    Versão de {formatarData(versaoAberta.criado_em)} — “{versaoAberta.titulo}”
-                  </p>
-                  <Markdown texto={versaoAberta.conteudo} />
-                </div>
-              )}
-            </section>
+          <ul className="doc-versoes">
+            {historico?.map((v) => (
+              <li key={v.id} className="doc-versao">
+                <span style={{ flex: "1 1 260px", minWidth: 0 }}>
+                  <strong style={{ fontWeight: 600 }}>{formatarData(v.criado_em)}</strong>
+                  <span className="texto-secundario"> · editado por {v.editado_por}</span>
+                  <br />
+                  <span className="texto-secundario" style={{ fontSize: 13 }}>
+                    “{v.titulo}”
+                  </span>
+                </span>
+                <button type="button" onClick={() => verVersao(v.id)}>
+                  Ver
+                </button>
+                <button type="button" onClick={() => restaurar(v.id)} disabled={ocupado}>
+                  Restaurar
+                </button>
+              </li>
+            ))}
+          </ul>
+          {versaoAberta && (
+            <div style={{ marginTop: 14, borderTop: "1px solid var(--borda)", paddingTop: 12 }}>
+              <p className="texto-secundario" style={{ marginTop: 0 }}>
+                Versão de {formatarData(versaoAberta.criado_em)} — “{versaoAberta.titulo}”
+              </p>
+              <Markdown texto={versaoAberta.conteudo} />
+            </div>
           )}
-
-          <article className="painel" style={{ padding: "16px 20px" }}>
-            <Markdown texto={doc.conteudo} />
-          </article>
-        </>
+        </section>
       )}
+
+      <div className="doc-leitura-grade">
+        <article className="painel doc-artigo">
+          <Markdown texto={doc.conteudo} />
+        </article>
+        <Sumario texto={doc.conteudo} />
+      </div>
     </div>
   );
 }

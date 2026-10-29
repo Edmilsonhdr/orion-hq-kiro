@@ -83,3 +83,53 @@ test("texto vazio devolve lista vazia", () => {
   assert.deepEqual(parseMarkdown(""), []);
   assert.deepEqual(parseMarkdown("\n\n  \n"), []);
 });
+
+import { extrairTitulos, textoPuro } from "./markdown.ts";
+
+test("tabela: cabeçalho, linhas retangulares e células com markdown", () => {
+  const [t] = parseMarkdown("| Plano | Preço |\n|---|:---:|\n| **Free** | 0 |\n| Pro |\n");
+  assert.equal(t.t, "tabela");
+  const tabela = t as { cabecalho: Inline[][]; linhas: Inline[][][] };
+  assert.equal(tabela.cabecalho.length, 2);
+  assert.equal(tabela.linhas.length, 2);
+  assert.equal(tabela.linhas[0][0][0].t, "negrito");
+  assert.equal(tabela.linhas[1].length, 2); // linha curta é completada
+  assert.deepEqual(tabela.linhas[1][1], []);
+});
+
+test("linha com barras sem separador não vira tabela", () => {
+  const blocos = parseMarkdown("| só uma linha |");
+  assert.equal(blocos[0].t, "paragrafo");
+});
+
+test("HTML dentro de célula de tabela continua sendo texto", () => {
+  const [t] = parseMarkdown("| a |\n|---|\n| <img src=x onerror=alert(1)> |");
+  const celula = (t as { linhas: Inline[][][] }).linhas[0][0];
+  assert.ok(celula.every((x) => x.t === "texto"));
+});
+
+test("lista de tarefas marca feitos e pendentes", () => {
+  const [l] = parseMarkdown("- [ ] fazer\n- [x] feito\n- [X] também\n- comum");
+  const itens = (l as { itens: { feito?: boolean }[] }).itens;
+  assert.deepEqual(
+    itens.map((i) => i.feito),
+    [false, true, true, undefined],
+  );
+});
+
+test("títulos ganham âncora única e sem acento", () => {
+  const blocos = parseMarkdown("# Introdução\n\n## Decisões\n\n## Decisões\n\n#### Fundo");
+  const ids = blocos.filter((b) => b.t === "titulo").map((b) => (b as { id: string }).id);
+  assert.deepEqual(ids, ["introducao", "decisoes", "decisoes-2", "fundo"]);
+  assert.deepEqual(
+    extrairTitulos(blocos).map((t) => t.id),
+    ["introducao", "decisoes", "decisoes-2"], // níveis 1 a 3 no sumário
+  );
+});
+
+test("textoPuro remove a marcação e encurta", () => {
+  const md = "# Bem-vindos\n\nAqui **ficam** os `textos` e [o link](https://x.com).\n\n- um\n- dois";
+  assert.equal(textoPuro(md), "Bem-vindos Aqui ficam os textos e o link. um dois");
+  assert.ok(textoPuro("palavra ".repeat(100), 50).length <= 50);
+  assert.equal(textoPuro(""), "");
+});

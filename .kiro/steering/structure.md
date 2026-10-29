@@ -15,7 +15,10 @@ orion-hq/
 │       ├── auth.py              # login, cookie assinado (HMAC), dependência usuario_atual
 │       ├── llm.py               # modelos (principal/worker), texto(), tokens()
 │       ├── ferramentas.py       # tools dos especialistas (changelog, documentos)
-│       ├── documentos.py        # Docs: CRUD, versões, busca full-text (+ fallback ILIKE)
+│       ├── documentos.py        # Docs: CRUD, versões, busca (full-text, ILIKE, aproximada)
+│       ├── propostas_docs.py    # propostas dos agentes (criar/editar) que dependem de aprovação
+│       ├── importacao.py        # importa markdown/Notion (pasta ou .zip)
+│       ├── exportacao.py        # exporta os documentos para markdown
 │       ├── especialistas.py     # tech, negocios, agenda (loop de ferramentas próprio)
 │       ├── grafo.py             # StateGraph: supervisor, especialistas, aprovacao, responder
 │       ├── execucao.py          # conversar(), decidir_aprovacao(), finalização
@@ -36,6 +39,7 @@ orion-hq/
 │   ├── api.ts                   # fetch + tratamento de 401
 │   ├── docs.ts                  # tipos e utilitários do módulo Docs
 │   ├── markdown.ts              # parser de markdown seguro (árvore, nunca HTML)
+│   │                            #   títulos, listas, tarefas, tabelas, código, links
 │   ├── usePoll.ts               # hook de polling incremental
 │   └── agents.ts                # metadados dos agentes (id, nome, nível, cor, posição)
 ├── db/schema.sql

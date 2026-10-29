@@ -117,13 +117,15 @@ Para popular o escritório virtual com atividades de exemplo (sem gastar tokens)
 Espaço de documentos em markdown dentro do Orion HQ, no lugar de Notion/Confluence (sem custo extra: usa o
 mesmo Postgres). Acesse em **Docs** no cabeçalho (`/docs`).
 
-- Criar/editar documentos com pasta e tags; pré-visualização do markdown (renderizado de forma segura, sem
-  HTML bruto).
+- Criar/editar documentos com pasta e tags. O editor tem barra de formatação (títulos, negrito, listas,
+  tarefas, citação, link, tabela), pré-visualização ao vivo lado a lado, **Ctrl+S** para salvar, aviso ao
+  sair com alterações e **rascunho local** (recupera o texto se a aba fechar). O markdown é renderizado de
+  forma segura, sem HTML bruto, com tabelas, listas de tarefas e **sumário lateral**.
 - **Histórico de versões**: cada edição de título/conteúdo guarda a versão anterior (últimas 50), com
   restauração. Não há exclusão definitiva: só **arquivar**.
-- **Busca** full-text em português (título pesa mais que o conteúdo), com fallback por substring para
-  siglas e nomes próprios. Limitação do stemmer do Postgres: variações como "decisão"/"decisões" não são
-  ligadas entre si.
+- **Busca** em título e conteúdo, em três passos: full-text em português (título pesa mais), substring
+  (siglas, nomes próprios) e uma busca aproximada que **ignora acentos e plural** ("decisao" acha
+  "Decisões"). A tecla `/` foca a busca; a barra lateral filtra por pasta e tag, com contagens.
 - **Os agentes leem os documentos**: o Tech e o Negócios têm as ferramentas `buscar_documentos` e
   `ler_documento` e citam o documento (id, pasta e data) na resposta.
 - **Escrita pelos agentes, só com aprovação**: pedindo no chat ("registra em docs a ata de hoje"), o agente
@@ -132,6 +134,15 @@ mesmo Postgres). Acesse em **Docs** no cabeçalho (`/docs`).
   `tech (aprovado por dimi)`), e o Orquestrador avisa no chat. Se o documento mudou depois da proposta,
   a edição não é aplicada (status `obsoleta`). Spec em `.kiro/specs/docs-escrita/`.
 - Rotas: `/api/documentos*` (todas exigem sessão). Spec em `.kiro/specs/docs/`.
+
+### Exportar (backup)
+
+```bash
+.venv/bin/python scripts/exportar_docs.py backup-docs.zip      # ou uma pasta; --arquivados inclui arquivados
+```
+
+Um `.md` por documento, em subpastas conforme a pasta, com frontmatter (título, pasta, tags, autor, datas).
+É reimportável com `scripts/importar_docs.py`, que entende esse frontmatter.
 
 ### Importar do Notion / Confluence
 

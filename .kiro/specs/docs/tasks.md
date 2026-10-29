@@ -47,7 +47,16 @@
   - README: seção do módulo Docs; `.kiro/steering/structure.md` com os arquivos novos
   - `pytest` completo (347), `npm run test:front` (26) e `tsc --noEmit` passando; fluxo da API testado
     pelo proxy do Next (criar, editar, versões, busca, 401); páginas `/docs`, `/docs/novo` e `/docs/1` → 200
-  - [ ] PENDENTE (manual): `npm run build` com o servidor de dev parado, teste visual no navegador
-    (criar, editar, buscar, restaurar versão) e perguntar no chat, com a chave real da Anthropic, sobre o
-    conteúdo de um documento
+  - [x] `npm run build` e teste visual no navegador (criar, editar, buscar, histórico): feitos
+  - [ ] PENDENTE (manual): perguntar no chat, com a chave real da Anthropic, sobre o conteúdo de um
+    documento (só foi testado com modelo simulado)
   - _Requirements: 7.1, 7.2, 7.3_
+
+## Melhorias posteriores (fora da spec original)
+
+- [x] Busca aproximada (acento e plural) como 3º passo, em Python, sem extensões do Postgres
+- [x] Exportação para markdown (`scripts/exportar_docs.py`) e importador que entende o frontmatter
+- [x] Markdown com tabelas, listas de tarefas, âncoras e sumário lateral
+- [x] Editor: barra de formatação, edição lado a lado, Ctrl+S, aviso ao sair e rascunho local
+- [x] Redesign: barra lateral de pastas/tags com contagem, cartões, migalhas, atalho `/`, responsivo
+- [x] Verificado: `npm run build` (em cópia), teste de ponta a ponta no navegador e prints em desktop/celular

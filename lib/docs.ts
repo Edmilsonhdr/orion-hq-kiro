@@ -33,7 +33,13 @@ export type DadosDocumento = {
   tags: string[];
 };
 
-export type Filtros = { pastas: string[]; tags: string[] };
+export type Filtros = {
+  pastas: string[];
+  tags: string[];
+  contagem_pastas: Record<string, number>;
+  contagem_tags: Record<string, number>;
+  total: number;
+};
 
 export function formatarData(iso: string): string {
   const data = new Date(iso);
@@ -57,3 +63,27 @@ export function tagsDoTexto(texto: string): string[] {
   }
   return vistas;
 }
+
+// "há 5 min", "há 3 h", "ontem"… ; datas mais antigas em dd/mm/aaaa.
+export function tempoRelativo(iso: string, agora: Date = new Date()): string {
+  const data = new Date(iso);
+  if (Number.isNaN(data.getTime())) return "";
+  const segundos = Math.round((agora.getTime() - data.getTime()) / 1000);
+  if (segundos < 45) return "agora há pouco";
+  const minutos = Math.round(segundos / 60);
+  if (minutos < 60) return `há ${minutos} min`;
+  const horas = Math.round(minutos / 60);
+  if (horas < 24) return `há ${horas} h`;
+  const dias = Math.round(horas / 24);
+  if (dias === 1) return "ontem";
+  if (dias < 7) return `há ${dias} dias`;
+  return data.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+export function contarPalavras(texto: string): number {
+  const palavras = texto.trim().match(/\S+/g);
+  return palavras ? palavras.length : 0;
+}
+
+// Limite do conteúdo (igual ao backend: `documentos.CONTEUDO_MAX`).
+export const CONTEUDO_MAX = 200_000;

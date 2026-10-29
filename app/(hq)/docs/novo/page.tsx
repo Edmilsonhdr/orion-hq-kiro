@@ -29,15 +29,17 @@ export default function NovoDocumentoPage() {
   }
 
   return (
-    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "24px 20px" }}>
-      <p style={{ margin: "0 0 8px" }}>
-        <Link href="/docs">← Docs</Link>
-      </p>
-      <h1 style={{ margin: "0 0 16px", fontSize: "22px" }}>Novo documento</h1>
+    <div className="docs-pagina" style={{ maxWidth: "1280px" }}>
+      <nav className="doc-migalhas" aria-label="Você está em">
+        <Link href="/docs">Docs</Link>
+        <span aria-hidden="true">›</span>
+        <span>Novo documento</span>
+      </nav>
       <DocEditor
         inicial={VAZIO}
         pastasSugeridas={pastas}
         rotuloSalvar="Criar documento"
+        chaveRascunho="novo"
         onSalvar={salvar}
         onCancelar={() => router.push("/docs")}
       />

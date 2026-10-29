@@ -131,7 +131,6 @@ def test_listagem_busca_e_filtros(cliente):
     assert [d["titulo"] for d in cliente.get("/api/documentos?q=mensal").json()] == ["Preço"]
     assert [d["titulo"] for d in cliente.get("/api/documentos?pasta=Tech").json()] == ["API"]
     assert [d["titulo"] for d in cliente.get("/api/documentos?tag=preco").json()] == ["Preço"]
-    assert cliente.get("/api/documentos/pastas").json() == {
-        "pastas": ["Negócio", "Tech"],
-        "tags": ["preco"],
-    }
+    filtros = cliente.get("/api/documentos/pastas").json()
+    assert filtros["pastas"] == ["Negócio", "Tech"] and filtros["tags"] == ["preco"]
+    assert filtros["contagem_pastas"] == {"Negócio": 1, "Tech": 1} and filtros["total"] == 2

@@ -10,6 +10,8 @@ Validação por `ValueError` com mensagem em português; as rotas convertem em 4
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import Any, Optional
 
 from . import db
@@ -238,24 +240,35 @@ def listar(
 
 
 def pastas_e_tags() -> dict:
-    """Pastas e tags existentes (documentos não arquivados), para os filtros."""
+    """Pastas, tags e contagens (documentos não arquivados), para a barra lateral e os filtros."""
     pastas = db.consultar(
-        "select distinct pasta from documentos "
-        "where pasta is not null and not arquivado order by pasta"
+        "select pasta, count(*) as n from documentos "
+        "where pasta is not null and not arquivado group by pasta order by pasta"
     )
     tags = db.consultar(
-        "select distinct unnest(tags) as tag from documentos "
-        "where not arquivado order by tag"
+        "select tag, count(*) as n from "
+        "(select unnest(tags) as tag from documentos where not arquivado) t "
+        "group by tag order by tag"
     )
-    return {"pastas": [p["pasta"] for p in pastas], "tags": [t["tag"] for t in tags]}
+    total = db.um("select count(*) as n from documentos where not arquivado")
+    return {
+        "pastas": [p["pasta"] for p in pastas],
+        "tags": [t["tag"] for t in tags],
+        "contagem_pastas": {p["pasta"]: p["n"] for p in pastas},
+        "contagem_tags": {t["tag"]: t["n"] for t in tags},
+        "total": total["n"] if total else 0,
+    }
 
 
 # --- Busca ---
 
 
-def _recorte(conteudo: str, consulta: str) -> str:
-    """Trecho de ~TRECHO_MAX caracteres ao redor da primeira ocorrência (ILIKE)."""
-    posicao = conteudo.lower().find(consulta.lower())
+def _recorte(conteudo: str, consulta: str, base_busca: Optional[str] = None) -> str:
+    """Trecho de ~TRECHO_MAX caracteres ao redor da primeira ocorrência.
+
+    `base_busca` é uma versão do conteúdo com o MESMO tamanho (ex.: sem acentos) onde procurar.
+    """
+    posicao = (base_busca if base_busca is not None else conteudo.lower()).find(consulta.lower())
     if posicao < 0:
         return conteudo[:TRECHO_MAX]
     inicio = max(0, posicao - TRECHO_MAX // 4)
@@ -299,10 +312,93 @@ def _buscar_ilike(consulta: str, arquivados: bool) -> list[dict]:
     return linhas
 
 
-def buscar(consulta: str, arquivados: bool = False) -> list[dict]:
-    """Busca em título e conteúdo: full-text em português, com fallback `ILIKE`.
+# --- Busca aproximada (sem extensões do Postgres) ---
+#
+# O stemmer `portuguese` não liga "decisão" a "decisões" e diferencia acentos. Como `unaccent` e
+# `pg_trgm` nem sempre existem, o último passo da busca roda em Python sobre os documentos (a base é
+# pequena: dezenas a poucas centenas): ignora acento e caixa e compara o radical das palavras.
 
-    O título pesa mais que o conteúdo (peso A x B). Consulta vazia devolve a listagem normal.
+_PALAVRA = re.compile(r"[a-z0-9]+")
+_SUFIXOS = ("oes", "aes", "ao", "s")
+_APROXIMADA_MAX_DOCS = 2000
+
+
+def _sem_acento(texto: str) -> str:
+    """Minúsculas e sem acentos, preservando o tamanho (índices alinham com o original)."""
+    saida = []
+    for letra in texto:
+        base = "".join(
+            c for c in unicodedata.normalize("NFD", letra) if not unicodedata.combining(c)
+        )
+        saida.append((base[:1] or letra).lower())
+    return "".join(saida)
+
+
+def _radical(palavra: str) -> str:
+    """Radical grosseiro: tira plural e terminação -ão/-ões ("decisões" e "decisão" → "decis")."""
+    for sufixo in _SUFIXOS:
+        if palavra.endswith(sufixo) and len(palavra) - len(sufixo) >= 3:
+            return palavra[: -len(sufixo)]
+    return palavra
+
+
+def _radicais(texto: str) -> list[str]:
+    return [_radical(p) for p in _PALAVRA.findall(_sem_acento(texto))]
+
+
+def _casa(radical_consulta: str, radicais_doc: set[str]) -> bool:
+    if radical_consulta in radicais_doc:
+        return True
+    return len(radical_consulta) >= 5 and any(r.startswith(radical_consulta) for r in radicais_doc)
+
+
+def _buscar_aproximado(consulta: str, arquivados: bool) -> list[dict]:
+    """Todas as palavras da consulta (ignorando as de até 2 letras) precisam aparecer; título pesa 3x."""
+    termos = [t for t in _radicais(consulta) if len(t) > 2]
+    if not termos:
+        return []
+
+    linhas = db.consultar(
+        f"""
+        select {_COLUNAS_COMPLETAS}
+        from documentos
+        where arquivado = false or %s
+        order by atualizado_em desc, id desc
+        limit %s
+        """,
+        (arquivados, _APROXIMADA_MAX_DOCS),
+    )
+    achados: list[tuple[int, dict]] = []
+    for linha in linhas:
+        titulo_r = set(_radicais(linha["titulo"]))
+        conteudo_r = set(_radicais(linha["conteudo"]))
+        pontos = 0
+        for termo in termos:
+            if _casa(termo, titulo_r):
+                pontos += 3
+            elif _casa(termo, conteudo_r):
+                pontos += 1
+            else:
+                pontos = 0
+                break
+        if pontos:
+            achados.append((pontos, linha))
+
+    achados.sort(key=lambda par: par[0], reverse=True)  # estável: mantém o mais recente em empate
+    saida = []
+    for _, linha in achados[:BUSCA_MAX]:
+        conteudo = linha.pop("conteudo")
+        primeiro = _radical(termos[0])
+        linha["trecho"] = _recorte(conteudo, primeiro, _sem_acento(conteudo))
+        saida.append(linha)
+    return saida
+
+
+def buscar(consulta: str, arquivados: bool = False) -> list[dict]:
+    """Busca em título e conteúdo: full-text em português, com fallbacks.
+
+    1. full-text (`tsvector`, título pesa mais que o conteúdo); 2. `ILIKE` (siglas, nomes próprios);
+    3. aproximada em Python (ignora acento e plural). Consulta vazia devolve a listagem normal.
     Cada resultado traz um `trecho` ao redor do termo (no full-text, termos marcados com « »).
     """
     consulta = (consulta or "").strip()
@@ -312,6 +408,8 @@ def buscar(consulta: str, arquivados: bool = False) -> list[dict]:
     linhas = _buscar_full_text(consulta, arquivados)
     if not linhas:
         linhas = _buscar_ilike(consulta, arquivados)
+    if not linhas:
+        linhas = _buscar_aproximado(consulta, arquivados)
     return linhas
 
 

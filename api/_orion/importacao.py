@@ -11,6 +11,7 @@ mesmo título na mesma pasta são pulados (rodar de novo não duplica). Nada é 
 
 from __future__ import annotations
 
+import json
 import re
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -51,6 +52,31 @@ def _arquivos(origem: Path) -> Iterator[tuple[tuple[str, ...], str, str]]:
                 yield caminho.parts[:-1], caminho.name, ""
                 continue
             yield caminho.parts[:-1], caminho.name, pacote.read(info).decode("utf-8-sig", "replace")
+
+
+def _frontmatter(texto: str) -> tuple[dict, str]:
+    """Separa o bloco `---` do início (formato da exportação do Orion HQ) do resto do texto.
+
+    Lê só `titulo`, `pasta` e `tags` (valores em JSON, como a exportação grava); o que não for
+    entendido é ignorado. Sem frontmatter, devolve `({}, texto)`.
+    """
+    linhas = texto.replace("\r\n", "\n").split("\n")
+    if not linhas or linhas[0].strip() != "---":
+        return {}, texto
+    try:
+        fim = next(i for i in range(1, len(linhas)) if linhas[i].strip() == "---")
+    except StopIteration:
+        return {}, texto
+    dados: dict = {}
+    for linha in linhas[1:fim]:
+        chave, _, valor = linha.partition(":")
+        chave, valor = chave.strip(), valor.strip()
+        if chave in ("titulo", "pasta", "tags") and valor:
+            try:
+                dados[chave] = json.loads(valor)
+            except ValueError:
+                dados[chave] = valor
+    return dados, "\n".join(linhas[fim + 1 :]).lstrip("\n")
 
 
 def _titulo_e_conteudo(nome_sem_ext: str, texto: str) -> tuple[str, str]:
@@ -97,9 +123,15 @@ def importar(
         if not texto.strip():
             relatorio["ignorados"].append(caminho)
             continue
+        meta, texto = _frontmatter(texto)
         titulo, conteudo = _titulo_e_conteudo(Path(nome).stem, texto)
+        if isinstance(meta.get("titulo"), str) and meta["titulo"].strip():
+            titulo = meta["titulo"].strip()
 
         pasta = " / ".join(p for p in (_limpar_nome(x) for x in pastas) if p)[: documentos.PASTA_MAX] or None
+        if isinstance(meta.get("pasta"), str) and meta["pasta"].strip():
+            pasta = meta["pasta"].strip()[: documentos.PASTA_MAX]
+        tags_meta = [str(t) for t in meta["tags"]] if isinstance(meta.get("tags"), list) else []
         chave = (titulo.lower(), pasta or "")
         if chave in existentes or chave in vistos:
             relatorio["pulados"].append({"titulo": titulo, "pasta": pasta})
@@ -107,7 +139,12 @@ def importar(
 
         try:
             dados = documentos.validar_campos(
-                {"titulo": titulo, "conteudo": conteudo, "pasta": pasta, "tags": [tag] if tag else []}
+                {
+                    "titulo": titulo,
+                    "conteudo": conteudo,
+                    "pasta": pasta,
+                    "tags": [*tags_meta, *([tag] if tag else [])],
+                }
             )
         except ValueError as erro:
             relatorio["erros"].append({"arquivo": caminho, "motivo": str(erro)})

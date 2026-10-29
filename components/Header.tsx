@@ -126,8 +126,9 @@ export default function Header() {
       className="painel"
       style={{
         display: "flex",
+        flexWrap: "wrap",
         alignItems: "center",
-        gap: "16px",
+        gap: "12px 16px",
         padding: "12px 20px",
         borderRadius: 0,
         borderLeft: "none",
@@ -139,7 +140,7 @@ export default function Header() {
         Orion HQ
       </span>
 
-      <nav style={{ display: "flex", gap: "8px", flex: 1 }}>
+      <nav style={{ display: "flex", flexWrap: "wrap", gap: "8px", flex: "1 1 auto" }}>
         {LINKS.map((link) => {
           const ativo = caminho === link.href || caminho.startsWith(`${link.href}/`);
           return (

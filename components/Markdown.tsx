@@ -34,7 +34,11 @@ function bloco(b: Bloco, i: number): ReactNode {
     case "titulo": {
       const nivel = Math.min(b.nivel + 1, 6); // o h1 da página é o título do documento
       const Tag = `h${nivel}` as "h2" | "h3" | "h4" | "h5" | "h6";
-      return <Tag key={i}>{inline(b.c)}</Tag>;
+      return (
+        <Tag key={i} id={b.id}>
+          {inline(b.c)}
+        </Tag>
+      );
     }
     case "paragrafo":
       return <p key={i}>{inline(b.c)}</p>;
@@ -42,12 +46,42 @@ function bloco(b: Bloco, i: number): ReactNode {
       const Tag = b.ordenada ? "ol" : "ul";
       return (
         <Tag key={i}>
-          {b.itens.map((item, j) => (
-            <li key={j}>{inline(item)}</li>
-          ))}
+          {b.itens.map((item, j) =>
+            item.feito === undefined ? (
+              <li key={j}>{inline(item.c)}</li>
+            ) : (
+              <li key={j} className="doc-tarefa" data-feito={item.feito}>
+                <input type="checkbox" checked={item.feito} disabled readOnly aria-label={item.feito ? "Feito" : "Pendente"} />
+                <span>{inline(item.c)}</span>
+              </li>
+            ),
+          )}
         </Tag>
       );
     }
+    case "tabela":
+      return (
+        <div key={i} className="doc-tabela-caixa">
+          <table>
+            <thead>
+              <tr>
+                {b.cabecalho.map((c, j) => (
+                  <th key={j}>{inline(c)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {b.linhas.map((linha, j) => (
+                <tr key={j}>
+                  {linha.map((c, k) => (
+                    <td key={k}>{inline(c)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
     case "citacao":
       return <blockquote key={i}>{inline(b.c)}</blockquote>;
     case "codigo":
