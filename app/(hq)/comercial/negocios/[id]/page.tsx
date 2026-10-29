@@ -7,6 +7,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Modal from "../../../../../components/Modal";
 import MensagensModelo from "../../../../../components/MensagensModelo";
+import ContatoRapido from "../../../../../components/ContatoRapido";
+import ChecklistPiloto from "../../../../../components/ChecklistPiloto";
+import Anexos from "../../../../../components/Anexos";
 import NegocioForm, { type DadosNegocio } from "../../../../../components/NegocioForm";
 import { ErroApi, atualizar, enviar, obter } from "../../../../../lib/api";
 import {
@@ -179,7 +182,19 @@ export default function NegocioPage() {
           )}
         </section>
 
+        <ContatoRapido negocio={n} contatos={n.contatos} onMudou={carregar} />
+
+        {n.etapa === "piloto" && (
+          <ChecklistPiloto
+            key={n.etapa_desde}
+            negocioId={n.id}
+            diasNoPiloto={Math.max(0, Math.floor((Date.now() - new Date(n.etapa_desde).getTime()) / 86400000))}
+          />
+        )}
+
         <MensagensModelo negocio={n} contatos={n.contatos} usuario={usuario} />
+
+        <Anexos entidade="negocio" id={n.id} />
 
         <section className="painel com-bloco">
           <h2 className="com-grupo-titulo">Histórico</h2>
@@ -210,13 +225,13 @@ export default function NegocioPage() {
           <ul className="com-historico">
             {n.interacoes.length === 0 && <li className="texto-secundario">Nada registrado ainda.</li>}
             {n.interacoes.map((i) => (
-              <li key={i.id} className={`com-evento${i.tipo === "etapa" ? " sistema" : ""}`}>
+              <li key={i.id} className={`com-evento${i.tipo === "etapa" || i.tipo === "alteracao" ? " sistema" : ""}`}>
                 <div className="com-evento-topo">
                   <strong>{ROTULO_INTERACAO[i.tipo] ?? i.tipo}</strong>
                   <span className="mono texto-secundario">
                     {formatarData(i.ocorrida_em)} · {i.autor}
                   </span>
-                  {i.tipo !== "etapa" && (
+                  {i.tipo !== "etapa" && i.tipo !== "alteracao" && (
                     <button type="button" className="botao com-excluir" onClick={() => excluir(i.id)} aria-label="Excluir anotação">
                       Excluir
                     </button>

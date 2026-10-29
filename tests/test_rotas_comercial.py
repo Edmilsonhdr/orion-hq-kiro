@@ -64,7 +64,7 @@ def test_fluxo_completo(logado):
     assert i.status_code == 201
 
     det = logado.get(f"/api/comercial/negocios/{nid}").json()
-    assert [x["tipo"] for x in det["interacoes"]] == ["ligacao", "etapa"] or {x["tipo"] for x in det["interacoes"]} == {"ligacao", "etapa"}
+    assert {x["tipo"] for x in det["interacoes"]} == {"ligacao", "etapa", "alteracao"}
     sistema = next(x for x in det["interacoes"] if x["tipo"] == "etapa")
     assert logado.delete(f"/api/comercial/interacoes/{sistema['id']}").status_code == 409
     assert logado.delete(f"/api/comercial/interacoes/{i.json()['id']}").status_code == 200

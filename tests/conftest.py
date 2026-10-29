@@ -43,7 +43,7 @@ if SCRIPTS not in sys.path:
 # mas as truncamos junto (se existirem) para isolar os testes de grafo futuros.
 _TABELAS_DOMINIO = (
     "mensagens",
-    "conversas",
+    "conversas", "piloto_itens", "anexos", "tarefas",
     "atividades",
     "changelog",
     "aprovacoes",

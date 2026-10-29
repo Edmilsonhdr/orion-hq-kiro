@@ -28,3 +28,6 @@ venv/
 *.Zone.Identifier
 .env*
 !.env.example
+
+# Backups locais do banco
+backups/

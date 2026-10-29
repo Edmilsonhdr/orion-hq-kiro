@@ -39,6 +39,7 @@ export const ROTULO_INTERACAO: Record<string, string> = {
   whatsapp: "WhatsApp",
   nota: "Nota",
   etapa: "Etapa",
+  alteracao: "Alteração",
 };
 
 export const PLANOS = ["essencial", "completo"] as const;
@@ -224,4 +225,82 @@ export function modelosDeMensagem(
       texto: `${oi} Passando para saber como estão as coisas por aí. Ainda faz sentido conversarmos sobre o Orion para ${quem}?`,
     },
   ];
+}
+
+// Soma `dias` a uma data ISO (AAAA-MM-DD), sem depender do fuso do navegador.
+export function somarDias(dia: string, dias: number): string {
+  const [a, m, d] = dia.split("-").map(Number);
+  const data = new Date(Date.UTC(a, m - 1, d + dias));
+  return data.toISOString().slice(0, 10);
+}
+
+// Texto padrão do registro rápido ("Falei com o contato"), sem exigir que a pessoa escreva.
+export function resumoRapido(tipo: string, contato: string | null): string {
+  const com = contato ? ` com ${contato}` : "";
+  switch (tipo) {
+    case "ligacao":
+      return `Liguei${com}.`;
+    case "whatsapp":
+      return `Conversei no WhatsApp${com}.`;
+    case "email":
+      return `Enviei e-mail${com}.`;
+    case "reuniao":
+      return `Reunião${com}.`;
+    default:
+      return `Contato${com}.`;
+  }
+}
+
+export type SugestaoPasso = { texto: string; dias: number };
+
+// Próximos passos sugeridos depois de falar com o contato, conforme a etapa do negócio.
+export function sugerirProximosPassos(etapa: string, tipo: string): SugestaoPasso[] {
+  const porEtapa: Record<string, SugestaoPasso[]> = {
+    lead: [
+      { texto: "Retomar o contato", dias: 2 },
+      { texto: "Agendar uma demonstração", dias: 5 },
+      { texto: "Enviar material do Orion", dias: 1 },
+    ],
+    contato: [
+      { texto: "Agendar uma demonstração", dias: 3 },
+      { texto: "Retomar o contato", dias: 2 },
+      { texto: "Enviar material do Orion", dias: 1 },
+    ],
+    demonstracao: [
+      { texto: "Enviar resumo da demonstração", dias: 1 },
+      { texto: "Propor o piloto", dias: 3 },
+      { texto: "Retomar o contato", dias: 7 },
+    ],
+    piloto: [
+      { texto: "Acompanhar o uso do piloto", dias: 3 },
+      { texto: "Coletar feedback do piloto", dias: 7 },
+      { texto: "Propor a continuidade", dias: 14 },
+    ],
+    proposta: [
+      { texto: "Cobrar retorno da proposta", dias: 3 },
+      { texto: "Ligar para fechar", dias: 7 },
+      { texto: "Revisar a proposta", dias: 2 },
+    ],
+  };
+  const lista = porEtapa[etapa] ?? [{ texto: "Retomar o contato", dias: 7 }];
+  return tipo === "reuniao" ? [{ texto: "Enviar resumo da reunião", dias: 1 }, ...lista] : lista;
+}
+
+export type ItemPiloto = {
+  id: number;
+  negocio_id: number;
+  texto: string;
+  feito: boolean;
+  feito_por: string | null;
+  feito_em: string | null;
+};
+
+export type PilotoResumo = Negocio & { dias_no_piloto: number; itens_total: number; itens_feitos: number };
+
+export type Anexo = { id: number; nome: string; tipo: string; tamanho: number; autor: string; criado_em: string };
+
+export function formatarTamanho(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
 }

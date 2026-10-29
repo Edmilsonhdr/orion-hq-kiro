@@ -39,5 +39,5 @@ def test_busca_em_tudo_e_limita(cliente):
 
 def test_consulta_vazia(cliente):
     cliente.post("/api/login", json={"usuario": "dimi", "senha": "senha-dimi"})
-    assert cliente.get("/api/busca?q=%20").json() == {"documentos": [], "negocios": [], "organizacoes": []}
-    assert cliente.get("/api/busca?q=zzzxyz").json() == {"documentos": [], "negocios": [], "organizacoes": []}
+    assert cliente.get("/api/busca?q=%20").json() == {"documentos": [], "negocios": [], "organizacoes": [], "conversas": []}
+    assert cliente.get("/api/busca?q=zzzxyz").json() == {"documentos": [], "negocios": [], "organizacoes": [], "conversas": []}

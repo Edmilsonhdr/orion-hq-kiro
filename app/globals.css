@@ -1461,15 +1461,35 @@ dialog.modal::backdrop {
 }
 
 /* Funil: a rolagem horizontal fica dentro do quadro, não na página. */
-.funil {
+.funil-quadro {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 12px;
+}
+
+.funil {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.funil-fechados {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .funil {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+
+  .funil-fechados {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
 }
 
 .funil-coluna {
-  flex: 0 0 240px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--painel);
@@ -1477,7 +1497,7 @@ dialog.modal::backdrop {
   border-top: 3px solid var(--borda-forte);
   border-radius: 8px;
   padding: 10px;
-  min-height: 320px;
+  min-height: 220px;
 }
 
 .funil-ganho {
@@ -3917,4 +3937,334 @@ dialog.modal {
   outline: 2px solid var(--destaque) !important;
   outline-offset: 4px !important;
   border-radius: 6px;
+}
+
+/* Início: "Seu dia" */
+.ini-dia {
+  padding: 14px 18px;
+}
+
+.ini-dia-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ini-dia-lista li {
+  padding-left: 14px;
+  border-left: 3px solid var(--destaque);
+}
+
+.ini-dia-lista li.alerta {
+  border-left-color: #ff7a59;
+}
+
+.ini-dia-lista a {
+  font-weight: 600;
+}
+
+/* Contato rápido, checklist do piloto e anexos */
+.com-rapido {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.com-rapido-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.com-piloto-progresso {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.com-piloto-progresso span {
+  display: block;
+  height: 100%;
+  background: #3fb68b;
+  transition: width 0.25s ease;
+}
+
+.com-piloto-itens {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.com-piloto-itens li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.com-piloto-itens label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.com-piloto-itens input[type="checkbox"] {
+  min-height: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  flex: none;
+}
+
+.com-piloto-itens .feito {
+  text-decoration: line-through;
+  color: var(--texto-secundario);
+}
+
+.com-piloto-quem {
+  font-size: 12px;
+}
+
+.com-piloto-novo {
+  display: flex;
+  gap: 8px;
+}
+
+.com-piloto-novo input {
+  flex: 1;
+  min-width: 0;
+}
+
+.anexos-lista {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.anexos-lista li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.anexos-nome {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.anexos-miniatura img {
+  display: block;
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--borda-forte);
+}
+
+.anexos-sobre {
+  border-color: var(--destaque);
+  background: rgba(76, 141, 255, 0.08);
+}
+
+.anexos-escolher {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.anexos-dica {
+  font-size: 12px;
+}
+
+/* Aba "Pilotos" do Comercial */
+.com-pilotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.com-piloto-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.com-piloto-cartao strong {
+  font-size: 16px;
+}
+
+a.botao {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.ini-dia {
+  margin-bottom: 14px;
+}
+
+.ini-grade {
+  align-items: start;
+}
+
+.anexos-escolher {
+  min-height: 40px;
+}
+
+/* Tarefas: quadro Kanban */
+.tar-quadro {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .tar-quadro {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+}
+
+.tar-coluna {
+  min-width: 0;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--painel);
+  border: 1px solid var(--borda);
+  border-top: 3px solid var(--borda-forte);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.tar-fazendo {
+  border-top-color: var(--destaque);
+}
+
+.tar-bloqueada {
+  border-top-color: #ff7a59;
+}
+
+.tar-feito {
+  border-top-color: #3fb68b;
+}
+
+.tar-sobre {
+  border-color: var(--destaque);
+  background: rgba(76, 141, 255, 0.07);
+}
+
+.tar-nova input {
+  width: 100%;
+  min-height: 38px;
+  font-size: 14px;
+}
+
+.tar-cartoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tar-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--superficie);
+  border: 1px solid var(--borda-forte);
+  border-left: 3px solid var(--borda-forte);
+  border-radius: 8px;
+  cursor: grab;
+}
+
+.tar-cartao.prio-alta {
+  border-left-color: #ff7a59;
+}
+
+.tar-cartao.arrastando {
+  opacity: 0.45;
+}
+
+.tar-feito .tar-titulo {
+  text-decoration: line-through;
+  color: var(--texto-secundario);
+}
+
+.tar-titulo {
+  display: block;
+  cursor: pointer;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.tar-titulo:focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.tar-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tar-chip {
+  padding: 1px 8px;
+  border: 1px solid var(--borda-forte);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--texto-secundario);
+}
+
+.tar-chip-alta {
+  border-color: #ff7a59;
+  color: #ff7a59;
+}
+
+.tar-chip-pessoa {
+  color: var(--texto);
+}
+
+.tar-prazo-vencida {
+  border-color: #ff7a59;
+  color: #ff7a59;
+}
+
+.tar-prazo-hoje {
+  border-color: var(--espera);
+  color: var(--espera);
+}
+
+.tar-aba-contagem {
+  opacity: 0.8;
+}
+
+.tar-aba-vencidas {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ff7a59;
+  color: #0b1020;
+  font-size: 12px;
+  font-weight: 700;
 }

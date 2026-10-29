@@ -12,6 +12,10 @@ import {
   resumoPorEtapa,
   porcentagem,
   situacaoPasso,
+  somarDias,
+  resumoRapido,
+  sugerirProximosPassos,
+  formatarTamanho,
 } from "./comercial.ts";
 
 test("etapas na ordem do funil, com cinco abertas", () => {
@@ -67,4 +71,24 @@ test("modelosDeMensagem usa o primeiro nome e não inclui preço", () => {
   assert.equal(ms[0].assunto, "Conheça o Orion para Clínica Sol");
   const auto = modelosDeMensagem({ organizacao_nome: "Dr. Leo", organizacao_tipo: "autonomo", plano_interesse: null }, null, "Jullyana");
   assert.match(auto[0].texto, /o seu trabalho/);
+});
+
+test("somarDias atravessa mês e ano", () => {
+  assert.equal(somarDias("2026-10-29", 3), "2026-11-01");
+  assert.equal(somarDias("2026-12-30", 3), "2027-01-02");
+  assert.equal(somarDias("2026-03-01", -1), "2026-02-28");
+});
+
+test("resumoRapido e sugestões de próximo passo", () => {
+  assert.equal(resumoRapido("ligacao", "Ana"), "Liguei com Ana.");
+  assert.equal(resumoRapido("whatsapp", null), "Conversei no WhatsApp.");
+  assert.equal(sugerirProximosPassos("piloto", "ligacao")[0].texto, "Acompanhar o uso do piloto");
+  assert.equal(sugerirProximosPassos("proposta", "reuniao")[0].texto, "Enviar resumo da reunião");
+  assert.equal(sugerirProximosPassos("ganho", "nota")[0].texto, "Retomar o contato");
+});
+
+test("formatarTamanho", () => {
+  assert.equal(formatarTamanho(512), "512 B");
+  assert.equal(formatarTamanho(2048), "2 KB");
+  assert.equal(formatarTamanho(3 * 1024 * 1024 + 512 * 1024), "3,5 MB");
 });

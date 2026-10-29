@@ -20,6 +20,9 @@ orion-hq/
 │       ├── comercial.py         # Comercial: organizações, contatos, negócios (funil), interações
 │       ├── propostas_comercial.py # propostas do Negócios para o CRM (dependem de aprovação)
 │       ├── conversas.py         # chat: conversas além da "Geral"
+│       ├── tarefas.py           # quadro Kanban por pessoa
+│       ├── anexos.py            # arquivos no banco (documento/negócio)
+│       ├── backup.py            # exportação geral em JSON
 │       ├── texto.py             # sem_acento/radicais, compartilhados pelas buscas
 │       ├── importacao.py        # importa markdown/Notion (pasta ou .zip)
 │       ├── exportacao.py        # exporta os documentos para markdown

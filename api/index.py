@@ -26,7 +26,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 
-from _orion import atividades, auth, comercial, config, conversas, db, documentos
+from _orion import anexos, atividades, auth, backup, busca, comercial, config, conversas, db, documentos, tarefas
 
 app = FastAPI(title="Orion HQ")
 
@@ -671,11 +671,12 @@ def _comercial(chamada):
 
 @app.get("/api/busca")
 def busca_global(q: str = "", usuario: str = Depends(auth.usuario_atual)) -> dict:
-    """Busca global (Ctrl+K): até 5 documentos, negócios e organizações."""
+    """Busca global (Ctrl+K): até 5 documentos, negócios, organizações e conversas."""
     q = q.strip()
     if not q:
-        return {"documentos": [], "negocios": [], "organizacoes": []}
+        return {"documentos": [], "negocios": [], "organizacoes": [], "conversas": []}
     return {
+        "conversas": busca.conversas(q),
         "documentos": [
             {"id": d["id"], "titulo": d["titulo"], "pasta": d.get("pasta")}
             for d in documentos.buscar(q)[:5]
@@ -752,7 +753,7 @@ def editar_negocio_comercial(
     campos = corpo.model_dump(exclude_unset=True)
     for fora in ("organizacao_id", "organizacao_nome", "organizacao_tipo", "etapa"):
         campos.pop(fora, None)
-    return _comercial_404(_comercial(lambda: comercial.editar_negocio(negocio_id, campos)), "Negócio")
+    return _comercial_404(_comercial(lambda: comercial.editar_negocio(negocio_id, campos, usuario)), "Negócio")
 
 
 @app.post("/api/comercial/negocios/{negocio_id}/etapa")
@@ -1170,3 +1171,164 @@ def _banco_acessivel() -> bool:
         return True
     except Exception:
         return False
+
+
+# --- piloto (checklist), anexos, backup e busca global ---
+
+
+class ItemPilotoCorpo(BaseModel):
+    texto: str
+
+
+class ItemFeitoCorpo(BaseModel):
+    feito: bool
+
+
+@app.get("/api/comercial/parados")
+def listar_parados(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    """Negócios abertos sem movimento há mais de 7 dias (mais antigos primeiro)."""
+    return comercial.parados()
+
+
+@app.get("/api/comercial/pilotos")
+def listar_pilotos(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    """Negócios em piloto, com dias desde o início e andamento do checklist."""
+    return comercial.pilotos()
+
+
+@app.get("/api/comercial/negocios/{negocio_id}/piloto")
+def checklist_piloto(negocio_id: int, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return _comercial_404(comercial.itens_piloto(negocio_id), "Negócio")
+
+
+@app.post("/api/comercial/negocios/{negocio_id}/piloto", status_code=status.HTTP_201_CREATED)
+def adicionar_item_piloto(
+    negocio_id: int, corpo: ItemPilotoCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    return _comercial_404(_comercial(lambda: comercial.adicionar_item_piloto(negocio_id, corpo.texto)), "Negócio")
+
+
+@app.put("/api/comercial/piloto/{item_id}")
+def marcar_item_piloto(
+    item_id: int, corpo: ItemFeitoCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    return _comercial_404(comercial.marcar_item_piloto(item_id, corpo.feito, usuario), "Item")
+
+
+@app.delete("/api/comercial/piloto/{item_id}")
+def remover_item_piloto(item_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    _comercial_404(True if comercial.remover_item_piloto(item_id) else None, "Item")
+    return {"ok": True}
+
+
+@app.get("/api/anexos")
+def listar_anexos(entidade: str, id: int, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    if entidade not in anexos.ENTIDADES:
+        raise HTTPException(status_code=422, detail="Tipo de item inválido.")
+    return anexos.listar(entidade, id)
+
+
+@app.post("/api/anexos", status_code=status.HTTP_201_CREATED)
+async def enviar_anexo(
+    request: Request, entidade: str, id: int, nome: str, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    """Recebe o arquivo no corpo da requisição (bytes crus); nome e dono vão na query."""
+    tamanho = request.headers.get("content-length")
+    if tamanho and tamanho.isdigit() and int(tamanho) > anexos.TAMANHO_MAX + 1024:
+        raise HTTPException(status_code=422, detail="O arquivo é grande demais (máximo 8 MB).")
+    dados = await request.body()
+    try:
+        criado = anexos.criar(entidade, id, nome, dados, usuario)
+    except ValueError as erro:
+        raise _invalido(erro)
+    return _comercial_404(criado, "Item")
+
+
+@app.get("/api/anexos/{anexo_id}")
+def baixar_anexo(anexo_id: int, usuario: str = Depends(auth.usuario_atual)) -> Response:
+    from urllib.parse import quote
+
+    anexo = _comercial_404(anexos.obter(anexo_id), "Anexo")
+    modo = "inline" if anexo["tipo"] in anexos.INLINE else "attachment"
+    return Response(
+        content=anexo["conteudo"],
+        media_type=anexo["tipo"],
+        headers={
+            "Content-Disposition": f"{modo}; filename*=UTF-8''{quote(anexo['nome'])}",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "sandbox",
+            "Cache-Control": "private, max-age=0",
+        },
+    )
+
+
+@app.delete("/api/anexos/{anexo_id}")
+def excluir_anexo(anexo_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    _comercial_404(True if anexos.excluir(anexo_id) else None, "Anexo")
+    return {"ok": True}
+
+
+@app.get("/api/backup")
+def baixar_backup(anexos_incluidos: bool = True, usuario: str = Depends(auth.usuario_atual)) -> Response:
+    """Baixa tudo (Docs, Comercial, conversas, anexos) num arquivo JSON."""
+    dia = config.agora().strftime("%Y-%m-%d")
+    return Response(
+        content=backup.como_json(anexos_incluidos),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="orion-hq-backup-{dia}.json"'},
+    )
+
+
+# --- tarefas (quadro Kanban por pessoa) ---
+
+
+class TarefaCorpo(BaseModel):
+    titulo: str | None = None
+    descricao: str | None = None
+    prioridade: str | None = None
+    responsavel: str | None = None
+    prazo: str | None = None
+
+
+class MoverTarefaCorpo(BaseModel):
+    status: str
+    posicao: int | None = None
+
+
+@app.get("/api/usuarios")
+def listar_usuarios(usuario: str = Depends(auth.usuario_atual)) -> list[str]:
+    """Nomes das pessoas do HQ (nunca as senhas), para as abas e o seletor de responsável."""
+    return sorted(config.usuarios())
+
+
+@app.get("/api/tarefas")
+def listar_tarefas(responsavel: str | None = None, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return tarefas.listar(responsavel)
+
+
+@app.get("/api/tarefas/resumo")
+def resumo_tarefas(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return tarefas.resumo_por_pessoa()
+
+
+@app.post("/api/tarefas", status_code=status.HTTP_201_CREATED)
+def criar_tarefa(corpo: TarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial(lambda: tarefas.criar(corpo.model_dump(exclude_unset=True), usuario))
+
+
+@app.put("/api/tarefas/{tarefa_id}")
+def editar_tarefa(tarefa_id: int, corpo: TarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(
+        _comercial(lambda: tarefas.editar(tarefa_id, corpo.model_dump(exclude_unset=True))), "Tarefa"
+    )
+
+
+@app.post("/api/tarefas/{tarefa_id}/mover")
+def mover_tarefa(tarefa_id: int, corpo: MoverTarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(_comercial(lambda: tarefas.mover(tarefa_id, corpo.status, corpo.posicao)), "Tarefa")
+
+
+@app.delete("/api/tarefas/{tarefa_id}")
+def excluir_tarefa(tarefa_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    _comercial_404(True if tarefas.excluir(tarefa_id) else None, "Tarefa")
+    return {"ok": True}

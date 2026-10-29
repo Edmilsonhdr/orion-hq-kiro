@@ -181,6 +181,18 @@ tem o seu histórico, que é o contexto dos agentes. Rode `scripts/setup_db.py` 
 **Árvore do Docs:** a lateral do Docs tem a árvore de páginas; arraste uma página para antes, dentro ou
 depois de outra (ou use Alt+↑/↓). No editor Markdown, digitar `[[` sugere páginas existentes.
 
+**Tarefas:** cada pessoa do HQ (`ORION_USERS`) tem um quadro Kanban (A fazer, Fazendo, Bloqueada, Feito) com
+prazo, prioridade e responsável; as abas mostram o quadro das outras e o de todos. Feitas há mais de 14 dias saem
+do quadro (continuam no backup). Para incluir uma pessoa nova, acrescente `nome:senha` em `ORION_USERS`.
+
+**Comercial, extras:** "Falei com o contato" (registra a interação e sugere o próximo passo), aba Pilotos com
+checklist e dias de piloto, histórico de alterações do negócio (quem mudou o quê) e negócios parados no "Hoje".
+**Anexos** (PDF, imagens, Office; até 8 MB) em documentos e negócios, guardados no próprio banco.
+
+**Backup:** o Início baixa tudo em JSON (`GET /api/backup`). Para automático, agende
+`scripts/backup_db.py` no cron (usa `pg_dump` quando existe; senão JSON; mantém os 14 mais recentes).
+Rode `scripts/setup_db.py` para criar as tabelas `piloto_itens`, `anexos` e `tarefas`.
+
 **Subpáginas:** cada documento pode ter uma página pai (até 6 níveis, sem ciclos). A tela do documento mostra
 as migalhas com os ancestrais, a lista de subpáginas e "Nova subpágina"; o editor tem o seletor "Página pai".
 Arquivar uma página arquiva as subpáginas; desarquivar reabre só ela. A `pasta` continua existindo. A

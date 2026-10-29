@@ -9,6 +9,7 @@ import Link from "next/link";
 import DocEditor from "../../../../components/DocEditor";
 import Markdown from "../../../../components/Markdown";
 import Comentarios from "../../../../components/Comentarios";
+import Anexos from "../../../../components/Anexos";
 import Sumario from "../../../../components/Sumario";
 import { ErroApi, atualizar, enviar, obter } from "../../../../lib/api";
 import {
@@ -334,6 +335,8 @@ export default function DocumentoPage() {
         </article>
         <Sumario texto={doc.conteudo} />
       </div>
+
+      <Anexos entidade="documento" id={doc.id} />
 
       <Comentarios documentoId={doc.id} />
     </div>

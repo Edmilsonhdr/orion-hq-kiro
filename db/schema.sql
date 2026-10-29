@@ -236,3 +236,46 @@ create table if not exists conversas (
 );
 alter table mensagens add column if not exists conversa_id bigint references conversas(id) on delete set null;
 create index if not exists mensagens_conversa_idx on mensagens (conversa_id, id);
+
+-- Comercial: checklist do piloto (itens por negócio) e anexos (arquivos guardados no próprio banco).
+create table if not exists piloto_itens (
+  id bigserial primary key,
+  negocio_id bigint not null references negocios(id) on delete cascade,
+  texto text not null,
+  feito boolean not null default false,
+  feito_por text,
+  feito_em timestamptz,
+  ordem integer not null default 0,
+  criado_em timestamptz not null default now()
+);
+create index if not exists piloto_itens_negocio_idx on piloto_itens (negocio_id, ordem, id);
+
+create table if not exists anexos (
+  id bigserial primary key,
+  entidade text not null,                 -- documento | negocio
+  entidade_id bigint not null,
+  nome text not null,
+  tipo text not null,                     -- tipo MIME
+  tamanho integer not null,
+  conteudo bytea not null,
+  autor text not null,
+  criado_em timestamptz not null default now()
+);
+create index if not exists anexos_entidade_idx on anexos (entidade, entidade_id, id);
+
+-- Tarefas: quadro Kanban por pessoa (cada sócia tem o seu, e dá para ver o de todas).
+create table if not exists tarefas (
+  id bigserial primary key,
+  titulo text not null,
+  descricao text,
+  status text not null default 'a_fazer',      -- a_fazer | fazendo | bloqueada | feito
+  prioridade text not null default 'normal',   -- baixa | normal | alta
+  responsavel text not null,
+  criado_por text not null,
+  prazo date,
+  ordem integer not null default 0,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now(),
+  concluida_em timestamptz
+);
+create index if not exists tarefas_quadro_idx on tarefas (responsavel, status, ordem);

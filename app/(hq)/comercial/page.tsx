@@ -25,10 +25,11 @@ import {
   type Hoje,
   type Negocio,
   type Organizacao,
+  type PilotoResumo,
   type ResumoFunil,
 } from "../../../lib/comercial";
 
-type Aba = "hoje" | "funil" | "organizacoes";
+type Aba = "hoje" | "funil" | "pilotos" | "organizacoes";
 
 function LinhaNegocio({ n }: { n: Negocio }) {
   const situacao = situacaoPasso(n.proximo_passo_em, hojeISO());
@@ -68,6 +69,8 @@ export default function ComercialPage() {
   const [hoje, setHoje] = useState<Hoje | null>(null);
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [organizacoes, setOrganizacoes] = useState<Organizacao[]>([]);
+  const [pilotos, setPilotos] = useState<PilotoResumo[]>([]);
+  const [parados, setParados] = useState<Negocio[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
 
@@ -80,12 +83,16 @@ export default function ComercialPage() {
 
   const carregar = useCallback(async () => {
     try {
-      const [r, h, n, o] = await Promise.all([
+      const [r, h, n, o, p, pa] = await Promise.all([
         obter<ResumoFunil>("/comercial/resumo"),
         obter<Hoje>("/comercial/hoje"),
         obter<Negocio[]>("/comercial/negocios"),
         obter<Organizacao[]>("/comercial/organizacoes"),
+        obter<PilotoResumo[]>("/comercial/pilotos"),
+        obter<Negocio[]>("/comercial/parados"),
       ]);
+      setPilotos(p);
+      setParados(pa);
       setResumo(r);
       setHoje(h);
       setNegocios(n);
@@ -101,6 +108,12 @@ export default function ComercialPage() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  // /comercial?aba=pilotos abre direto na aba (usado pelo "Seu dia", no Início).
+  useEffect(() => {
+    const pedida = new URLSearchParams(window.location.search).get("aba");
+    if (pedida === "hoje" || pedida === "funil" || pedida === "pilotos" || pedida === "organizacoes") setAba(pedida);
+  }, []);
 
   async function mover(n: Negocio, etapa: Etapa, motivoPerda?: string) {
     if (etapa === "perdido" && !motivoPerda) {
@@ -165,6 +178,7 @@ export default function ComercialPage() {
           [
             ["hoje", "Hoje"],
             ["funil", "Funil"],
+            ["pilotos", `Pilotos${pilotos.length ? ` (${pilotos.length})` : ""}`],
             ["organizacoes", "Organizações"],
           ] as const
         ).map(([id, rotulo]) => (
@@ -192,6 +206,7 @@ export default function ComercialPage() {
           <Grupo titulo="Vencidos" itens={hoje.vencidos} />
           <Grupo titulo="Hoje" itens={hoje.hoje} vazio="Nada marcado para hoje." />
           <Grupo titulo="Próximos 7 dias" itens={hoje.proximos} vazio="Nada nos próximos 7 dias." />
+          <Grupo titulo="Parados há mais de 7 dias" itens={parados} />
           <Grupo titulo="Sem próximo passo" itens={hoje.sem_passo} />
           {negocios.length === 0 && (
             <p className="texto-secundario">
@@ -206,6 +221,35 @@ export default function ComercialPage() {
           <GraficoFunil negocios={negocios} />
           <Funil negocios={negocios} onMover={(n, e) => mover(n, e)} />
         </>
+      )}
+
+      {!carregando && aba === "pilotos" && (
+        <div className="com-pilotos">
+          {pilotos.length === 0 && (
+            <p className="texto-secundario">
+              Nenhum piloto em andamento. Quando um negócio entra na etapa Piloto, ele aparece aqui com o checklist.
+            </p>
+          )}
+          {pilotos.map((p) => (
+            <Link key={p.id} href={`/comercial/negocios/${p.id}`} className="painel com-piloto-cartao">
+              <strong>{p.organizacao_nome}</strong>
+              <span className="texto-secundario">{p.titulo}</span>
+              <span className="mono">{p.dias_no_piloto === 0 ? "começou hoje" : `dia ${p.dias_no_piloto + 1} do piloto`}</span>
+              <span className="com-piloto-progresso" aria-hidden="true">
+                <span style={{ width: `${p.itens_total ? Math.round((p.itens_feitos / p.itens_total) * 100) : 0}%` }} />
+              </span>
+              <span className="texto-secundario mono">
+                {p.itens_total ? `${p.itens_feitos} de ${p.itens_total} do checklist` : "checklist ainda não aberto"}
+              </span>
+              {p.proximo_passo && (
+                <span className={`passo-${situacaoPasso(p.proximo_passo_em, hojeISO())}`}>
+                  Próximo: {p.proximo_passo}
+                  {p.proximo_passo_em && <span className="mono"> · {formatarDia(p.proximo_passo_em)}</span>}
+                </span>
+              )}
+            </Link>
+          ))}
+        </div>
       )}
 
       {!carregando && aba === "organizacoes" && (

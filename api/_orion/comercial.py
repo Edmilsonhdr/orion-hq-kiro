@@ -33,6 +33,8 @@ ROTULO_ETAPA = {
 }
 TIPOS_INTERACAO = ("ligacao", "reuniao", "email", "whatsapp", "nota")
 TIPO_ETAPA = "etapa"  # reservado ao sistema
+TIPO_ALTERACAO = "alteracao"  # reservado ao sistema: quem mudou o quê (histórico do negócio)
+TIPOS_SISTEMA = (TIPO_ETAPA, TIPO_ALTERACAO)
 
 DIAS_PARADO = 7
 DIAS_FECHADOS = 30
@@ -336,6 +338,7 @@ def criar_negocio(organizacao_id: int, campos: dict[str, Any], autor: str) -> Op
         ),
     )
     assert novo is not None
+    _registrar_alteracao(novo["id"], autor, f"Negócio criado em {ROTULO_ETAPA[etapa]}")
     return obter_negocio(novo["id"])
 
 
@@ -348,14 +351,48 @@ def obter_negocio(negocio_id: int) -> Optional[dict]:
     return _numerico_para_float(linha)
 
 
-def editar_negocio(negocio_id: int, campos: dict[str, Any]) -> Optional[dict]:
+_ROTULO_CAMPO = {
+    "titulo": "Título", "valor_mensal": "Valor mensal", "pacientes_ativos": "Pacientes/alunos",
+    "plano_interesse": "Pacote", "usa_hoje": "Usa hoje", "origem": "Origem",
+    "responsavel": "Responsável", "proximo_passo": "Próximo passo",
+    "proximo_passo_em": "Data do próximo passo",
+}
+
+
+def _mostrar(campo: str, valor: Any) -> str:
+    if valor in (None, ""):
+        return "vazio"
+    if campo == "valor_mensal":
+        return f"R$ {float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    if isinstance(valor, date):
+        return valor.strftime("%d/%m/%Y")
+    return str(valor)
+
+
+def _registrar_alteracao(negocio_id: int, por: str, resumo: str) -> None:
+    db.executar(
+        "insert into interacoes (negocio_id, tipo, resumo, autor) values (%s, %s, %s, %s)",
+        (negocio_id, TIPO_ALTERACAO, resumo, por),
+    )
+
+
+def editar_negocio(negocio_id: int, campos: dict[str, Any], por: str = "sistema") -> Optional[dict]:
+    """Edita os campos presentes e registra no histórico quem mudou o quê (só o que realmente mudou)."""
     dados = validar_negocio(campos)
-    if dados:
+    antes = obter_negocio(negocio_id)
+    if dados and antes is not None:
         sets = ", ".join(f"{c} = %s" for c in dados)
         db.executar(
             f"update negocios set {sets}, atualizado_em = now() where id = %s",
             (*dados.values(), negocio_id),
         )
+        mudancas = [
+            f"{_ROTULO_CAMPO[c]}: {_mostrar(c, antes.get(c))} → {_mostrar(c, v)}"
+            for c, v in dados.items()
+            if _mostrar(c, antes.get(c)) != _mostrar(c, v)
+        ]
+        if mudancas:
+            _registrar_alteracao(negocio_id, por, "; ".join(mudancas))
     return obter_negocio(negocio_id)
 
 
@@ -483,10 +520,85 @@ def excluir_interacao(interacao_id: int) -> str:
     linha = db.um("select tipo from interacoes where id = %s", (interacao_id,))
     if linha is None:
         return "nao_encontrada"
-    if linha["tipo"] == TIPO_ETAPA:
+    if linha["tipo"] in TIPOS_SISTEMA:
         return "do_sistema"
     db.executar("delete from interacoes where id = %s", (interacao_id,))
     return "ok"
+
+
+# --- piloto: checklist e visão dos pilotos em andamento ---
+
+ITENS_PILOTO = (
+    "Termo de participação assinado",
+    "Acesso criado para a equipe",
+    "Treinamento / demonstração de uso",
+    "Primeira semana de uso acompanhada",
+    "Coleta de feedback",
+    "Decisão: continuar ou encerrar o piloto",
+)
+
+
+def itens_piloto(negocio_id: int) -> Optional[list[dict]]:
+    """Checklist do piloto. Cria os itens padrão na primeira consulta de um negócio em piloto."""
+    negocio = db.um("select etapa from negocios where id = %s", (negocio_id,))
+    if negocio is None:
+        return None
+    itens = db.consultar(
+        "select * from piloto_itens where negocio_id = %s order by ordem, id", (negocio_id,)
+    )
+    if not itens and negocio["etapa"] == "piloto":
+        for ordem, texto_item in enumerate(ITENS_PILOTO):
+            db.executar(
+                "insert into piloto_itens (negocio_id, texto, ordem) values (%s, %s, %s)",
+                (negocio_id, texto_item, ordem),
+            )
+        itens = db.consultar(
+            "select * from piloto_itens where negocio_id = %s order by ordem, id", (negocio_id,)
+        )
+    return itens
+
+
+def adicionar_item_piloto(negocio_id: int, texto_item: str) -> Optional[dict]:
+    texto_item = _texto(texto_item, "Item", 200, obrigatorio=True)
+    if db.um("select 1 as ok from negocios where id = %s", (negocio_id,)) is None:
+        return None
+    return db.um(
+        """
+        insert into piloto_itens (negocio_id, texto, ordem)
+        values (%s, %s, (select coalesce(max(ordem), -1) + 1 from piloto_itens where negocio_id = %s))
+        returning *
+        """,
+        (negocio_id, texto_item, negocio_id),
+    )
+
+
+def marcar_item_piloto(item_id: int, feito: bool, por: str) -> Optional[dict]:
+    return db.um(
+        """
+        update piloto_itens set feito = %s,
+          feito_por = case when %s then %s else null end,
+          feito_em = case when %s then now() else null end
+        where id = %s returning *
+        """,
+        (feito, feito, por, feito, item_id),
+    )
+
+
+def remover_item_piloto(item_id: int) -> bool:
+    return db.executar("delete from piloto_itens where id = %s", (item_id,)) > 0
+
+
+def pilotos() -> list[dict]:
+    """Negócios em piloto: dias desde que entraram na etapa e andamento do checklist (mais antigos primeiro)."""
+    linhas = db.consultar(
+        f"select {_COL_NEGOCIO}, "
+        "  floor(extract(epoch from (now() - n.etapa_desde)) / 86400)::int as dias_no_piloto, "
+        "  (select count(*) from piloto_itens p where p.negocio_id = n.id)::int as itens_total, "
+        "  (select count(*) from piloto_itens p where p.negocio_id = n.id and p.feito)::int as itens_feitos "
+        "from negocios n join organizacoes o on o.id = n.organizacao_id "
+        "where n.etapa = 'piloto' order by n.etapa_desde"
+    )
+    return [_numerico_para_float(l) for l in linhas]
 
 
 # --- visões ---

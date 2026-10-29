@@ -221,7 +221,7 @@ def aplicar(aprovacao: dict, aprovador: str) -> dict[str, Any]:
         if destino and atual["etapa"] not in (proposta.get("etapa_origem"), destino):
             return _obsoleta(proposta, f'a etapa mudou para {atual["etapa"]} depois da proposta')
         if proposta.get("campos"):
-            comercial.editar_negocio(negocio_id, proposta["campos"])
+            comercial.editar_negocio(negocio_id, proposta["campos"], quem)
         if destino:
             comercial.mover_etapa(negocio_id, destino, quem, proposta.get("motivo_perda"))
     _marcar(aprovacao["id"], aplicado=True)

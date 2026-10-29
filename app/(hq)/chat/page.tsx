@@ -10,7 +10,8 @@
 //   quem abre a tela no meio de um run.
 // - Cartões de aprovação pendente no topo (Requirement 9.3).
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ErroApi, enviar, obter } from "../../../lib/api";
 import { usePoll } from "../../../lib/usePoll";
 import { nomeEm, pessoaEm } from "../../../lib/exibicao";
@@ -77,15 +78,29 @@ const SUGESTOES = [
 ];
 
 export default function ChatPage() {
+  // useSearchParams exige Suspense na pré-renderização.
+  return (
+    <Suspense fallback={null}>
+      <ChatComConversas />
+    </Suspense>
+  );
+}
+
+function ChatComConversas() {
+  const parametros = useSearchParams();
+  const pedida = parametros.get("conversa");
   const [conversaId, setConversaId] = useState<number | null>(null);
   useEffect(() => {
     try {
-      const salva = Number(window.localStorage.getItem("hq:conversa"));
-      if (salva > 0) setConversaId(salva);
+      // ?conversa=ID (busca global; 0 = Geral) vale mais que a última conversa lembrada
+      const temPedido = pedida !== null && /^\d+$/.test(pedida);
+      const alvo = temPedido ? Number(pedida) : Number(window.localStorage.getItem("hq:conversa"));
+      if (temPedido) window.localStorage.setItem("hq:conversa", String(alvo));
+      setConversaId(alvo > 0 ? alvo : null);
     } catch {
       // sem armazenamento: começa na Geral
     }
-  }, []);
+  }, [pedida]);
   const escolher = useCallback((id: number | null) => {
     setConversaId(id);
     try {

@@ -5,6 +5,8 @@ export type ItemPaleta = { id: string; rotulo: string; href: string; grupo: stri
 export const ATALHOS: readonly ItemPaleta[] = [
   { id: "nova-pagina", rotulo: "Nova página", href: "/docs/novo", grupo: "Ações", dica: "Docs" },
   { id: "novo-negocio", rotulo: "Novo negócio", href: "/comercial", grupo: "Ações", dica: "Comercial" },
+  { id: "nova-tarefa", rotulo: "Nova tarefa", href: "/tarefas", grupo: "Ações", dica: "Tarefas" },
+  { id: "ir-tarefas", rotulo: "Ir para as Tarefas", href: "/tarefas", grupo: "Ir para" },
   { id: "ir-chat", rotulo: "Ir para o Chat", href: "/chat", grupo: "Ir para" },
   { id: "ir-escritorio", rotulo: "Ir para o Escritório", href: "/escritorio", grupo: "Ir para" },
   { id: "ir-comercial", rotulo: "Ir para o Comercial", href: "/comercial", grupo: "Ir para" },
@@ -31,6 +33,7 @@ export type ResultadoBusca = {
   documentos: { id: number; titulo: string; pasta: string | null }[];
   negocios: { id: number; titulo: string; organizacao: string; etapa: string }[];
   organizacoes: { id: number; nome: string; tipo: string }[];
+  conversas?: { id: number | null; titulo: string; trecho: string | null }[];
 };
 
 // Une atalhos e resultados numa lista plana, na ordem em que aparecem na tela.
@@ -42,5 +45,8 @@ export function montarItens(consulta: string, busca: ResultadoBusca | null): Ite
     itens.push({ id: `neg-${n.id}`, rotulo: n.titulo, href: `/comercial/negocios/${n.id}`, grupo: "Negócios", dica: n.organizacao });
   for (const o of busca?.organizacoes ?? [])
     itens.push({ id: `org-${o.id}`, rotulo: o.nome, href: `/comercial/organizacoes/${o.id}`, grupo: "Organizações" });
+  // Conversa "Geral" tem id nulo: `?conversa=0`.
+  for (const c of busca?.conversas ?? [])
+    itens.push({ id: `conv-${c.id ?? 0}`, rotulo: c.titulo, href: `/chat?conversa=${c.id ?? 0}`, grupo: "Conversas", dica: c.trecho ?? undefined });
   return [...itens, ...filtrarAtalhos(consulta)];
 }

@@ -7,6 +7,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ETAPAS,
+  ETAPAS_ABERTAS,
   ROTULO_ETAPA,
   formatarDia,
   formatarReais,
@@ -26,10 +27,8 @@ export default function Funil({ negocios, onMover }: Props) {
   const [sobre, setSobre] = useState<Etapa | null>(null);
   const hoje = hojeISO();
 
-  return (
-    <div className="funil" role="group" aria-label="Funil de vendas">
-      {ETAPAS.map((etapa) => {
-        const cartoes = negocios.filter((n) => n.etapa === etapa);
+  const coluna = (etapa: Etapa) => {
+    const cartoes = negocios.filter((n) => n.etapa === etapa);
         const total = cartoes.reduce((s, n) => s + (n.valor_mensal ?? 0), 0);
         return (
           <section
@@ -98,7 +97,14 @@ export default function Funil({ negocios, onMover }: Props) {
             </div>
           </section>
         );
-      })}
+  };
+
+  // As etapas abertas dividem a largura (sem rolagem lateral); ganho e perdido ficam numa linha abaixo.
+  const fechadas = ETAPAS.filter((e) => !(ETAPAS_ABERTAS as readonly string[]).includes(e));
+  return (
+    <div className="funil-quadro" role="group" aria-label="Funil de vendas">
+      <div className="funil">{ETAPAS_ABERTAS.map((e) => coluna(e))}</div>
+      <div className="funil funil-fechados">{fechadas.map((e) => coluna(e))}</div>
     </div>
   );
 }

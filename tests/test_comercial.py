@@ -112,7 +112,7 @@ def test_mover_etapa_registra_historico(banco):
     h = comercial.listar_interacoes(n["id"])
     assert h[0]["tipo"] == "etapa" and "Lead → Demonstração" in h[0]["resumo"] and h[0]["autor"] == "dimi"
     comercial.mover_etapa(n["id"], "demonstracao", "dimi")  # sem mudança
-    assert len(comercial.listar_interacoes(n["id"])) == 1
+    assert len([i for i in comercial.listar_interacoes(n["id"]) if i["tipo"] == "etapa"]) == 1
 
 
 def test_perdido_exige_motivo_e_reabrir_limpa(banco):

@@ -6,9 +6,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { obter } from "../../../lib/api";
-import { formatarDia, type Hoje, type ResumoFunil } from "../../../lib/comercial";
+import { formatarDia, hojeISO, type Hoje, type Negocio, type ResumoFunil } from "../../../lib/comercial";
 import { tempoRelativo, type DocumentoResumo } from "../../../lib/docs";
 import { agentePorId } from "../../../lib/agents";
+import { resumoDoDia } from "../../../lib/resumoDia";
+import { situacaoPrazo, type Tarefa } from "../../../lib/tarefas";
 
 type AprovacaoItem = { id: number; tipo: string; proposta: Record<string, unknown>; pedido_por: string | null };
 type Mencao = { id: number; documento_id: number; documento_titulo: string; autor: string; texto: string };
@@ -44,6 +46,9 @@ export default function InicioPage() {
   const [atividades, setAtividades] = useState<AtividadeItem[]>([]);
   const [docs, setDocs] = useState<DocumentoResumo[]>([]);
   const [mencoes, setMencoes] = useState<Mencao[]>([]);
+  const [minhasTarefas, setMinhasTarefas] = useState<Tarefa[]>([]);
+  const [parados, setParados] = useState<(Negocio & { dias_parado?: number })[]>([]);
+  const [pilotos, setPilotos] = useState<(Negocio & { dias_no_piloto: number })[]>([]);
 
   useEffect(() => {
     let ativo = true;
@@ -51,12 +56,17 @@ export default function InicioPage() {
       obter<T>(caminho)
         .then((v) => ativo && aplicar(v))
         .catch(() => {});
-    pegar<{ usuario: string }>("/me", (m) => setUsuario(m.usuario));
+    pegar<{ usuario: string }>("/me", (m) => {
+      setUsuario(m.usuario);
+      pegar<Tarefa[]>(`/tarefas?responsavel=${encodeURIComponent(m.usuario)}`, (l) => setMinhasTarefas(Array.isArray(l) ? l : []));
+    });
     pegar<AprovacaoItem[]>("/aprovacoes?status=pendente", (l) => setAprovacoes(Array.isArray(l) ? l : []));
     pegar<Hoje>("/comercial/hoje", setHoje);
     pegar<ResumoFunil>("/comercial/resumo", setResumo);
     pegar<{ abertos: number }>("/incidentes/resumo", (r) => setIncidentes(r.abertos ?? 0));
     pegar<AtividadeItem[]>("/atividades", (l) => setAtividades(Array.isArray(l) ? l.slice(-8).reverse() : []));
+    pegar<typeof parados>("/comercial/parados", (l) => setParados(Array.isArray(l) ? l : []));
+    pegar<typeof pilotos>("/comercial/pilotos", (l) => setPilotos(Array.isArray(l) ? l : []));
     pegar<Mencao[]>("/mencoes", (l) => setMencoes(Array.isArray(l) ? l : []));
     pegar<DocumentoResumo[]>("/documentos", (l) => setDocs(Array.isArray(l) ? l.slice(0, 5) : []));
     return () => {
@@ -66,6 +76,17 @@ export default function InicioPage() {
 
   const nome = usuario ? usuario[0].toUpperCase() + usuario.slice(1) : "";
   const passos = hoje ? [...hoje.vencidos, ...hoje.hoje] : [];
+  const seuDia = resumoDoDia({
+    aprovacoes: aprovacoes.length,
+    vencidos: hoje?.vencidos ?? [],
+    hoje: hoje?.hoje ?? [],
+    parados,
+    pilotos,
+    mencoes: mencoes.length,
+    incidentes,
+    tarefasVencidas: minhasTarefas.filter((t) => situacaoPrazo(t, hojeISO()) === "vencida").map((t) => t.titulo),
+    tarefasHoje: minhasTarefas.filter((t) => situacaoPrazo(t, hojeISO()) === "hoje").map((t) => t.titulo),
+  });
 
   return (
     <div className="docs-pagina">
@@ -80,6 +101,24 @@ export default function InicioPage() {
           </p>
         </div>
       </div>
+
+      <section className="painel ini-dia" aria-label="Seu dia">
+        <h2 className="com-grupo-titulo">Seu dia</h2>
+        {seuDia.length === 0 ? (
+          <p className="texto-secundario" style={{ margin: 0 }}>
+            Tudo em dia: nada vencido, parado ou esperando você.
+          </p>
+        ) : (
+          <ul className="ini-dia-lista">
+            {seuDia.map((i) => (
+              <li key={i.chave} className={i.alerta ? "alerta" : undefined}>
+                <Link href={i.href}>{i.texto}</Link>
+                {i.detalhes.length > 0 && <span className="texto-secundario"> · {i.detalhes.join(", ")}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <div className="com-indicadores">
         <Link href="/aprovacoes" className={`painel com-indicador esc-link${aprovacoes.length ? " alerta" : ""}`}>
@@ -189,6 +228,22 @@ export default function InicioPage() {
           <Link href="/docs" className="ini-mais">
             Abrir Docs
           </Link>
+        </section>
+
+        <section className="painel ini-bloco" aria-label="Backup">
+          <h2 className="com-grupo-titulo">Backup</h2>
+          <p className="texto-secundario" style={{ marginTop: 0 }}>
+            Baixe tudo o que vocês escreveram (Docs, Comercial, conversas e anexos) num arquivo só. Guarde uma cópia
+            fora deste computador de vez em quando.
+          </p>
+          <div className="com-acoes">
+            <a className="botao botao-destaque" href="/api/backup" download>
+              Baixar backup completo
+            </a>
+            <a className="botao" href="/api/backup?anexos_incluidos=false" download>
+              Sem anexos (menor)
+            </a>
+          </div>
         </section>
       </div>
     </div>
