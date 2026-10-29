@@ -7,11 +7,12 @@
 // atividades via lib/rotina.ts.
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import EscalaPlanta from "../../../components/EscalaPlanta";
 import { obter } from "../../../lib/api";
 import { usePollComEstado } from "../../../lib/usePoll";
 import { deslocarDatas, useRelogio } from "../../../lib/useRelogio";
-import { agentePorId, pessoaDoAgente } from "../../../lib/agents";
+import { AGENTES, agentePorId, pessoaDoAgente } from "../../../lib/agents";
 import { plantaoEm } from "../../../lib/rotina";
 import Office, { Atividade } from "../../../components/Office";
 import LogLateral from "../../../components/LogLateral";
@@ -52,7 +53,10 @@ function usePollLeve<T>(caminho: string, intervaloMs: number, inicial: T): T {
   return valor;
 }
 
+const formatarNumero = (n: number) => new Intl.NumberFormat("pt-BR").format(n);
+
 export default function EscritorioPage() {
+  const [filtro, setFiltro] = useState<string | null>(null);
   const { itens, carregado } = usePollComEstado<Atividade>("/atividades", INTERVALO_ATIV_MS);
   const { agora, deslocamentoMs } = useRelogio();
   const atividades = useMemo(() => deslocarDatas(itens, deslocamentoMs), [itens, deslocamentoMs]);
@@ -65,29 +69,69 @@ export default function EscritorioPage() {
   const orq = agentePorId("orq")!;
   const plantao = agora === null ? null : pessoaDoAgente(orq, plantaoEm(agora, atividades).pessoa);
 
+  const ultima = useMemo(() => {
+    if (agora === null || atividades.length === 0) return null;
+    const maisRecente = Math.max(...atividades.map((a) => new Date(a.criado_em).getTime()));
+    const seg = Math.max(0, Math.round((agora - maisRecente) / 1000));
+    if (seg < 60) return "agora há pouco";
+    if (seg < 3600) return `há ${Math.floor(seg / 60)} min`;
+    if (seg < 86400) return `há ${Math.floor(seg / 3600)} h`;
+    return `há ${Math.floor(seg / 86400)} d`;
+  }, [atividades, agora]);
+  const totalTokens = Object.values(tokens ?? {}).reduce((s, n) => s + n, 0);
+  const qtdPendentes = Array.isArray(pendentes) ? pendentes.length : 0;
+  const qtdIncidentes = incidentes?.abertos ?? 0;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "16px" }}>
-      <div className="texto-secundario" style={{ fontSize: "13px" }} aria-live="polite">
-        Escritório dos agentes
-        {plantao && (
-          <>
-            {" · de plantão: "}
-            <span style={{ color: plantao.corChat, fontWeight: 600 }}>{plantao.nome}</span>
-          </>
-        )}
-        {" · N2 especialistas · N3 tarefas rápidas"}
+    <div className="docs-pagina esc-pagina">
+      <div className="com-topo">
+        <div>
+          <h1 className="titulo-pixel com-titulo">Escritório</h1>
+          <p className="texto-secundario" style={{ margin: "6px 0 0" }} aria-live="polite">
+            <span className="esc-ao-vivo" aria-hidden="true" /> Os agentes trabalhando{ultima && ` · última atividade ${ultima}`}
+            {plantao && (
+              <>
+                {" · de plantão: "}
+                <span style={{ color: plantao.corChat, fontWeight: 600 }}>{plantao.nome}</span>
+              </>
+            )}
+          </p>
+        </div>
+        <ul className="esc-legenda" aria-label="Legenda dos agentes">
+          {AGENTES.map((ag) => (
+            <li key={ag.id}>
+              <button
+                type="button"
+                className={`esc-legenda-botao${filtro === ag.id ? " ativo" : ""}`}
+                aria-pressed={filtro === ag.id}
+                title={filtro === ag.id ? "Mostrar todos" : `Filtrar atividades: ${ag.papel}`}
+                onClick={() => setFiltro(filtro === ag.id ? null : ag.id)}
+              >
+                <span className="esc-legenda-ponto" style={{ background: ag.cor }} aria-hidden="true" />
+                {ag.papel} <span className="mono texto-secundario">{ag.nivel}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "100%",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          gap: "16px",
-        }}
-      >
+
+      <div className="com-indicadores esc-indicadores">
+        <div className="painel com-indicador">
+          <div className="com-indicador-valor mono">{formatarNumero(totalTokens)}</div>
+          <div className="texto-secundario">Tokens hoje</div>
+        </div>
+        <Link href="/aprovacoes" className={`painel com-indicador esc-link${qtdPendentes > 0 ? " alerta" : ""}`}>
+          <div className="com-indicador-valor mono">{qtdPendentes}</div>
+          <div className="texto-secundario">Aprovações pendentes</div>
+        </Link>
+        <Link href="/incidentes" className={`painel com-indicador esc-link${qtdIncidentes > 0 ? " alerta" : ""}`}>
+          <div className="com-indicador-valor mono">{qtdIncidentes}</div>
+          <div className="texto-secundario">Incidentes abertos</div>
+        </Link>
+      </div>
+
+      <div className="esc-grade">
+        <div className="esc-moldura">
         <EscalaPlanta>
         {agora === null ? (
           <div className="esc-planta esc-madeira" aria-label="Carregando o escritório" />
@@ -96,13 +140,14 @@ export default function EscritorioPage() {
             atividades={atividades}
             agora={agora}
             pronto={carregado}
-            temAprovacaoPendente={Array.isArray(pendentes) && pendentes.length > 0}
-            incidenteAberto={(incidentes?.abertos ?? 0) > 0}
+            temAprovacaoPendente={qtdPendentes > 0}
+            incidenteAberto={qtdIncidentes > 0}
             tokens={tokens}
           />
         )}
         </EscalaPlanta>
-        <LogLateral atividades={atividades} tokens={tokens} />
+        </div>
+        <LogLateral atividades={atividades} tokens={tokens} filtro={filtro} onLimpar={() => setFiltro(null)} />
       </div>
     </div>
   );

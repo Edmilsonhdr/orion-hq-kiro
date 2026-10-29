@@ -2213,3 +2213,375 @@ dialog.modal {
     left: -12px;
   }
 }
+
+/* =========================================================================
+   Escritório: cabeçalho, indicadores, moldura da planta e painel lateral
+   ========================================================================= */
+
+.esc-pagina {
+  max-width: 1280px;
+}
+
+.esc-ao-vivo {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: #3fb68b;
+  box-shadow: 0 0 0 0 rgba(63, 182, 139, 0.6);
+  animation: esc-pulso 2s infinite;
+}
+
+@keyframes esc-pulso {
+  70% {
+    box-shadow: 0 0 0 8px rgba(63, 182, 139, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(63, 182, 139, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esc-ao-vivo {
+    animation: none;
+  }
+}
+
+.esc-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--texto-secundario);
+}
+
+.esc-legenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.esc-legenda-ponto {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.esc-indicadores {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.esc-link {
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.esc-link:hover {
+  transform: translateY(-2px);
+  border-color: var(--destaque);
+}
+
+.esc-grade {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+}
+
+.esc-moldura {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 904px;
+  padding: 14px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #1a2744 0%, #0e1628 60%);
+  border: 1px solid var(--borda-forte);
+  box-shadow: var(--sombra-2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.esc-moldura .esc-planta {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.esc-lateral {
+  flex: 1 1 280px;
+  min-width: 260px;
+  max-width: none;
+  align-self: stretch;
+}
+
+.esc-painel {
+  padding: 14px 16px;
+}
+
+.esc-painel-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.esc-painel-topo h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.esc-painel-nota {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.esc-barras {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.esc-barras li {
+  display: grid;
+  grid-template-columns: 74px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.esc-barras li.vazio {
+  color: var(--texto-secundario);
+}
+
+.esc-barra-trilho {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.esc-barra-valor {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 4px;
+  transition: width 0.4s;
+}
+
+.esc-barra-numero {
+  min-width: 34px;
+  text-align: right;
+}
+
+.esc-feed {
+  flex: 1;
+  min-height: 0;
+  max-height: 540px;
+  overflow-y: auto;
+}
+
+.esc-linha-tempo {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 16px;
+  list-style: none;
+}
+
+.esc-linha-tempo::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: var(--borda-forte);
+}
+
+.esc-linha-tempo li {
+  position: relative;
+  padding: 0 0 14px;
+}
+
+.esc-linha-tempo li::before {
+  content: "";
+  position: absolute;
+  left: -17px;
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cor, var(--destaque));
+  box-shadow: 0 0 0 3px var(--painel);
+}
+
+.esc-evento-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.esc-evento-texto {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 860px) {
+  .esc-moldura {
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  .esc-barras li {
+    grid-template-columns: 70px 1fr auto;
+  }
+}
+
+.esc-moldura {
+  flex: 0 1 894px;
+  padding: 10px;
+}
+
+.esc-lateral {
+  flex: 1 1 250px;
+  min-width: 250px;
+}
+
+/* =========================================================================
+   Planta premium: piso em tábuas, salas com profundidade, luz e vidro
+   ========================================================================= */
+
+.esc-planta {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.esc-planta.esc-madeira {
+  background-color: #2a201b;
+  background-image:
+    /* emendas das tábuas */
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.42) 0 2px, transparent 2px 64px),
+    /* veios */
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 11px),
+    /* variação de tom entre tábuas */
+    repeating-linear-gradient(90deg, rgba(255, 190, 120, 0.05) 0 64px, rgba(0, 0, 0, 0.07) 64px 128px, rgba(255, 190, 120, 0.02) 128px 192px, rgba(0, 0, 0, 0.04) 192px 256px),
+    linear-gradient(135deg, #34261e 0%, #261c17 100%);
+}
+
+/* Vinheta + luz de teto sobre toda a planta */
+.esc-planta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 65% 55% at 50% 38%, rgba(255, 226, 170, 0.1), transparent 70%),
+    radial-gradient(ellipse 120% 100% at 50% 50%, transparent 55%, rgba(2, 4, 12, 0.55) 100%);
+}
+
+/* Reflexo diagonal de vidro, bem sutil */
+.esc-planta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 13;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 28%, rgba(255, 255, 255, 0) 100%);
+}
+
+/* Salas: chão com gradiente, parede com relevo e sombra projetada */
+.esc-carpete,
+.esc-ladrilho {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.18) 100%);
+  background-size: 16px 16px, 16px 16px, 100% 100%;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.55),
+    0 2px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 18px 30px rgba(0, 0, 0, 0.32) !important;
+}
+
+.esc-ladrilho {
+  background-size: 28px 28px, 28px 28px, 100% 100%;
+}
+
+.esc-rotulo {
+  color: #c4cfe6;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+/* Balões e crachás com mais acabamento */
+.esc-balao {
+  background: linear-gradient(180deg, #ffffff 0%, #dfe8f7 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.esc-cracha {
+  background: linear-gradient(180deg, #121b33 0%, #0a1022 100%);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+
+.esc-rodape {
+  background: linear-gradient(180deg, rgba(18, 27, 51, 0.92), rgba(9, 14, 28, 0.92));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Moldura externa com borda de metal escovado */
+.esc-moldura {
+  background:
+    linear-gradient(145deg, #223256 0%, #0f1730 55%, #1a2644 100%);
+  box-shadow:
+    var(--sombra-2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 60px rgba(76, 141, 255, 0.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esc-planta::before,
+  .esc-planta::after {
+    display: block;
+  }
+}
+
+.esc-legenda-botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  font-size: 13px;
+  color: var(--texto-secundario);
+}
+
+.esc-legenda-botao.ativo {
+  border-color: var(--destaque);
+  background: rgba(76, 141, 255, 0.14);
+  color: var(--texto);
+}
+
+.esc-limpar {
+  min-height: 0;
+  padding: 0 6px;
+  font-size: 12px;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--destaque);
+  text-decoration: underline;
+}

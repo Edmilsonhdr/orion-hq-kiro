@@ -50,8 +50,12 @@ function formatarNumero(n: number): string {
 export default function LogLateral({
   atividades,
   tokens,
+  filtro = null,
+  onLimpar,
 }: {
   atividades: Atividade[];
+  filtro?: string | null;
+  onLimpar?: () => void;
   // {agente: tokens} de hoje (do endpoint /atividades/tokens).
   tokens: Record<string, number>;
 }) {
@@ -59,10 +63,11 @@ export default function LogLateral({
   // indefinidamente na tela.
   const recentes = useMemo(() => {
     return [...atividades]
+      .filter((a) => !filtro || a.agente === filtro)
       .sort((a, b) => b.id - a.id)
       .slice(0, MAX_LINHAS_LOG)
       .map((a) => ({ ...a, nome: nomeEm(a.agente, a.criado_em, atividades) }));
-  }, [atividades]);
+  }, [atividades, filtro]);
 
   // Linhas de tokens por agente (na ordem de lib/agents.ts), só quem gastou,
   // mais o total.
@@ -72,105 +77,66 @@ export default function LogLateral({
       nome: ag.pessoas.length > 1 ? ag.papel : pessoaDoAgente(ag).nome,
       cor: ag.cor,
       total: tokens[ag.id] ?? 0,
-    })).filter((l) => l.total > 0);
+    }));
     const total = Object.values(tokens).reduce((s, n) => s + n, 0);
-    return { linhas, total };
+    return { linhas, total, todas: linhas };
   }, [tokens]);
 
+  const maior = Math.max(1, ...linhasTokens.todas.map((l) => l.total));
+
   return (
-    <aside className="log-lateral" aria-label="Atividades e tokens">
-      {/* Tokens do dia */}
-      <section
-        className="painel"
-        style={{ padding: "12px" }}
-        aria-label="Tokens gastos hoje"
-      >
-        <h3 className="titulo-pixel" style={{ fontSize: "13px", margin: "0 0 8px" }}>
-          Tokens hoje
-        </h3>
-        {linhasTokens.linhas.length === 0 ? (
-          <p className="texto-secundario" style={{ fontSize: "12px", margin: 0 }}>
-            Nenhum gasto hoje.
-          </p>
-        ) : (
-          linhasTokens.linhas.map((l) => (
-            <div key={l.id} className="tokens-linha">
-              <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: "10px",
-                    height: "10px",
-                    borderRadius: "2px",
-                    background: l.cor,
-                    flexShrink: 0,
-                  }}
-                />
-                {l.nome}
-              </span>
-              <span className="mono">{formatarNumero(l.total)}</span>
-            </div>
-          ))
-        )}
-        <div
-          className="tokens-linha"
-          style={{
-            marginTop: "6px",
-            paddingTop: "6px",
-            borderTop: "1px solid var(--borda-forte)",
-            fontWeight: 600,
-          }}
-        >
-          <span>Total</span>
+    <aside className="log-lateral esc-lateral" aria-label="Atividades e tokens">
+      {/* Tokens do dia: uma barra por agente, na cor dele */}
+      <section className="painel esc-painel" aria-label="Tokens gastos hoje">
+        <header className="esc-painel-topo">
+          <h3 className="titulo-pixel">Tokens hoje</h3>
           <span className="mono">{formatarNumero(linhasTokens.total)}</span>
-        </div>
+        </header>
+        <ul className="esc-barras">
+          {linhasTokens.todas.map((l) => (
+            <li key={l.id} className={l.total === 0 ? "vazio" : undefined}>
+              <span className="esc-barra-nome">{l.nome}</span>
+              <span className="esc-barra-trilho" aria-hidden="true">
+                <span className="esc-barra-valor" style={{ width: `${(l.total / maior) * 100}%`, background: l.cor }} />
+              </span>
+              <span className="mono esc-barra-numero">{formatarNumero(l.total)}</span>
+            </li>
+          ))}
+        </ul>
+        {linhasTokens.total === 0 && (
+          <p className="texto-secundario esc-painel-nota">Nenhum gasto hoje.</p>
+        )}
       </section>
 
-      {/* Log das atividades recentes */}
-      <section
-        className="painel"
-        style={{ padding: "12px", flex: 1, minHeight: 0, overflowY: "auto" }}
-        aria-label="Atividades recentes"
-      >
-        <h3 className="titulo-pixel" style={{ fontSize: "13px", margin: "0 0 8px" }}>
-          Atividades
-        </h3>
+      {/* Atividades: linha do tempo, mais recente no topo */}
+      <section className="painel esc-painel esc-feed" aria-label="Atividades recentes">
+        <header className="esc-painel-topo">
+          <h3 className="titulo-pixel">Atividades</h3>
+          <span className="mono texto-secundario">
+            {filtro && onLimpar && (
+              <button type="button" className="esc-limpar" onClick={onLimpar}>
+                limpar filtro
+              </button>
+            )}{" "}
+            {recentes.length}
+          </span>
+        </header>
         {recentes.length === 0 ? (
-          <p className="texto-secundario" style={{ fontSize: "12px", margin: 0 }}>
-            Sem atividades recentes.
-          </p>
+          <p className="texto-secundario esc-painel-nota">{filtro ? "Nenhuma atividade desse agente." : "Sem atividades recentes."}</p>
         ) : (
-          recentes.map((a) => (
-            <div key={a.id} className="log-linha">
-              <span
-                className="mono texto-secundario"
-                style={{ flexShrink: 0 }}
-                title={a.criado_em}
-              >
-                {horaFormatada(a.criado_em)}
-              </span>
-              <span
-                style={{
-                  color: corAgente(a.agente),
-                  fontWeight: 600,
-                  flexShrink: 0,
-                }}
-              >
-                {a.nome}
-              </span>
-              <span
-                style={{
-                  color: "var(--texto)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-                title={textoLinha(a)}
-              >
-                {textoLinha(a)}
-              </span>
-            </div>
-          ))
+          <ol className="esc-linha-tempo">
+            {recentes.map((a) => (
+              <li key={a.id} style={{ ["--cor" as string]: corAgente(a.agente) }}>
+                <div className="esc-evento-topo">
+                  <strong style={{ color: corAgente(a.agente) }}>{a.nome}</strong>
+                  <span className="mono texto-secundario" title={a.criado_em}>
+                    {horaFormatada(a.criado_em)}
+                  </span>
+                </div>
+                <div className="esc-evento-texto">{textoLinha(a)}</div>
+              </li>
+            ))}
+          </ol>
         )}
       </section>
     </aside>

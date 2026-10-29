@@ -38,13 +38,14 @@ orion-hq/
 │       ├── docs/                # lista, novo/ e [id]/ (leitura, edição, histórico)
 │       ├── comercial/           # abas Hoje/Funil/Organizações, negocios/[id], organizacoes/[id]
 │       └── aprovacoes/page.tsx
-├── components/                  # Office, Desk, ChatMessage, ApprovalCard, ActivityLog, Funil, Modal, NegocioForm
+├── components/                  # Office, Desk, ChatMessage, ApprovalCard, ActivityLog, Funil, Modal, NegocioForm, Paleta (Ctrl+K), EscalaPlanta, LogLateral
 ├── lib/
 │   ├── api.ts                   # fetch + tratamento de 401
 │   ├── docs.ts                  # tipos e utilitários do módulo Docs
 │   ├── comercial.ts             # tipos, etapas, moeda/data pt-BR, situação do próximo passo
 │   ├── markdown.ts              # parser de markdown seguro (árvore, nunca HTML)
 │   │                            #   títulos, listas, tarefas, tabelas, código, links
+│   ├── paleta.ts / blocos.ts / modelos.ts  # busca Ctrl+K, menu "/" do editor, modelos de página
 │   ├── usePoll.ts               # hook de polling incremental
 │   └── agents.ts                # metadados dos agentes (id, nome, nível, cor, posição)
 ├── db/schema.sql
