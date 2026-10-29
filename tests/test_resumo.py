@@ -129,3 +129,19 @@ def test_redigir_resumo_registra_tokens_do_worker(banco, monkeypatch):
 
     assert resumo._redigir_resumo("contexto", "resumo-teste") == "Semana tranquila."
     assert atividades.tokens_hoje().get("work") == 38
+
+
+def test_resumo_posta_bloco_comercial_quando_ha_negocios(cliente, monkeypatch):
+    from _orion import comercial
+
+    org = comercial.criar_organizacao({"nome": "Clínica Vida"})
+    comercial.criar_negocio(org["id"], {"titulo": "Piloto", "valor_mensal": 100}, "dimi")
+    monkeypatch.setattr(resumo, "_redigir_resumo", lambda contexto, run_id=None: "x")
+
+    resp = cliente.get(
+        "/api/cron/resumo-semanal", headers={"Authorization": f"Bearer {_CRON_SECRET}"}
+    )
+    assert resp.json()["comercial"] is True
+    msgs = db.consultar("select autor, texto from mensagens order by id")
+    assert len(msgs) == 2 and msgs[1]["autor"] == "Orquestrador"
+    assert "Resumo comercial" in msgs[1]["texto"] and "R$ 100,00" in msgs[1]["texto"]

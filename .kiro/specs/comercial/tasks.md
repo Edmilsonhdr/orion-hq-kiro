@@ -1,0 +1,27 @@
+# Implementation Plan
+
+- [x] 1. `texto.py` (extraído de `documentos.py`) e schema do CRM
+  - _Requirements: 9.1_
+- [x] 2. `comercial.py`: organizações e contatos + testes
+  - _Requirements: 1.1–1.5_
+- [x] 3. `comercial.py`: negócios, etapas, interações + testes
+  - _Requirements: 2.1–2.6, 3.1–3.4_
+- [x] 4. `comercial.py`: resumo do funil, hoje, parados + testes
+  - _Requirements: 4.1–4.4_
+- [x] 5. Rotas `/api/comercial/*` + testes (401, 404, 409, 422)
+  - _Requirements: 1, 2, 3, 4_
+- [x] 6. Ferramentas de leitura do Negócios, prompts e supervisor + testes
+  - _Requirements: 6.1–6.3_
+- [x] 7. `propostas_comercial.py` e registro de módulos em `execucao.py` + testes
+  - _Requirements: 7.1–7.5_
+- [x] 8. Resumo semanal comercial no cron + testes
+  - _Requirements: 8.1_
+- [x] 9. Front: `lib/comercial.ts`, `Modal`, `NegocioForm`, `Funil`, páginas e Header
+  - _Requirements: 5.1–5.7_
+- [x] 10. Front: card de aprovação das propostas comerciais
+  - _Requirements: 7.6_
+- [x] 11. Biblioteca comercial (`docs/comercial/`) e script de importação
+  - _Requirements: 8.2_
+- [x] 12. Verificação: pytest (454), front (40), tsc, teste de ponta a ponta no navegador e prints
+  - [ ] PENDENTE: `npm run build` (em cópia) e pergunta real no chat, com a chave da Anthropic, sobre o funil
+  - _Requirements: 9_

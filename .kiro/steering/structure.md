@@ -17,6 +17,9 @@ orion-hq/
 │       ├── ferramentas.py       # tools dos especialistas (changelog, documentos)
 │       ├── documentos.py        # Docs: CRUD, versões, busca (full-text, ILIKE, aproximada)
 │       ├── propostas_docs.py    # propostas dos agentes (criar/editar) que dependem de aprovação
+│       ├── comercial.py         # Comercial: organizações, contatos, negócios (funil), interações
+│       ├── propostas_comercial.py # propostas do Negócios para o CRM (dependem de aprovação)
+│       ├── texto.py             # sem_acento/radicais, compartilhados pelas buscas
 │       ├── importacao.py        # importa markdown/Notion (pasta ou .zip)
 │       ├── exportacao.py        # exporta os documentos para markdown
 │       ├── especialistas.py     # tech, negocios, agenda (loop de ferramentas próprio)
@@ -33,11 +36,13 @@ orion-hq/
 │       ├── chat/page.tsx
 │       ├── escritorio/page.tsx
 │       ├── docs/                # lista, novo/ e [id]/ (leitura, edição, histórico)
+│       ├── comercial/           # abas Hoje/Funil/Organizações, negocios/[id], organizacoes/[id]
 │       └── aprovacoes/page.tsx
-├── components/                  # Office, Desk, ChatMessage, ApprovalCard, ActivityLog
+├── components/                  # Office, Desk, ChatMessage, ApprovalCard, ActivityLog, Funil, Modal, NegocioForm
 ├── lib/
 │   ├── api.ts                   # fetch + tratamento de 401
 │   ├── docs.ts                  # tipos e utilitários do módulo Docs
+│   ├── comercial.ts             # tipos, etapas, moeda/data pt-BR, situação do próximo passo
 │   ├── markdown.ts              # parser de markdown seguro (árvore, nunca HTML)
 │   │                            #   títulos, listas, tarefas, tabelas, código, links
 │   ├── usePoll.ts               # hook de polling incremental

@@ -91,7 +91,7 @@ class Rota(BaseModel):
             "Quem deve trabalhar agora: 'tech' (produto/código/PRs e "
             "documentação técnica), "
             "'agenda' (reuniões e pautas), 'negocios' (custos, métricas, "
-            "decisões e documentos de negócio), 'vigia' (erros, falhas, instabilidade, incidentes do "
+            "decisões, documentos de negócio e o COMERCIAL: leads, funil, propostas e clientes), 'vigia' (erros, falhas, instabilidade, incidentes do "
             "app ou backend) ou 'responder' (quando os relatórios já bastam ou "
             "é conversa simples)."
         )
@@ -122,7 +122,8 @@ def _prompt_supervisor() -> str:
         "Jullyana. Você NÃO executa tarefas: decide quem trabalha.\n"
         "- tech = produto/código/PRs do app Orion e documentação técnica;\n"
         "- agenda = reuniões e pautas;\n"
-        "- negocios = custos, métricas, decisões e documentos de negócio;\n"
+        "- negocios = custos, métricas, decisões, documentos de negócio e o COMERCIAL "
+        "(leads, funil de vendas, propostas, clínicas/empresas/autônomos clientes);\n"
         "- perguntas sobre o que os sócios escreveram nos documentos (Docs) vão "
         "para tech ou negocios, que sabem buscá-los;\n"
         "- vigia = erros, falhas, instabilidade, incidentes do app ou backend;\n"

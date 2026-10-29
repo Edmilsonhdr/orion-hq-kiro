@@ -9,6 +9,8 @@ import logging
 import os
 import secrets
 import sys
+from datetime import datetime
+from typing import Any
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -24,7 +26,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 
-from _orion import atividades, auth, config, db, documentos
+from _orion import atividades, auth, comercial, config, db, documentos
 
 app = FastAPI(title="Orion HQ")
 
@@ -79,6 +81,57 @@ class DocumentoEdicao(BaseModel):
     conteudo: str | None = None
     pasta: str | None = None
     tags: list[str] | None = None
+
+
+class OrganizacaoCorpo(BaseModel):
+    """Corpo de `POST/PUT /comercial/organizacoes`: só os campos enviados contam."""
+
+    nome: str | None = None
+    tipo: str | None = None
+    area: str | None = None
+    cidade: str | None = None
+    site: str | None = None
+    observacoes: str | None = None
+
+
+class ContatoCorpo(BaseModel):
+    nome: str | None = None
+    cargo: str | None = None
+    email: str | None = None
+    telefone: str | None = None
+
+
+class NegocioCorpo(BaseModel):
+    """Corpo de `POST/PUT /comercial/negocios`; a validação fica em `comercial.py` (422 em português)."""
+
+    organizacao_id: int | None = None
+    organizacao_nome: str | None = None
+    organizacao_tipo: str | None = None
+    titulo: str | None = None
+    etapa: str | None = None
+    valor_mensal: Any = None
+    pacientes_ativos: Any = None
+    plano_interesse: str | None = None
+    usa_hoje: str | None = None
+    origem: str | None = None
+    responsavel: str | None = None
+    proximo_passo: str | None = None
+    proximo_passo_em: str | None = None
+
+
+class EtapaCorpo(BaseModel):
+    etapa: str
+    motivo_perda: str | None = None
+
+
+class InteracaoCorpo(BaseModel):
+    tipo: str
+    resumo: str
+    ocorrida_em: datetime | None = None
+
+
+class ArquivarCorpo(BaseModel):
+    arquivada: bool = True
 
 
 class ArquivarDocumento(BaseModel):
@@ -430,6 +483,203 @@ def restaurar_versao_documento(
             detail="Documento ou versão não encontrado.",
         )
     return restaurado
+
+
+# --- Comercial (spec comercial) ---
+
+
+def _comercial_404(achado: Any, o_que: str = "Registro") -> Any:
+    if achado is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{o_que} não encontrado.")
+    return achado
+
+
+def _comercial(chamada):
+    """Executa `chamada` traduzindo erros de validação (422) e conflitos (409)."""
+    try:
+        return chamada()
+    except ValueError as erro:
+        raise _invalido(erro)
+    except comercial.ConflitoError as erro:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(erro))
+
+
+@app.get("/api/comercial/resumo")
+def resumo_comercial(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Números do funil (Comercial — Requirement 4.2)."""
+    return comercial.resumo_funil()
+
+
+@app.get("/api/comercial/hoje")
+def hoje_comercial(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Negócios agrupados por data do próximo passo (Comercial — Requirement 4.1)."""
+    return comercial.hoje()
+
+
+@app.get("/api/comercial/negocios")
+def listar_negocios_comercial(
+    etapa: str | None = None,
+    responsavel: str | None = None,
+    q: str | None = None,
+    todos: bool = False,
+    usuario: str = Depends(auth.usuario_atual),
+) -> list[dict]:
+    return _comercial(lambda: comercial.listar_negocios(etapa, responsavel, q, todos))
+
+
+@app.post("/api/comercial/negocios", status_code=status.HTTP_201_CREATED)
+def criar_negocio_comercial(
+    corpo: NegocioCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    """Cria um negócio numa organização existente ou nova (`organizacao_nome`)."""
+    campos = corpo.model_dump(exclude_unset=True)
+    nome_org = campos.pop("organizacao_nome", None)
+    tipo_org = campos.pop("organizacao_tipo", None) or "clinica"
+    org_id = campos.pop("organizacao_id", None)
+    if campos.get("responsavel") in (None, ""):
+        campos.pop("responsavel", None)
+
+    def criar() -> dict:
+        organizacao = org_id
+        if organizacao is None:
+            if not nome_org:
+                raise ValueError("Informe a organização.")
+            organizacao = comercial.obter_ou_criar_organizacao(nome_org, tipo_org)["id"]
+        return comercial.criar_negocio(organizacao, campos, usuario)
+
+    return _comercial_404(_comercial(criar), "Organização")
+
+
+@app.get("/api/comercial/negocios/{negocio_id}")
+def obter_negocio_comercial(negocio_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    negocio = _comercial_404(comercial.obter_negocio(negocio_id), "Negócio")
+    negocio["interacoes"] = comercial.listar_interacoes(negocio_id)
+    negocio["contatos"] = comercial.contatos_da(negocio["organizacao_id"])
+    return negocio
+
+
+@app.put("/api/comercial/negocios/{negocio_id}")
+def editar_negocio_comercial(
+    negocio_id: int, corpo: NegocioCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    campos = corpo.model_dump(exclude_unset=True)
+    for fora in ("organizacao_id", "organizacao_nome", "organizacao_tipo", "etapa"):
+        campos.pop(fora, None)
+    return _comercial_404(_comercial(lambda: comercial.editar_negocio(negocio_id, campos)), "Negócio")
+
+
+@app.post("/api/comercial/negocios/{negocio_id}/etapa")
+def mover_negocio_comercial(
+    negocio_id: int, corpo: EtapaCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    return _comercial_404(
+        _comercial(lambda: comercial.mover_etapa(negocio_id, corpo.etapa, usuario, corpo.motivo_perda)),
+        "Negócio",
+    )
+
+
+@app.get("/api/comercial/negocios/{negocio_id}/interacoes")
+def listar_interacoes_comercial(
+    negocio_id: int, usuario: str = Depends(auth.usuario_atual)
+) -> list[dict]:
+    _comercial_404(comercial.obter_negocio(negocio_id), "Negócio")
+    return comercial.listar_interacoes(negocio_id)
+
+
+@app.post("/api/comercial/negocios/{negocio_id}/interacoes", status_code=status.HTTP_201_CREATED)
+def registrar_interacao_comercial(
+    negocio_id: int, corpo: InteracaoCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    return _comercial_404(
+        _comercial(
+            lambda: comercial.registrar_interacao(
+                negocio_id, corpo.tipo, corpo.resumo, usuario, corpo.ocorrida_em
+            )
+        ),
+        "Negócio",
+    )
+
+
+@app.delete("/api/comercial/interacoes/{interacao_id}")
+def excluir_interacao_comercial(
+    interacao_id: int, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    resultado = comercial.excluir_interacao(interacao_id)
+    if resultado == "nao_encontrada":
+        raise HTTPException(status_code=404, detail="Interação não encontrada.")
+    if resultado == "do_sistema":
+        raise HTTPException(
+            status_code=409, detail="Mudanças de etapa são automáticas e não podem ser excluídas."
+        )
+    return {"status": "excluida"}
+
+
+@app.get("/api/comercial/organizacoes")
+def listar_organizacoes_comercial(
+    arquivadas: bool = False, q: str | None = None, usuario: str = Depends(auth.usuario_atual)
+) -> list[dict]:
+    return comercial.listar_organizacoes(arquivadas, q)
+
+
+@app.post("/api/comercial/organizacoes", status_code=status.HTTP_201_CREATED)
+def criar_organizacao_comercial(
+    corpo: OrganizacaoCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    return _comercial(lambda: comercial.criar_organizacao(corpo.model_dump(exclude_unset=True)))
+
+
+@app.get("/api/comercial/organizacoes/{organizacao_id}")
+def obter_organizacao_comercial(
+    organizacao_id: int, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    return _comercial_404(comercial.obter_organizacao(organizacao_id), "Organização")
+
+
+@app.put("/api/comercial/organizacoes/{organizacao_id}")
+def editar_organizacao_comercial(
+    organizacao_id: int, corpo: OrganizacaoCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    campos = corpo.model_dump(exclude_unset=True)
+    return _comercial_404(
+        _comercial(lambda: comercial.editar_organizacao(organizacao_id, campos)), "Organização"
+    )
+
+
+@app.post("/api/comercial/organizacoes/{organizacao_id}/arquivar")
+def arquivar_organizacao_comercial(
+    organizacao_id: int, corpo: ArquivarCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    return _comercial_404(
+        _comercial(lambda: comercial.arquivar_organizacao(organizacao_id, corpo.arquivada)),
+        "Organização",
+    )
+
+
+@app.post("/api/comercial/organizacoes/{organizacao_id}/contatos", status_code=status.HTTP_201_CREATED)
+def criar_contato_comercial(
+    organizacao_id: int, corpo: ContatoCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    return _comercial_404(
+        _comercial(lambda: comercial.criar_contato(organizacao_id, corpo.model_dump(exclude_unset=True))),
+        "Organização",
+    )
+
+
+@app.put("/api/comercial/contatos/{contato_id}")
+def editar_contato_comercial(
+    contato_id: int, corpo: ContatoCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    return _comercial_404(
+        _comercial(lambda: comercial.editar_contato(contato_id, corpo.model_dump(exclude_unset=True))),
+        "Contato",
+    )
+
+
+@app.delete("/api/comercial/contatos/{contato_id}")
+def excluir_contato_comercial(contato_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    if not comercial.excluir_contato(contato_id):
+        raise HTTPException(status_code=404, detail="Contato não encontrado.")
+    return {"status": "excluido"}
 
 
 @app.get("/api/incidentes")

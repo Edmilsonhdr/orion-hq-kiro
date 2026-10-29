@@ -22,7 +22,7 @@ from typing import Optional
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from . import config, db, llm
+from . import comercial, config, db, llm
 from . import ferramentas as ferramentas_mod
 from .atividades import emitir
 
@@ -67,6 +67,22 @@ def _redigir_resumo(contexto: str, run_id: Optional[str] = None) -> str:
     return llm.texto(resposta)
 
 
+def resumo_comercial() -> bool:
+    """Posta o resumo do funil (texto determinístico, sem modelo). `False` se não há negócios.
+
+    Uma falha aqui não pode derrubar o resumo da semana, então é só registrada no log.
+    """
+    try:
+        texto = comercial.texto_resumo_semanal()
+        if texto is None:
+            return False
+        db.salvar_mensagem(AUTOR_ORQ, texto)
+        return True
+    except Exception:  # noqa: BLE001
+        logger.exception("Falha ao montar o resumo comercial")
+        return False
+
+
 def resumo_semanal() -> dict:
     """Gera o resumo da semana e o posta como mensagem do Orquestrador.
 
@@ -75,14 +91,15 @@ def resumo_semanal() -> dict:
     2. Se não houver mudanças, posta a linha `SEM_MUDANCAS` sem chamar o modelo.
     3. Caso contrário, pede o resumo ao worker e posta no chat.
 
-    Devolve `{"status": "sem_mudancas" | "resumido", "resposta": <texto>}`.
+    Depois posta o resumo comercial, se houver negócios. Devolve `{"status": "sem_mudancas" | "resumido",
+    "resposta": <texto>, "comercial": <bool>}`.
     """
     contexto = ferramentas_mod._mudancas_recentes(DIAS)
 
     if contexto.startswith(_PREFIXO_VAZIO):
         db.salvar_mensagem(AUTOR_ORQ, SEM_MUDANCAS)
-        return {"status": "sem_mudancas", "resposta": SEM_MUDANCAS}
+        return {"status": "sem_mudancas", "resposta": SEM_MUDANCAS, "comercial": resumo_comercial()}
 
     resumo = _redigir_resumo(contexto, f"resumo-{config.agora():%Y-%m-%d}")
     db.salvar_mensagem(AUTOR_ORQ, resumo)
-    return {"status": "resumido", "resposta": resumo}
+    return {"status": "resumido", "resposta": resumo, "comercial": resumo_comercial()}

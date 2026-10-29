@@ -30,7 +30,7 @@ from typing import Any, Optional
 
 from langgraph.types import Command
 
-from . import db, propostas_docs
+from . import db, propostas_comercial, propostas_docs
 from .atividades import emitir
 
 logger = logging.getLogger("orion.execucao")
@@ -249,6 +249,8 @@ def decidir_aprovacao(aprovacao_id: int, usuario: str, aprovado: bool) -> dict:
     # Propostas de documento não têm run pausado: aplicam direto (spec docs-escrita).
     if linha["tipo"] in propostas_docs.TIPOS:
         return _decidir_documento(linha, aprovado, usuario)
+    if linha["tipo"] in propostas_comercial.TIPOS:
+        return _decidir_proposta(propostas_comercial, linha, aprovado, usuario)
 
     # 2 e 3. Retoma o grafo com a decisão humana (Requirement 6.7) e finaliza.
     return _retomar(aprovacao_id, linha["run_id"], aprovado, usuario)
@@ -275,6 +277,10 @@ def retomar_aprovacao(aprovacao_id: int) -> dict:
         return {"status": "nao_retomavel"}
     if linha["tipo"] in propostas_docs.TIPOS:
         return _decidir_documento(linha, bool(linha["aprovado"]), linha["decidido_por"] or "")
+    if linha["tipo"] in propostas_comercial.TIPOS:
+        return _decidir_proposta(
+            propostas_comercial, linha, bool(linha["aprovado"]), linha["decidido_por"] or ""
+        )
     return _retomar(
         aprovacao_id, linha["run_id"], bool(linha["aprovado"]), linha["decidido_por"] or ""
     )
@@ -312,7 +318,14 @@ def _retomar(aprovacao_id: int, run_id: str, aprovado: bool, por: str) -> dict:
 
 
 def _decidir_documento(aprovacao: dict, aprovado: bool, por: str) -> dict:
-    """Efeito da decisão sobre uma proposta de documento (sem retomar o grafo).
+    """Decide uma proposta de documento (spec docs-escrita)."""
+    return _decidir_proposta(propostas_docs, aprovacao, aprovado, por)
+
+
+def _decidir_proposta(modulo: Any, aprovacao: dict, aprovado: bool, por: str) -> dict:
+    """Efeito da decisão sobre uma proposta de documento ou do Comercial (sem retomar o grafo).
+
+    `modulo` é `propostas_docs` ou `propostas_comercial` (ambos têm `descricao` e `aplicar`).
 
     Recusada: não grava nada. Aprovada: `propostas_docs.aplicar`; edição desatualizada vira status
     `obsoleta`; falha vira status `erro` (e "Tentar de novo" reaplica sem duplicar). Em todos os casos
@@ -321,7 +334,7 @@ def _decidir_documento(aprovacao: dict, aprovado: bool, por: str) -> dict:
     run_id = aprovacao["run_id"]
     agente = aprovacao.get("pedido_por") or "orq"
     proposta = aprovacao["proposta"] or {}
-    acao = propostas_docs.descricao(aprovacao["tipo"], proposta)
+    acao = modulo.descricao(aprovacao["tipo"], proposta)
 
     if not aprovado:
         texto = f"{por} recusou a proposta de {acao}. Nada foi alterado."
@@ -330,9 +343,9 @@ def _decidir_documento(aprovacao: dict, aprovado: bool, por: str) -> dict:
         return {"status": "respondido", "run_id": run_id, "resposta": texto}
 
     try:
-        resultado = propostas_docs.aplicar(aprovacao, por)
+        resultado = modulo.aplicar(aprovacao, por)
     except Exception:  # noqa: BLE001 — falha ao aplicar vira status `erro` + aviso
-        logger.exception("Falha ao aplicar proposta de documento (aprovacao=%s)", aprovacao["id"])
+        logger.exception("Falha ao aplicar proposta (aprovacao=%s)", aprovacao["id"])
         try:
             db.executar("update aprovacoes set status = 'erro' where id = %s", (aprovacao["id"],))
         except Exception:  # noqa: BLE001

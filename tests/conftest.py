@@ -50,6 +50,10 @@ _TABELAS_DOMINIO = (
     "incidentes",
     "documentos",
     "documento_versoes",
+    "interacoes",
+    "negocios",
+    "contatos",
+    "organizacoes",
 )
 
 

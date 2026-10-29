@@ -34,6 +34,33 @@ type PropostaDocumento = {
 };
 
 const TIPOS_DOCUMENTO = ["criar_documento", "editar_documento"];
+const TIPOS_COMERCIAL = ["comercial_novo_negocio", "comercial_atualizar_negocio", "comercial_interacao"];
+
+type PropostaComercial = {
+  acao?: string;
+  organizacao_nome?: string;
+  organizacao_tipo?: string;
+  negocio_id?: number;
+  negocio_titulo?: string;
+  etapa_origem?: string;
+  etapa?: string | null;
+  motivo_perda?: string | null;
+  tipo?: string;
+  resumo?: string;
+  campos?: Record<string, string | number | null>;
+};
+
+const ROTULO_CAMPO: Record<string, string> = {
+  titulo: "Título",
+  valor_mensal: "Valor mensal (R$)",
+  pacientes_ativos: "Pacientes/alunos ativos",
+  plano_interesse: "Pacote",
+  usa_hoje: "Usa hoje",
+  origem: "Origem",
+  responsavel: "Responsável",
+  proximo_passo: "Próximo passo",
+  proximo_passo_em: "Data do próximo passo",
+};
 const PREVIA_MAX = 1500;
 
 type PropostaReuniao = {
@@ -116,6 +143,41 @@ function DetalhesDocumento({ proposta }: { proposta: PropostaDocumento }) {
   );
 }
 
+function DetalhesComercial({ tipo, proposta }: { tipo: string; proposta: PropostaComercial }) {
+  const campos = Object.entries(proposta.campos ?? {}).filter(([, v]) => v !== null && v !== "");
+  const acao =
+    tipo === "comercial_novo_negocio"
+      ? `Criar um negócio em “${proposta.organizacao_nome ?? ""}”`
+      : tipo === "comercial_interacao"
+        ? `Registrar ${proposta.tipo ?? "nota"} no negócio #${proposta.negocio_id} “${proposta.negocio_titulo ?? ""}”`
+        : `Atualizar o negócio #${proposta.negocio_id} “${proposta.negocio_titulo ?? ""}”`;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      <div>
+        <span className="texto-secundario">Ação: </span>
+        <span>{acao}</span>
+      </div>
+      {proposta.etapa && (
+        <div>
+          <span className="texto-secundario">Etapa: </span>
+          <span>
+            {proposta.etapa_origem ? `${proposta.etapa_origem} → ` : ""}
+            {proposta.etapa}
+            {proposta.motivo_perda ? ` (${proposta.motivo_perda})` : ""}
+          </span>
+        </div>
+      )}
+      {campos.map(([chave, valor]) => (
+        <div key={chave}>
+          <span className="texto-secundario">{ROTULO_CAMPO[chave] ?? chave}: </span>
+          <span>{String(valor)}</span>
+        </div>
+      ))}
+      {proposta.resumo && <div style={{ whiteSpace: "pre-wrap" }}>{proposta.resumo}</div>}
+    </div>
+  );
+}
+
 function DetalhesReuniao({ proposta }: { proposta: PropostaReuniao }) {
   const participantes = proposta.participantes ?? [];
   const pauta = proposta.pauta ?? [];
@@ -165,11 +227,15 @@ export default function ApprovalCard({
   ocupado?: boolean;
 }) {
   const ehDocumento = TIPOS_DOCUMENTO.includes(aprovacao.tipo);
+  const ehComercial = TIPOS_COMERCIAL.includes(aprovacao.tipo);
+  const propostaCom = (aprovacao.proposta ?? {}) as PropostaComercial;
   const proposta = (aprovacao.proposta ?? {}) as PropostaReuniao;
   const propostaDoc = (aprovacao.proposta ?? {}) as PropostaDocumento;
-  const titulo = ehDocumento
-    ? propostaDoc.titulo || propostaDoc.documento_titulo || "Proposta de documento"
-    : proposta.titulo || "Proposta de reunião";
+  const titulo = ehComercial
+    ? propostaCom.campos?.titulo?.toString() || propostaCom.negocio_titulo || "Proposta comercial"
+    : ehDocumento
+      ? propostaDoc.titulo || propostaDoc.documento_titulo || "Proposta de documento"
+      : proposta.titulo || "Proposta de reunião";
   const pendente = aprovacao.status === "pendente";
   const comErro = aprovacao.status === "erro";
   const destaque = pendente || comErro;
@@ -204,7 +270,9 @@ export default function ApprovalCard({
         </span>
       </div>
 
-      {ehDocumento ? (
+      {ehComercial ? (
+        <DetalhesComercial tipo={aprovacao.tipo} proposta={propostaCom} />
+      ) : ehDocumento ? (
         <DetalhesDocumento proposta={propostaDoc} />
       ) : (
         <DetalhesReuniao proposta={proposta} />
@@ -260,7 +328,7 @@ export default function ApprovalCard({
           {aprovacao.status === "aprovada"
             ? "Aprovada"
             : aprovacao.status === "obsoleta"
-              ? "Aprovada, mas não aplicada: o documento mudou desde a proposta"
+              ? "Aprovada, mas não aplicada: o item mudou desde a proposta"
               : "Recusada"}
           {aprovacao.decidido_por ? ` por ${aprovacao.decidido_por}` : ""}
           {aprovacao.decidido_em ? ` · ${dataHora(aprovacao.decidido_em)}` : ""}

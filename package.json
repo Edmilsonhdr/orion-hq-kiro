@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:front": "node --test lib/rotina.test.ts lib/markdown.test.ts lib/docs.test.ts"
+    "test:front": "node --test lib/rotina.test.ts lib/markdown.test.ts lib/docs.test.ts lib/comercial.test.ts"
   },
   "dependencies": {
     "next": "^16.3.6",

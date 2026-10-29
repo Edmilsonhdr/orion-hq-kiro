@@ -134,3 +134,64 @@ create table if not exists documento_versoes (
 );
 create index if not exists documento_versoes_doc_idx
   on documento_versoes (documento_id, criado_em desc);
+
+-- Comercial: CRM leve (spec `.kiro/specs/comercial`). Só dados COMERCIAIS, nunca dados de saúde.
+-- Tipos, áreas, etapas e pacotes são text validados em código.
+create table if not exists organizacoes (
+  id bigserial primary key,
+  nome text not null,
+  tipo text not null default 'clinica',   -- clinica | autonomo | empresa | outro
+  area text,                              -- nutricao | educacao_fisica | ambas | outra
+  cidade text,
+  site text,
+  observacoes text,
+  arquivada boolean not null default false,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+create unique index if not exists organizacoes_nome_ativa_idx
+  on organizacoes (lower(nome)) where not arquivada;
+
+create table if not exists contatos (
+  id bigserial primary key,
+  organizacao_id bigint not null references organizacoes(id) on delete cascade,
+  nome text not null,
+  cargo text,
+  email text,
+  telefone text,
+  criado_em timestamptz not null default now()
+);
+create index if not exists contatos_org_idx on contatos (organizacao_id);
+
+create table if not exists negocios (
+  id bigserial primary key,
+  organizacao_id bigint not null references organizacoes(id),
+  titulo text not null,
+  etapa text not null default 'lead',     -- lead|contato|demonstracao|piloto|proposta|ganho|perdido
+  valor_mensal numeric(12,2),
+  pacientes_ativos integer,
+  plano_interesse text,                   -- essencial | completo
+  usa_hoje text,
+  origem text,
+  responsavel text not null,
+  proximo_passo text,
+  proximo_passo_em date,
+  etapa_desde timestamptz not null default now(),
+  fechado_em timestamptz,
+  motivo_perda text,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+create index if not exists negocios_etapa_idx on negocios (etapa);
+create index if not exists negocios_org_idx on negocios (organizacao_id);
+
+create table if not exists interacoes (
+  id bigserial primary key,
+  negocio_id bigint not null references negocios(id) on delete cascade,
+  tipo text not null,                     -- ligacao|reuniao|email|whatsapp|nota|etapa (etapa é do sistema)
+  resumo text not null,
+  ocorrida_em timestamptz not null default now(),
+  autor text not null,
+  criado_em timestamptz not null default now()
+);
+create index if not exists interacoes_negocio_idx on interacoes (negocio_id, ocorrida_em desc);

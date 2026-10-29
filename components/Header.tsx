@@ -20,6 +20,7 @@ type Aprovacao = { id: number };
 const LINKS = [
   { href: "/chat", rotulo: "Chat" },
   { href: "/escritorio", rotulo: "Escritório" },
+  { href: "/comercial", rotulo: "Comercial" },
   { href: "/docs", rotulo: "Docs" },
   { href: "/incidentes", rotulo: "Incidentes" },
   { href: "/aprovacoes", rotulo: "Aprovações" },
@@ -27,12 +28,15 @@ const LINKS = [
 
 // Intervalo do polling do contador de pendentes (~3 s: leve, não é tempo real).
 const INTERVALO_PENDENTES_MS = 3000;
+// Vencidos do Comercial mudam devagar (só com o passar dos dias ou edições).
+const INTERVALO_COMERCIAL_MS = 60000;
 
 export default function Header() {
   const caminho = usePathname();
   const [usuario, setUsuario] = useState<string | null>(null);
   const [pendentes, setPendentes] = useState(0);
   const [incidentesAbertos, setIncidentesAbertos] = useState(0);
+  const [vencidos, setVencidos] = useState(0);
   const [saindo, setSaindo] = useState(false);
 
   // Checa a sessão uma vez. Se não houver sessão, o wrapper de api.ts
@@ -109,6 +113,28 @@ export default function Header() {
     };
   }, []);
 
+  // Polling leve dos próximos passos vencidos do Comercial (spec comercial, Requirement 5.1).
+  useEffect(() => {
+    let ativo = true;
+
+    async function buscar() {
+      if (typeof document !== "undefined" && document.hidden) return;
+      try {
+        const resumo = await obter<{ vencidos: number }>("/comercial/resumo");
+        if (ativo && typeof resumo?.vencidos === "number") setVencidos(resumo.vencidos);
+      } catch {
+        // erros de rede/401 não devem quebrar o loop
+      }
+    }
+
+    buscar();
+    const timer = setInterval(buscar, INTERVALO_COMERCIAL_MS);
+    return () => {
+      ativo = false;
+      clearInterval(timer);
+    };
+  }, []);
+
   async function sair() {
     if (saindo) return;
     setSaindo(true);
@@ -178,6 +204,27 @@ export default function Header() {
                   }}
                 >
                   {pendentes}
+                </span>
+              )}
+              {link.href === "/comercial" && vencidos > 0 && (
+                <span
+                  className="mono"
+                  aria-label={`${vencidos} próximos passos vencidos`}
+                  style={{
+                    minWidth: "20px",
+                    height: "20px",
+                    padding: "0 6px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "var(--espera)",
+                    color: "var(--fundo)",
+                    borderRadius: "10px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                  }}
+                >
+                  {vencidos}
                 </span>
               )}
               {link.href === "/incidentes" && incidentesAbertos > 0 && (

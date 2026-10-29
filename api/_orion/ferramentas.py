@@ -22,7 +22,7 @@ from typing import Optional
 
 from langchain_core.tools import tool
 
-from . import config, db, documentos, propostas_docs
+from . import comercial, config, db, documentos, propostas_comercial, propostas_docs
 
 # (agente, run_id) do especialista em execução. As tools do LangChain não conhecem o run, então o loop
 # de `especialistas.rodar_com_ferramentas` publica aqui (usado pelas propostas de documento).
@@ -255,6 +255,103 @@ def _ler_documento(documento_id: int) -> str:
     return f"{_formatar_documento(documento)}\n\n{texto}{aviso}"
 
 
+# --- Comercial (leitura): CRM de clínicas, empresas e autônomos ---
+
+
+def _reais(valor) -> str:
+    return "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _data_curta(valor) -> str:
+    return f"{valor.day:02d}/{valor.month:02d}/{valor.year}" if valor else "sem data"
+
+
+def _formatar_negocio(n: dict) -> str:
+    partes = [f"[negócio #{n['id']}] {n['titulo']} · {n['organizacao_nome']} ({n['organizacao_tipo']}) · etapa: {n['etapa']}"]
+    if n.get("valor_mensal") is not None:
+        partes.append(f"valor mensal {_reais(n['valor_mensal'])}")
+    if n.get("pacientes_ativos") is not None:
+        partes.append(f"{n['pacientes_ativos']} pacientes/alunos ativos")
+    if n.get("plano_interesse"):
+        partes.append(f"pacote {n['plano_interesse']}")
+    if n.get("usa_hoje"):
+        partes.append(f"usa hoje: {n['usa_hoje']}")
+    passo = n.get("proximo_passo") or "sem próximo passo"
+    partes.append(f"próximo passo: {passo} ({_data_curta(n.get('proximo_passo_em'))})")
+    partes.append(f"responsável: {n['responsavel']}")
+    return " · ".join(partes)
+
+
+def _resumo_funil() -> str:
+    r = comercial.resumo_funil()
+    if not r["abertos"] and not r["ganhos_30d"] and not r["perdidos_30d"]:
+        return "Não há negócios cadastrados no Comercial ainda."
+    etapas = "; ".join(
+        f"{e}: {d['quantidade']} ({_reais(d['valor_mensal'])}/mês)" for e, d in r["por_etapa"].items()
+    )
+    conversao = "sem fechamentos" if r["conversao_90d"] is None else f"{r['conversao_90d']:.0%}"
+    return (
+        f"Funil comercial — {r['abertos']} negócios abertos, potencial de "
+        f"{_reais(r['valor_mensal_potencial'])}/mês.\nPor etapa: {etapas}.\n"
+        f"Últimos 30 dias: {r['ganhos_30d']} ganho(s), {r['perdidos_30d']} perdido(s). "
+        f"Conversão em 90 dias: {conversao}.\n"
+        f"Próximo passo vencido: {r['vencidos']}; sem próximo passo: {r['sem_passo']}; "
+        f"parados há mais de {comercial.DIAS_PARADO} dias: {r['parados']}."
+    )
+
+
+def _buscar_negocios(consulta: str = "", etapa: str = "") -> str:
+    try:
+        itens = comercial.listar_negocios(etapa=etapa or None, busca=consulta or None)
+    except ValueError as erro:
+        return str(erro)
+    if not itens:
+        return "Nenhum negócio encontrado."
+    return "\n".join(_formatar_negocio(n) for n in itens[:20])
+
+
+def _ver_negocio(negocio_id: int) -> str:
+    try:
+        negocio_id = int(negocio_id)
+    except (TypeError, ValueError):
+        return "Informe o número (id) do negócio, como aparece na busca."
+    n = comercial.obter_negocio(negocio_id)
+    if n is None:
+        return f"Não existe negócio com o id {negocio_id}."
+    linhas = [_formatar_negocio(n)]
+    if n.get("motivo_perda"):
+        linhas.append(f"Motivo da perda: {n['motivo_perda']}")
+    contatos = comercial.contatos_da(n["organizacao_id"])
+    if contatos:
+        linhas.append("Contatos: " + "; ".join(
+            f"{c['nome']}" + (f" ({c['cargo']})" if c["cargo"] else "") for c in contatos))
+    historico = comercial.listar_interacoes(negocio_id)[:10]
+    if historico:
+        linhas.append("Histórico recente:")
+        linhas += [f"- {_data_curta(i['ocorrida_em'])} {i['tipo']}: {i['resumo']} ({i['autor']})" for i in historico]
+    return "\n".join(linhas)
+
+
+def _negocios_parados(dias: int = comercial.DIAS_PARADO) -> str:
+    try:
+        itens = comercial.parados(int(dias))
+    except (TypeError, ValueError):
+        return "Informe o número de dias como inteiro."
+    if not itens:
+        return f"Nenhum negócio aberto parado há mais de {dias} dias."
+    return "\n".join(f"{_formatar_negocio(n)} · parado há {n['dias_parado']} dias" for n in itens[:20])
+
+
+def _agenda_comercial() -> str:
+    g = comercial.hoje()
+    if not any(g.values()):
+        return "Não há negócios abertos com próximo passo para acompanhar."
+    rotulos = (("vencidos", "Vencidos"), ("hoje", "Hoje"), ("proximos", "Próximos 7 dias"),
+               ("sem_passo", "Sem próximo passo"))
+    blocos = [f"{r}:\n" + "\n".join(_formatar_negocio(n) for n in g[c]) for c, r in rotulos if g[c]]
+    return "\n\n".join(blocos)
+
+
 # --- Tools expostas aos especialistas (compatíveis com bind_tools) ---
 
 
@@ -346,6 +443,107 @@ def propor_edicao_documento(
     )
 
 
+@tool
+def resumo_funil() -> str:
+    """Resumo do funil comercial: negócios por etapa, valores, ganhos/perdidos, vencidos e parados.
+
+    Use para perguntas gerais sobre vendas, leads e pipeline. Diz explicitamente se não há dados.
+    """
+    return _resumo_funil()
+
+
+@tool
+def buscar_negocios(consulta: str = "", etapa: str = "") -> str:
+    """Busca negócios do Comercial por texto (título, organização, próximo passo) e/ou etapa.
+
+    Etapas: lead, contato, demonstracao, piloto, proposta, ganho, perdido. Cita id, organização,
+    etapa, valor e próximo passo. Para o histórico completo, use `ver_negocio` com o id.
+    """
+    return _buscar_negocios(consulta, etapa)
+
+
+@tool
+def ver_negocio(negocio_id: int) -> str:
+    """Detalhes de um negócio pelo id: dados, contatos e as últimas interações."""
+    return _ver_negocio(negocio_id)
+
+
+@tool
+def negocios_parados(dias: int = 7) -> str:
+    """Negócios abertos sem interação nem alteração há mais de N dias (padrão 7)."""
+    return _negocios_parados(dias)
+
+
+@tool
+def agenda_comercial() -> str:
+    """Próximos passos do comercial: vencidos, de hoje, dos próximos 7 dias e negócios sem próximo passo."""
+    return _agenda_comercial()
+
+
+@tool
+def propor_novo_negocio(
+    organizacao: str,
+    titulo: str,
+    tipo_organizacao: str = "clinica",
+    valor_mensal: Optional[float] = None,
+    pacientes_ativos: Optional[int] = None,
+    plano_interesse: str = "",
+    usa_hoje: str = "",
+    proximo_passo: str = "",
+    proximo_passo_em: str = "",
+) -> str:
+    """PROPÕE criar um negócio no Comercial (não grava até um sócio aprovar).
+
+    `tipo_organizacao`: clinica, autonomo, empresa ou outro. `plano_interesse`: essencial ou completo.
+    `proximo_passo_em` no formato AAAA-MM-DD. NUNCA inclua dados de saúde de pessoas. Depois de chamar,
+    diga que PROPÔS e que depende de aprovação; nunca diga que já criou.
+    """
+    agente, run_id = contexto.get()
+    return propostas_comercial.propor_novo_negocio(
+        agente, run_id, organizacao, titulo, tipo_organizacao,
+        valor_mensal=valor_mensal, pacientes_ativos=pacientes_ativos,
+        plano_interesse=plano_interesse or None, usa_hoje=usa_hoje or None,
+        proximo_passo=proximo_passo or None, proximo_passo_em=proximo_passo_em or None,
+    )
+
+
+@tool
+def propor_atualizacao_negocio(
+    negocio_id: int,
+    etapa: str = "",
+    motivo_perda: str = "",
+    valor_mensal: Optional[float] = None,
+    pacientes_ativos: Optional[int] = None,
+    plano_interesse: str = "",
+    proximo_passo: str = "",
+    proximo_passo_em: str = "",
+) -> str:
+    """PROPÕE mudar a etapa e/ou dados de um negócio aberto (não grava até um sócio aprovar).
+
+    Etapas: lead, contato, demonstracao, piloto, proposta, ganho, perdido (perdido exige `motivo_perda`).
+    Informe só o que muda. NUNCA inclua dados de saúde. Depois de chamar, diga que PROPÔS e que depende
+    de aprovação; nunca diga que já alterou.
+    """
+    agente, run_id = contexto.get()
+    return propostas_comercial.propor_atualizacao(
+        agente, run_id, negocio_id, etapa or None, motivo_perda or None,
+        valor_mensal=valor_mensal, pacientes_ativos=pacientes_ativos,
+        plano_interesse=plano_interesse or None, proximo_passo=proximo_passo or None,
+        proximo_passo_em=proximo_passo_em or None,
+    )
+
+
+@tool
+def propor_interacao(negocio_id: int, tipo: str, resumo: str) -> str:
+    """PROPÕE registrar uma interação (ligacao, reuniao, email, whatsapp ou nota) num negócio.
+
+    Não grava até um sócio aprovar. NUNCA inclua dados de saúde de pessoas no resumo. Depois de chamar,
+    diga que PROPÔS e que depende de aprovação.
+    """
+    agente, run_id = contexto.get()
+    return propostas_comercial.propor_interacao(agente, run_id, negocio_id, tipo, resumo)
+
+
 # Conjuntos de ferramentas por especialista (usados em especialistas.py).
 # Tech: consulta o changelog (Requirement 4.1).
 FERRAMENTAS_TECH: tuple = (
@@ -365,4 +563,12 @@ FERRAMENTAS_NEGOCIOS: tuple = (
     ler_documento,
     propor_documento,
     propor_edicao_documento,
+    resumo_funil,
+    buscar_negocios,
+    ver_negocio,
+    negocios_parados,
+    agenda_comercial,
+    propor_novo_negocio,
+    propor_atualizacao_negocio,
+    propor_interacao,
 )

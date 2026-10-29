@@ -162,6 +162,37 @@ título na mesma pasta é pulado) e nunca sobrescreve. CSV, imagens e anexos sã
 
 Fora do escopo por enquanto: busca semântica, anexos e edição simultânea.
 
+## Comercial (CRM leve)
+
+Módulo para a venda do Orion a **clínicas, empresas e profissionais autônomos** (nutricionistas, nutrólogos e
+educadores físicos). Fica em `/comercial`, com três abas:
+
+- **Hoje:** próximos passos vencidos, de hoje, dos próximos 7 dias e negócios sem próximo passo.
+- **Funil:** quadro com as etapas Lead → Contato → Demonstração → Piloto → Proposta → Ganho/Perdido (arrastar o
+  cartão ou usar o seletor; "Perdido" pede o motivo). O funil segue o processo de piloto do Orion.
+- **Organizações:** clínicas, empresas e autônomos, com contatos e negócios.
+
+Cada negócio guarda valor mensal estimado, número de pacientes/alunos, pacote de interesse, o que o cliente usa
+hoje, próximo passo com data e um histórico (ligações, reuniões, e-mails, WhatsApp, notas e mudanças de etapa).
+
+**Só dados comerciais.** O CRM nunca deve guardar dados de saúde de pessoas; os formulários avisam disso e o
+prompt do agente proíbe registrá-los.
+
+No chat, o **Negócios** consulta o funil (`resumo_funil`, `buscar_negocios`, `ver_negocio`, `negocios_parados`,
+`agenda_comercial`) e **propõe** criar negócios, atualizar etapa/dados e registrar interações. Nada é gravado
+até um sócio aprovar em Aprovações; se o negócio mudou desde a proposta, ela vira `obsoleta` e nada é aplicado.
+Toda segunda, junto do resumo do changelog, o cron posta no chat o resumo do funil (texto fixo, sem modelo).
+
+Biblioteca comercial: modelos em `docs/comercial/` (roteiro de descoberta e demonstração, objeções, proposta e
+checklist do piloto), com campos `[preencher]` e sem preços. Para levá-los ao Docs (pasta "Comercial"):
+
+```bash
+.venv/bin/python scripts/seed_comercial_docs.py            # simulação
+.venv/bin/python scripts/seed_comercial_docs.py --aplicar  # grava (não duplica nem sobrescreve)
+```
+
+Fora do escopo: envio de e-mail/WhatsApp, importação de planilhas, metas por vendedor e perfis de permissão.
+
 ## Criar o banco no Neon
 
 1. No painel da **Vercel**, abra o projeto → aba **Storage** → **Marketplace** → **Neon** e crie um banco
