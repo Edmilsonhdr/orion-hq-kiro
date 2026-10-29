@@ -195,3 +195,7 @@ create table if not exists interacoes (
   criado_em timestamptz not null default now()
 );
 create index if not exists interacoes_negocio_idx on interacoes (negocio_id, ocorrida_em desc);
+
+-- Docs: página pai (subpáginas). Nulo = página de topo; o pai nunca é apagado (só arquivado).
+alter table documentos add column if not exists pai_id bigint references documentos(id) on delete set null;
+create index if not exists documentos_pai_idx on documentos (pai_id);

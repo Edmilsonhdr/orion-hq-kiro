@@ -72,6 +72,7 @@ class DocumentoNovo(BaseModel):
     conteudo: str = ""
     pasta: str | None = None
     tags: list[str] = []
+    pai_id: int | None = None
 
 
 class DocumentoEdicao(BaseModel):
@@ -81,6 +82,7 @@ class DocumentoEdicao(BaseModel):
     conteudo: str | None = None
     pasta: str | None = None
     tags: list[str] | None = None
+    pai_id: int | None = None
 
 
 class OrganizacaoCorpo(BaseModel):
@@ -398,6 +400,12 @@ def pastas_documentos(usuario: str = Depends(auth.usuario_atual)) -> dict:
     return documentos.pastas_e_tags()
 
 
+@app.get("/api/documentos/arvore")
+def arvore_documentos(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    """Documentos não arquivados com pai e pasta, para a árvore e o seletor de página pai."""
+    return documentos.arvore()
+
+
 @app.post("/api/documentos", status_code=status.HTTP_201_CREATED)
 def criar_documento(
     corpo: DocumentoNovo, usuario: str = Depends(auth.usuario_atual)
@@ -405,7 +413,7 @@ def criar_documento(
     """Cria um documento (Docs — Requirements 1.1–1.3, 1.5)."""
     try:
         return documentos.criar(
-            corpo.titulo, corpo.conteudo, corpo.pasta, corpo.tags, usuario
+            corpo.titulo, corpo.conteudo, corpo.pasta, corpo.tags, usuario, corpo.pai_id
         )
     except ValueError as erro:
         raise _invalido(erro)
@@ -415,8 +423,11 @@ def criar_documento(
 def detalhe_documento(
     documento_id: int, usuario: str = Depends(auth.usuario_atual)
 ) -> dict:
-    """Documento completo (404 se não existir)."""
-    return _documento_ou_404(documentos.obter(documento_id))
+    """Documento completo, com ancestrais e subpáginas (404 se não existir)."""
+    documento = _documento_ou_404(documentos.obter(documento_id))
+    documento["ancestrais"] = documentos.ancestrais(documento_id)
+    documento["subpaginas"] = documentos.subpaginas(documento_id)
+    return documento
 
 
 @app.put("/api/documentos/{documento_id}")

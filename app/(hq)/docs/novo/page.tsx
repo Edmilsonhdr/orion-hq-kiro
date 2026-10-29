@@ -7,19 +7,27 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import DocEditor from "../../../../components/DocEditor";
 import { enviar, obter } from "../../../../lib/api";
-import type { DadosDocumento, Documento, Filtros } from "../../../../lib/docs";
-
-const VAZIO: DadosDocumento = { titulo: "", conteudo: "", pasta: null, tags: [] };
+import { opcoesPai, type DadosDocumento, type Documento, type Filtros, type NoArvore } from "../../../../lib/docs";
 
 export default function NovoDocumentoPage() {
   const router = useRouter();
   const [pastas, setPastas] = useState<string[]>([]);
+  const [arvore, setArvore] = useState<NoArvore[]>([]);
+  const [inicial, setInicial] = useState<DadosDocumento | null>(null);
 
   useEffect(() => {
+    // ?pai=ID abre o formulário já como subpágina (botão "Nova subpágina").
+    const pai = Number(new URLSearchParams(window.location.search).get("pai"));
+    setInicial({ titulo: "", conteudo: "", pasta: null, pai_id: Number.isInteger(pai) && pai > 0 ? pai : null, tags: [] });
     obter<Filtros>("/documentos/pastas")
       .then((f) => setPastas(f.pastas))
       .catch(() => {
         // sugestões de pasta são opcionais
+      });
+    obter<NoArvore[]>("/documentos/arvore")
+      .then(setArvore)
+      .catch(() => {
+        // sem a árvore o seletor de página pai fica só com "topo"
       });
   }, []);
 
@@ -35,14 +43,17 @@ export default function NovoDocumentoPage() {
         <span aria-hidden="true">›</span>
         <span>Novo documento</span>
       </nav>
+      {inicial && (
       <DocEditor
-        inicial={VAZIO}
+        inicial={inicial}
         pastasSugeridas={pastas}
+        opcoesPai={opcoesPai(arvore)}
         rotuloSalvar="Criar documento"
         chaveRascunho="novo"
         onSalvar={salvar}
         onCancelar={() => router.push("/docs")}
       />
+      )}
     </div>
   );
 }

@@ -9,11 +9,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "./Markdown";
-import { CONTEUDO_MAX, contarPalavras, tagsDoTexto, type DadosDocumento } from "../lib/docs";
+import { CONTEUDO_MAX, contarPalavras, tagsDoTexto, type DadosDocumento, type OpcaoPai } from "../lib/docs";
 
 type Props = {
   inicial: DadosDocumento;
   pastasSugeridas: string[];
+  opcoesPai: OpcaoPai[];
   rotuloSalvar?: string;
   // Identifica o rascunho local: o id do documento, ou "novo".
   chaveRascunho: string;
@@ -46,6 +47,7 @@ function gravarRascunho(chave: string, dados: Rascunho | null) {
 export default function DocEditor({
   inicial,
   pastasSugeridas,
+  opcoesPai,
   rotuloSalvar = "Salvar",
   chaveRascunho,
   onSalvar,
@@ -55,6 +57,7 @@ export default function DocEditor({
   const [titulo, setTitulo] = useState(inicial.titulo);
   const [conteudo, setConteudo] = useState(inicial.conteudo);
   const [pasta, setPasta] = useState(inicial.pasta ?? "");
+  const [pai, setPai] = useState(inicial.pai_id === null ? "" : String(inicial.pai_id));
   const [tags, setTags] = useState(inicial.tags.join(", "));
   const [modo, setModo] = useState<"escrever" | "previa">("escrever");
   const [salvando, setSalvando] = useState(false);
@@ -63,13 +66,20 @@ export default function DocEditor({
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
   const atual: DadosDocumento = useMemo(
-    () => ({ titulo, conteudo, pasta: pasta.trim() || null, tags: tagsDoTexto(tags) }),
-    [titulo, conteudo, pasta, tags],
+    () => ({
+      titulo,
+      conteudo,
+      pasta: pasta.trim() || null,
+      pai_id: pai ? Number(pai) : null,
+      tags: tagsDoTexto(tags),
+    }),
+    [titulo, conteudo, pasta, pai, tags],
   );
   const sujo =
     atual.titulo !== inicial.titulo ||
     atual.conteudo !== inicial.conteudo ||
     atual.pasta !== (inicial.pasta ?? null) ||
+    atual.pai_id !== (inicial.pai_id ?? null) ||
     atual.tags.join(",") !== inicial.tags.join(",");
 
   // Há rascunho de uma sessão anterior diferente do que foi carregado?
@@ -80,6 +90,7 @@ export default function DocEditor({
       (guardado.titulo !== inicial.titulo ||
         guardado.conteudo !== inicial.conteudo ||
         (guardado.pasta ?? null) !== (inicial.pasta ?? null) ||
+        (guardado.pai_id ?? null) !== (inicial.pai_id ?? null) ||
         guardado.tags.join(",") !== inicial.tags.join(","))
     ) {
       setRascunho(guardado);
@@ -146,6 +157,7 @@ export default function DocEditor({
     setTitulo(rascunho.titulo);
     setConteudo(rascunho.conteudo);
     setPasta(rascunho.pasta ?? "");
+    setPai(rascunho.pai_id ? String(rascunho.pai_id) : "");
     setTags(rascunho.tags.join(", "));
     setRascunho(null);
   }
@@ -259,6 +271,19 @@ export default function DocEditor({
             <option key={p} value={p} />
           ))}
         </datalist>
+        <select
+          aria-label="Página pai"
+          value={pai}
+          onChange={(e) => setPai(e.target.value)}
+          style={{ flex: "1 1 200px" }}
+        >
+          <option value="">Sem página pai (topo)</option>
+          {opcoesPai.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.rotulo}
+            </option>
+          ))}
+        </select>
         <input
           aria-label="Tags"
           placeholder="Tags separadas por vírgula"

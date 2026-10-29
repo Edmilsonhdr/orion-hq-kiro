@@ -13,6 +13,7 @@ import {
   tempoRelativo,
   type DocumentoResumo,
   type Filtros,
+  type NoArvore,
 } from "../../../lib/docs";
 import { textoPuro } from "../../../lib/markdown";
 
@@ -63,6 +64,7 @@ export default function DocsPage() {
   const [busca, setBusca] = useState("");
   const [termo, setTermo] = useState("");
   const [pasta, setPasta] = useState("");
+  const [titulosPorId, setTitulosPorId] = useState<Record<number, string>>({});
   const [tag, setTag] = useState("");
   const [arquivados, setArquivados] = useState(false);
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
@@ -81,6 +83,11 @@ export default function DocsPage() {
   }, []);
 
   useEffect(() => {
+    obter<NoArvore[]>("/documentos/arvore")
+      .then((a) => setTitulosPorId(Object.fromEntries(a.map((n) => [n.id, n.titulo]))))
+      .catch(() => {
+        // o "dentro de" do cartão é só uma conveniência
+      });
     obter<Filtros>("/documentos/pastas")
       .then(setFiltros)
       .catch(() => {
@@ -313,6 +320,11 @@ export default function DocsPage() {
                     )}
                     <div className="docs-cartao-meta">
                       {d.arquivado && <span className="doc-etiqueta">arquivado</span>}
+                      {d.pai_id !== null && titulosPorId[d.pai_id] && (
+                        <span className="doc-etiqueta" title="Subpágina de">
+                          ↳ {titulosPorId[d.pai_id]}
+                        </span>
+                      )}
                       {d.pasta && <span className="doc-etiqueta">{d.pasta}</span>}
                       {d.tags.map((t) => (
                         <span key={t} className="mono">

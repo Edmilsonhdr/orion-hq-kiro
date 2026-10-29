@@ -160,6 +160,11 @@ O id do Notion no nome é removido, o título vem do primeiro `# Título` (ou do
 pastas viram a pasta do documento e tudo recebe a tag `importado`. Rodar de novo não duplica (mesmo
 título na mesma pasta é pulado) e nunca sobrescreve. CSV, imagens e anexos são ignorados.
 
+**Subpáginas:** cada documento pode ter uma página pai (até 6 níveis, sem ciclos). A tela do documento mostra
+as migalhas com os ancestrais, a lista de subpáginas e "Nova subpágina"; o editor tem o seletor "Página pai".
+Arquivar uma página arquiva as subpáginas; desarquivar reabre só ela. A `pasta` continua existindo. A
+exportação e a importação ainda não preservam a hierarquia de subpáginas (só a pasta).
+
 Fora do escopo por enquanto: busca semântica, anexos e edição simultânea.
 
 ## Comercial (CRM leve)

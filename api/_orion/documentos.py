@@ -26,9 +26,10 @@ TAG_MAX = 40
 VERSOES_MAX = 50
 BUSCA_MAX = 20
 TRECHO_MAX = 200
+PROFUNDIDADE_MAX = 6
 
 _COLUNAS_RESUMO = (
-    "id, titulo, pasta, tags, autor, arquivado, criado_em, atualizado_em"
+    "id, titulo, pasta, pai_id, tags, autor, arquivado, criado_em, atualizado_em"
 )
 _COLUNAS_COMPLETAS = _COLUNAS_RESUMO + ", conteudo"
 
@@ -74,6 +75,81 @@ def _validar_conteudo(conteudo: Optional[str]) -> str:
     return texto
 
 
+def ancestrais(documento_id: int) -> list[dict]:
+    """Do topo até o pai direto (sem o próprio documento), com id e título."""
+    return db.consultar(
+        """
+        with recursive acima as (
+          select d.id, d.titulo, d.pai_id, 1 as nivel
+          from documentos d where d.id = (select pai_id from documentos where id = %s)
+          union all
+          select d.id, d.titulo, d.pai_id, a.nivel + 1
+          from documentos d join acima a on d.id = a.pai_id
+        )
+        select id, titulo from acima order by nivel desc
+        """,
+        (documento_id,),
+    )
+
+
+def _altura(documento_id: int) -> int:
+    """Níveis da subárvore abaixo do documento (0 = sem filhas)."""
+    linha = db.um(
+        """
+        with recursive abaixo as (
+          select id, 1 as nivel from documentos where pai_id = %s
+          union all
+          select d.id, a.nivel + 1 from documentos d join abaixo a on d.pai_id = a.id
+        )
+        select coalesce(max(nivel), 0) as n from abaixo
+        """,
+        (documento_id,),
+    )
+    return int(linha["n"]) if linha else 0
+
+
+def validar_pai(pai_id: Any, documento_id: Optional[int] = None) -> Optional[int]:
+    """Valida o pai: existe, não arquivado, sem ciclo e dentro de `PROFUNDIDADE_MAX` níveis."""
+    if pai_id in (None, ""):
+        return None
+    try:
+        pai_id = int(pai_id)
+    except (TypeError, ValueError):
+        raise ValueError("A página pai é inválida.") from None
+    pai = db.um("select arquivado from documentos where id = %s", (pai_id,))
+    if pai is None:
+        raise ValueError("A página pai não existe.")
+    if pai["arquivado"]:
+        raise ValueError("A página pai está arquivada.")
+    if documento_id is not None:
+        if pai_id == documento_id or any(a["id"] == documento_id for a in ancestrais(pai_id)):
+            raise ValueError("Uma página não pode ficar dentro dela mesma ou de suas subpáginas.")
+    nivel_pai = len(ancestrais(pai_id)) + 1
+    abaixo = _altura(documento_id) if documento_id is not None else 0
+    if nivel_pai + 1 + abaixo > PROFUNDIDADE_MAX:
+        raise ValueError(f"As páginas podem ter no máximo {PROFUNDIDADE_MAX} níveis.")
+    return pai_id
+
+
+def subpaginas(documento_id: int) -> list[dict]:
+    """Filhas diretas não arquivadas, mais antigas primeiro, com trecho."""
+    return db.consultar(
+        f"""
+        select {_COLUNAS_RESUMO}, left(conteudo, {TRECHO_MAX}) as trecho
+        from documentos where pai_id = %s and not arquivado
+        order by criado_em, id
+        """,
+        (documento_id,),
+    )
+
+
+def arvore() -> list[dict]:
+    """Documentos não arquivados (id, título, pai, pasta) para a árvore e o seletor de pai."""
+    return db.consultar(
+        "select id, titulo, pai_id, pasta from documentos where not arquivado order by lower(titulo), id"
+    )
+
+
 def validar_campos(campos: dict[str, Any]) -> dict[str, Any]:
     """Valida e normaliza só os campos presentes (titulo, conteudo, pasta, tags).
 
@@ -98,12 +174,13 @@ def criar(
     pasta: Optional[str] = None,
     tags: Optional[list[str]] = None,
     autor: str = "",
+    pai_id: Optional[int] = None,
 ) -> dict:
-    """Cria um documento e devolve a linha completa."""
+    """Cria um documento (opcionalmente dentro de uma página pai) e devolve a linha completa."""
     linha = db.um(
         f"""
-        insert into documentos (titulo, conteudo, pasta, tags, autor)
-        values (%s, %s, %s, %s, %s)
+        insert into documentos (titulo, conteudo, pasta, tags, autor, pai_id)
+        values (%s, %s, %s, %s, %s, %s)
         returning {_COLUNAS_COMPLETAS}
         """,
         (
@@ -112,6 +189,7 @@ def criar(
             _normalizar_pasta(pasta),
             _normalizar_tags(tags),
             autor,
+            validar_pai(pai_id),
         ),
     )
     assert linha is not None
@@ -126,12 +204,13 @@ def obter(documento_id: int) -> Optional[dict]:
 
 
 def editar(documento_id: int, campos: dict[str, Any], editor: str) -> Optional[dict]:
-    """Atualiza os campos presentes em `campos` (titulo, conteudo, pasta, tags).
+    """Atualiza os campos presentes em `campos` (titulo, conteudo, pasta, tags, pai_id).
 
     Se título ou conteúdo mudarem, grava a versão anterior na MESMA transação (nunca se perde o
     texto antigo) e poda para as `VERSOES_MAX` mais recentes. Edição sem mudança real não cria
     versão nem mexe em `atualizado_em`. Devolve o documento ou `None` se não existir.
     """
+    pai = validar_pai(campos["pai_id"], documento_id) if "pai_id" in campos else None
     with db.conexao() as conn:
         with conn.transaction():
             with conn.cursor() as cur:
@@ -148,7 +227,10 @@ def editar(documento_id: int, campos: dict[str, Any], editor: str) -> Optional[d
                     "conteudo": atual["conteudo"],
                     "pasta": atual["pasta"],
                     "tags": atual["tags"],
+                    "pai_id": atual["pai_id"],
                 }
+                if "pai_id" in campos:
+                    novo["pai_id"] = pai
                 if "titulo" in campos:
                     novo["titulo"] = _validar_titulo(campos["titulo"])
                 if "conteudo" in campos:
@@ -188,7 +270,7 @@ def editar(documento_id: int, campos: dict[str, Any], editor: str) -> Optional[d
                 cur.execute(
                     f"""
                     update documentos
-                    set titulo = %s, conteudo = %s, pasta = %s, tags = %s,
+                    set titulo = %s, conteudo = %s, pasta = %s, tags = %s, pai_id = %s,
                         atualizado_em = now()
                     where id = %s
                     returning {_COLUNAS_COMPLETAS}
@@ -198,6 +280,7 @@ def editar(documento_id: int, campos: dict[str, Any], editor: str) -> Optional[d
                         novo["conteudo"],
                         novo["pasta"],
                         novo["tags"],
+                        novo["pai_id"],
                         documento_id,
                     ),
                 )
@@ -205,15 +288,36 @@ def editar(documento_id: int, campos: dict[str, Any], editor: str) -> Optional[d
 
 
 def arquivar(documento_id: int, arquivado: bool = True) -> Optional[dict]:
-    """Arquiva ou desarquiva. Não conta como edição (sem versão)."""
-    return db.um(
-        f"""
-        update documentos set arquivado = %s, atualizado_em = now()
-        where id = %s
-        returning {_COLUNAS_COMPLETAS}
-        """,
-        (arquivado, documento_id),
-    )
+    """Arquiva ou desarquiva. Não conta como edição (sem versão).
+
+    Arquivar leva junto as subpáginas (na mesma transação); desarquivar reabre só a página pedida.
+    """
+    with db.conexao() as conn:
+        with conn.transaction():
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    update documentos set arquivado = %s, atualizado_em = now()
+                    where id = %s
+                    returning {_COLUNAS_COMPLETAS}
+                    """,
+                    (arquivado, documento_id),
+                )
+                linha = cur.fetchone()
+                if linha is not None and arquivado:
+                    cur.execute(
+                        """
+                        with recursive abaixo as (
+                          select id from documentos where pai_id = %s
+                          union all
+                          select d.id from documentos d join abaixo a on d.pai_id = a.id
+                        )
+                        update documentos set arquivado = true, atualizado_em = now()
+                        where id in (select id from abaixo) and not arquivado
+                        """,
+                        (documento_id,),
+                    )
+                return linha
 
 
 def listar(

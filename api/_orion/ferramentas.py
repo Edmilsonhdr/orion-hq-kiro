@@ -252,6 +252,9 @@ def _ler_documento(documento_id: int) -> str:
     if len(texto) > _LIMITE_DOCUMENTO:
         texto = texto[:_LIMITE_DOCUMENTO]
         aviso = f"\n\n[Conteúdo truncado: mostrando os primeiros {_LIMITE_DOCUMENTO} caracteres.]"
+    filhas = documentos.subpaginas(documento_id)
+    if filhas:
+        aviso += "\n\nSubpáginas: " + "; ".join(f"#{f['id']} {f['titulo']}" for f in filhas)
     return f"{_formatar_documento(documento)}\n\n{texto}{aviso}"
 
 

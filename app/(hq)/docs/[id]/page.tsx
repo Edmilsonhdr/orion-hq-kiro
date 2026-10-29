@@ -3,7 +3,7 @@
 // Documento: leitura (com sumário), edição, arquivar e histórico de versões com restauração
 // (spec docs, Requirements 2, 3.3, 5.3, 5.5, 5.6).
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import DocEditor from "../../../../components/DocEditor";
@@ -13,9 +13,12 @@ import { ErroApi, atualizar, enviar, obter } from "../../../../lib/api";
 import {
   formatarData,
   tempoRelativo,
+  type Ancestral,
   type DadosDocumento,
   type Documento,
   type Filtros,
+  type NoArvore,
+  opcoesPai,
   type Versao,
   type VersaoResumo,
 } from "../../../../lib/docs";
@@ -29,6 +32,7 @@ export default function DocumentoPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState(false);
   const [pastas, setPastas] = useState<string[]>([]);
+  const [arvore, setArvore] = useState<NoArvore[]>([]);
 
   const [historico, setHistorico] = useState<VersaoResumo[] | null>(null);
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
@@ -45,6 +49,11 @@ export default function DocumentoPage() {
         if (!ativo) return;
         if (e instanceof ErroApi && e.status === 404) setNaoEncontrado(true);
         else setErro(e instanceof Error ? e.message : "Erro ao carregar o documento.");
+      });
+    obter<NoArvore[]>("/documentos/arvore")
+      .then((a) => ativo && setArvore(a))
+      .catch(() => {
+        // sem a árvore o seletor de página pai fica só com "topo"
       });
     obter<Filtros>("/documentos/pastas")
       .then((f) => ativo && setPastas(f.pastas))
@@ -121,10 +130,16 @@ export default function DocumentoPage() {
     }
   }
 
-  const migalhas = (titulo: string, pasta?: string | null) => (
+  const migalhas = (titulo: string, pasta?: string | null, ancestrais: Ancestral[] = []) => (
     <nav className="doc-migalhas" aria-label="Você está em">
       <Link href="/docs">Docs</Link>
-      {pasta && (
+      {ancestrais.map((a) => (
+        <Fragment key={a.id}>
+          <span aria-hidden="true">›</span>
+          <Link href={`/docs/${a.id}`}>{a.titulo}</Link>
+        </Fragment>
+      ))}
+      {!ancestrais.length && pasta && (
         <>
           <span aria-hidden="true">›</span>
           <Link href={`/docs?pasta=${encodeURIComponent(pasta)}`}>{pasta}</Link>
@@ -173,10 +188,17 @@ export default function DocumentoPage() {
   if (editando) {
     return (
       <div className="docs-pagina" style={{ maxWidth: "1280px" }}>
-        {migalhas(`Editando: ${doc.titulo}`, doc.pasta)}
+        {migalhas(`Editando: ${doc.titulo}`, doc.pasta, doc.ancestrais)}
         <DocEditor
-          inicial={{ titulo: doc.titulo, conteudo: doc.conteudo, pasta: doc.pasta, tags: doc.tags }}
+          inicial={{
+            titulo: doc.titulo,
+            conteudo: doc.conteudo,
+            pasta: doc.pasta,
+            pai_id: doc.pai_id,
+            tags: doc.tags,
+          }}
           pastasSugeridas={pastas}
+          opcoesPai={opcoesPai(arvore, doc.id)}
           chaveRascunho={id}
           onSalvar={salvar}
           onCancelar={() => setEditando(false)}
@@ -187,7 +209,7 @@ export default function DocumentoPage() {
 
   return (
     <div className="docs-pagina">
-      {migalhas(doc.titulo, doc.pasta)}
+      {migalhas(doc.titulo, doc.pasta, doc.ancestrais)}
 
       <div className="doc-cabecalho">
         <h1 className="doc-titulo">{doc.titulo}</h1>
@@ -195,6 +217,9 @@ export default function DocumentoPage() {
           <button type="button" className="botao-destaque" onClick={() => setEditando(true)}>
             Editar
           </button>
+          <Link href={`/docs/novo?pai=${doc.id}`} className="botao" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+            Nova subpágina
+          </Link>
           <button type="button" onClick={alternarHistorico} aria-pressed={mostrarHistorico}>
             Histórico
           </button>
@@ -270,6 +295,18 @@ export default function DocumentoPage() {
       <div className="doc-leitura-grade">
         <article className="painel doc-artigo">
           <Markdown texto={doc.conteudo} />
+          {doc.subpaginas && doc.subpaginas.length > 0 && (
+            <section className="doc-subpaginas" aria-label="Subpáginas">
+              <h2>Subpáginas</h2>
+              <ul>
+                {doc.subpaginas.map((s) => (
+                  <li key={s.id}>
+                    <Link href={`/docs/${s.id}`}>{s.titulo}</Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </article>
         <Sumario texto={doc.conteudo} />
       </div>

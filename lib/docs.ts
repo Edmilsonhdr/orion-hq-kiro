@@ -5,6 +5,7 @@ export type DocumentoResumo = {
   id: number;
   titulo: string;
   pasta: string | null;
+  pai_id: number | null;
   tags: string[];
   autor: string;
   arquivado: boolean;
@@ -14,7 +15,47 @@ export type DocumentoResumo = {
   trecho?: string;
 };
 
-export type Documento = DocumentoResumo & { conteudo: string };
+export type Ancestral = { id: number; titulo: string };
+
+export type Documento = DocumentoResumo & {
+  conteudo: string;
+  // Só no detalhe: caminho da raiz até o pai e as subpáginas (não arquivadas).
+  ancestrais?: Ancestral[];
+  subpaginas?: DocumentoResumo[];
+};
+
+export type NoArvore = { id: number; titulo: string; pai_id: number | null; pasta: string | null };
+
+export type OpcaoPai = { id: number; rotulo: string };
+
+// Opções do seletor "Página pai", em ordem de árvore e com recuo. Sem o próprio documento nem os
+// descendentes dele (não dá para mover uma página para dentro de si mesma).
+export function opcoesPai(arvore: NoArvore[], excluirId?: number): OpcaoPai[] {
+  const filhos = new Map<number | null, NoArvore[]>();
+  for (const no of arvore) {
+    const lista = filhos.get(no.pai_id) ?? [];
+    lista.push(no);
+    filhos.set(no.pai_id, lista);
+  }
+  const ids = new Set(arvore.map((n) => n.id));
+  const saida: OpcaoPai[] = [];
+  const visitar = (pai: number | null, nivel: number) => {
+    for (const no of filhos.get(pai) ?? []) {
+      if (no.id === excluirId) continue;
+      saida.push({ id: no.id, rotulo: `${"— ".repeat(nivel)}${no.titulo}` });
+      visitar(no.id, nivel + 1);
+    }
+  };
+  visitar(null, 0);
+  // Documentos cujo pai não está na árvore (ex.: arquivado) entram como se fossem de topo.
+  for (const no of arvore) {
+    if (no.pai_id !== null && !ids.has(no.pai_id) && no.id !== excluirId) {
+      saida.push({ id: no.id, rotulo: no.titulo });
+      visitar(no.id, 1);
+    }
+  }
+  return saida;
+}
 
 export type VersaoResumo = {
   id: number;
@@ -30,6 +71,7 @@ export type DadosDocumento = {
   titulo: string;
   conteudo: string;
   pasta: string | null;
+  pai_id: number | null;
   tags: string[];
 };
 
