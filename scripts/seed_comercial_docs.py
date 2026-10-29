@@ -1,5 +1,6 @@
 """Importa para o Docs os modelos comerciais (`docs/comercial/*.md`, pasta "Comercial") e o guia do módulo
-(`docs/recursos/*.md`, pasta "Recursos do Orion HQ").
+(`docs/recursos/*.md`, pasta "Recursos do Orion HQ") e a documentação do produto Orion
+(`docs/orion/*.md`, pasta "Orion (produto)").
 
 Por padrão só SIMULA. Para gravar de verdade, passe `--aplicar`. Documentos que já existem (mesmo título
 e pasta) são pulados, então rodar de novo não duplica nem sobrescreve edições dos sócios.
@@ -22,7 +23,7 @@ sys.path.insert(0, str(RAIZ / "api"))
 
 from _orion import config, importacao  # noqa: E402
 
-PASTAS = (("comercial", "Comercial"), ("recursos", "Recursos do Orion HQ"))
+PASTAS = (("comercial", "Comercial"), ("recursos", "Recursos do Orion HQ"), ("orion", "Orion (produto)"))
 
 
 def main() -> int:
