@@ -4,7 +4,7 @@
 // antes, no meio vira subpágina, no terço de baixo vai para depois. Pelo teclado: Alt+↑ / Alt+↓ na página
 // sobem e descem entre as irmãs. A API valida ciclos e profundidade; erros voltam como aviso.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { NoArvore } from "../lib/docs";
 import { achatar, destinoDoArrasto, montarArvore, type Zona } from "../lib/arvore";
@@ -12,16 +12,28 @@ import { achatar, destinoDoArrasto, montarArvore, type Zona } from "../lib/arvor
 type Props = {
   nos: NoArvore[];
   onMover: (id: number, paiId: number | null, posicao: number) => Promise<void>;
+  // Página aberta: fica destacada e as mães dela começam expandidas.
+  atualId?: number;
 };
 
-export default function ArvoreDocs({ nos, onMover }: Props) {
+export default function ArvoreDocs({ nos, onMover, atualId }: Props) {
   const raiz = useMemo(() => montarArvore(nos), [nos]);
-  const [fechados, setFechados] = useState<Set<number>>(new Set());
+  // Páginas com subpáginas começam recolhidas (a lateral não vira uma lista de dezenas de itens).
+  const [expandidos, setExpandidos] = useState<Set<number>>(new Set());
   const [arrastando, setArrastando] = useState<number | null>(null);
   const [sobre, setSobre] = useState<{ id: number; zona: Zona } | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  const abertos = useMemo(() => new Set(nos.filter((n) => !fechados.has(n.id)).map((n) => n.id)), [nos, fechados]);
+  const abertos = expandidos;
+
+  useEffect(() => {
+    if (atualId === undefined) return;
+    const mae = new Map(nos.map((n) => [n.id, n.pai_id]));
+    const caminho: number[] = [];
+    for (let pai = mae.get(atualId) ?? null; pai !== null && caminho.length < 20; pai = mae.get(pai) ?? null) caminho.push(pai);
+    if (caminho.length === 0 && !nos.some((n) => n.pai_id === atualId)) return;
+    setExpandidos((f) => new Set([...f, ...caminho, atualId]));
+  }, [nos, atualId]);
   const linhas = useMemo(() => achatar(raiz, abertos), [raiz, abertos]);
 
   async function mover(id: number, paiId: number | null, posicao: number) {
@@ -103,7 +115,7 @@ export default function ArvoreDocs({ nos, onMover }: Props) {
                     className="docs-arvore-seta"
                     aria-label={abertos.has(n.id) ? `Recolher ${n.titulo}` : `Expandir ${n.titulo}`}
                     onClick={() =>
-                      setFechados((f) => {
+                      setExpandidos((f) => {
                         const novo = new Set(f);
                         if (novo.has(n.id)) novo.delete(n.id);
                         else novo.add(n.id);
@@ -116,7 +128,7 @@ export default function ArvoreDocs({ nos, onMover }: Props) {
                 ) : (
                   <span className="docs-arvore-seta" aria-hidden="true" />
                 )}
-                <Link href={`/docs/${n.id}`} onKeyDown={(e) => aoTeclar(e, n.id)} title="Arraste para reorganizar (Alt+↑/↓ pelo teclado)">
+                <Link href={`/docs/${n.id}`} aria-current={n.id === atualId ? "page" : undefined} onKeyDown={(e) => aoTeclar(e, n.id)} title="Arraste para reorganizar (Alt+↑/↓ pelo teclado)">
                   {n.titulo}
                 </Link>
               </span>

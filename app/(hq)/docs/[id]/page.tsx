@@ -6,6 +6,7 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import ArvoreDocs from "../../../../components/ArvoreDocs";
 import DocEditor from "../../../../components/DocEditor";
 import Markdown from "../../../../components/Markdown";
 import Comentarios from "../../../../components/Comentarios";
@@ -87,6 +88,12 @@ export default function DocumentoPage() {
     setEditando(false);
     setErro(null);
     if (mostrarHistorico) carregarHistorico();
+  }
+
+  async function moverNaArvore(movidoId: number, paiId: number | null, posicao: number) {
+    await enviar(`/documentos/${movidoId}/mover`, { pai_id: paiId, posicao });
+    setArvore(await obter<NoArvore[]>("/documentos/arvore"));
+    setDoc(await obter<Documento>(`/documentos/${id}`));
   }
 
   async function moverSubpagina(subId: number, direcao: "cima" | "baixo") {
@@ -224,124 +231,136 @@ export default function DocumentoPage() {
   }
 
   return (
-    <div className="docs-pagina">
-      {migalhas(doc.titulo, doc.pasta, doc.ancestrais)}
-
-      <div className="doc-cabecalho">
-        <h1 className="doc-titulo">{doc.titulo}</h1>
-        <div className="doc-acoes">
-          <button type="button" className="botao-destaque" onClick={() => setEditando(true)}>
-            Editar
-          </button>
-          <Link href={`/docs/novo?pai=${doc.id}`} className="botao" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
-            Nova subpágina
+    <div className="docs-pagina docs-pagina-larga">
+      <div className="docs-grade">
+        <aside className="docs-lateral" aria-label="Páginas do Docs">
+          <Link href="/docs" className="docs-voltar">
+            ← Todos os documentos
           </Link>
-          <button type="button" onClick={alternarHistorico} aria-pressed={mostrarHistorico}>
-            Histórico
-          </button>
-          <button type="button" onClick={alternarArquivado} disabled={ocupado}>
-            {doc.arquivado ? "Desarquivar" : "Arquivar"}
-          </button>
-        </div>
-      </div>
+          <ArvoreDocs nos={arvore} onMover={moverNaArvore} atualId={doc.id} />
+        </aside>
+        <div className="docs-conteudo">
+          {migalhas(doc.titulo, doc.pasta, doc.ancestrais)}
 
-      <div className="doc-meta">
-        {doc.arquivado && <span className="doc-etiqueta">arquivado</span>}
-        {doc.tags.map((t) => (
-          <span key={t} className="mono">
-            #{t}
-          </span>
-        ))}
-        <span title={`Criado em ${formatarData(doc.criado_em)}`}>
-          {doc.autor} · atualizado {tempoRelativo(doc.atualizado_em)}
-        </span>
-        <span className="mono" title="Data da última atualização">
-          {formatarData(doc.atualizado_em)}
-        </span>
-      </div>
+          <div className="doc-cabecalho">
+            <h1 className="doc-titulo">{doc.titulo}</h1>
+            <div className="doc-acoes">
+              <button type="button" className="botao-destaque" onClick={() => setEditando(true)}>
+                Editar
+              </button>
+              <Link href={`/docs/novo?pai=${doc.id}`} className="botao" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+                Nova subpágina
+              </Link>
+              <button type="button" onClick={alternarHistorico} aria-pressed={mostrarHistorico}>
+                Histórico
+              </button>
+              <button type="button" onClick={alternarArquivado} disabled={ocupado}>
+                {doc.arquivado ? "Desarquivar" : "Arquivar"}
+              </button>
+            </div>
+          </div>
 
-      {erro && (
-        <p role="alert" className="doc-erro" style={{ marginBottom: 12 }}>
-          {erro}
-        </p>
-      )}
+          <div className="doc-meta">
+            {doc.arquivado && <span className="doc-etiqueta">arquivado</span>}
+            {doc.tags.map((t) => (
+              <span key={t} className="mono">
+                #{t}
+              </span>
+            ))}
+            <span title={`Criado em ${formatarData(doc.criado_em)}`}>
+              {doc.autor} · atualizado {tempoRelativo(doc.atualizado_em)}
+            </span>
+            <span className="mono" title="Data da última atualização">
+              {formatarData(doc.atualizado_em)}
+            </span>
+          </div>
 
-      {mostrarHistorico && (
-        <section className="painel doc-historico" aria-label="Histórico de versões">
-          <h2 style={{ margin: "0 0 6px", fontSize: "16px", fontFamily: "var(--fonte-texto)", fontWeight: 600 }}>
-            Histórico de versões
-          </h2>
-          {historico === null && <p className="texto-secundario">Carregando…</p>}
-          {historico?.length === 0 && (
-            <p className="texto-secundario" style={{ margin: 0 }}>
-              Ainda não há versões anteriores: elas aparecem quando o título ou o texto mudam.
+          {erro && (
+            <p role="alert" className="doc-erro" style={{ marginBottom: 12 }}>
+              {erro}
             </p>
           )}
-          <ul className="doc-versoes">
-            {historico?.map((v) => (
-              <li key={v.id} className="doc-versao">
-                <span style={{ flex: "1 1 260px", minWidth: 0 }}>
-                  <strong style={{ fontWeight: 600 }}>{formatarData(v.criado_em)}</strong>
-                  <span className="texto-secundario"> · editado por {v.editado_por}</span>
-                  <br />
-                  <span className="texto-secundario" style={{ fontSize: 13 }}>
-                    “{v.titulo}”
-                  </span>
-                </span>
-                <button type="button" onClick={() => verVersao(v.id)}>
-                  Ver
-                </button>
-                <button type="button" onClick={() => restaurar(v.id)} disabled={ocupado}>
-                  Restaurar
-                </button>
-              </li>
-            ))}
-          </ul>
-          {versaoAberta && (
-            <div style={{ marginTop: 14, borderTop: "1px solid var(--borda)", paddingTop: 12 }}>
-              <p className="texto-secundario" style={{ marginTop: 0 }}>
-                Versão de {formatarData(versaoAberta.criado_em)} — “{versaoAberta.titulo}”
-              </p>
-              <Markdown texto={versaoAberta.conteudo} />
-            </div>
-          )}
-        </section>
-      )}
 
-      <div className="doc-leitura-grade">
-        <article className="painel doc-artigo">
-          <Markdown texto={doc.conteudo} />
-          {doc.subpaginas && doc.subpaginas.length > 0 && (
-            <section className="doc-subpaginas" aria-label="Subpáginas">
-              <h2>Subpáginas</h2>
-              <ul>
-                {doc.subpaginas.map((s, i) => (
-                  <li key={s.id} className="doc-subpagina-item">
-                    <Link href={`/docs/${s.id}`}>{s.titulo}</Link>
-                    {doc.subpaginas && doc.subpaginas.length > 1 && (
-                      <span className="doc-subpagina-ordem">
-                        <button type="button" aria-label={`Subir ${s.titulo}`} disabled={i === 0 || ocupado} onClick={() => moverSubpagina(s.id, "cima")}>
-                          ↑
-                        </button>
-                        <button type="button" aria-label={`Descer ${s.titulo}`} disabled={i === doc.subpaginas!.length - 1 || ocupado} onClick={() => moverSubpagina(s.id, "baixo")}>
-                          ↓
-                        </button>
+          {mostrarHistorico && (
+            <section className="painel doc-historico" aria-label="Histórico de versões">
+              <h2 style={{ margin: "0 0 6px", fontSize: "16px", fontFamily: "var(--fonte-texto)", fontWeight: 600 }}>
+                Histórico de versões
+              </h2>
+              {historico === null && <p className="texto-secundario">Carregando…</p>}
+              {historico?.length === 0 && (
+                <p className="texto-secundario" style={{ margin: 0 }}>
+                  Ainda não há versões anteriores: elas aparecem quando o título ou o texto mudam.
+                </p>
+              )}
+              <ul className="doc-versoes">
+                {historico?.map((v) => (
+                  <li key={v.id} className="doc-versao">
+                    <span style={{ flex: "1 1 260px", minWidth: 0 }}>
+                      <strong style={{ fontWeight: 600 }}>{formatarData(v.criado_em)}</strong>
+                      <span className="texto-secundario"> · editado por {v.editado_por}</span>
+                      <br />
+                      <span className="texto-secundario" style={{ fontSize: 13 }}>
+                        “{v.titulo}”
                       </span>
-                    )}
+                    </span>
+                    <button type="button" onClick={() => verVersao(v.id)}>
+                      Ver
+                    </button>
+                    <button type="button" onClick={() => restaurar(v.id)} disabled={ocupado}>
+                      Restaurar
+                    </button>
                   </li>
                 ))}
               </ul>
+              {versaoAberta && (
+                <div style={{ marginTop: 14, borderTop: "1px solid var(--borda)", paddingTop: 12 }}>
+                  <p className="texto-secundario" style={{ marginTop: 0 }}>
+                    Versão de {formatarData(versaoAberta.criado_em)} — “{versaoAberta.titulo}”
+                  </p>
+                  <Markdown texto={versaoAberta.conteudo} />
+                </div>
+              )}
             </section>
           )}
-        </article>
-        <Sumario texto={doc.conteudo} />
+
+          <div className="doc-leitura-grade">
+            <div className="doc-coluna">
+              <article className="painel doc-artigo">
+                <Markdown texto={doc.conteudo} />
+                {doc.subpaginas && doc.subpaginas.length > 0 && (
+                  <section className="doc-subpaginas" aria-label="Subpáginas">
+                    <h2>Subpáginas</h2>
+                    <ul>
+                      {doc.subpaginas.map((s, i) => (
+                        <li key={s.id} className="doc-subpagina-item">
+                          <Link href={`/docs/${s.id}`}>{s.titulo}</Link>
+                          {doc.subpaginas && doc.subpaginas.length > 1 && (
+                            <span className="doc-subpagina-ordem">
+                              <button type="button" aria-label={`Subir ${s.titulo}`} disabled={i === 0 || ocupado} onClick={() => moverSubpagina(s.id, "cima")}>
+                                ↑
+                              </button>
+                              <button type="button" aria-label={`Descer ${s.titulo}`} disabled={i === doc.subpaginas!.length - 1 || ocupado} onClick={() => moverSubpagina(s.id, "baixo")}>
+                                ↓
+                              </button>
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </article>
+
+              <TarefasRelacionadas entidade="documento" id={doc.id} />
+
+              <Anexos entidade="documento" id={doc.id} />
+
+              <Comentarios documentoId={doc.id} />
+            </div>
+            <Sumario texto={doc.conteudo} />
+          </div>
+        </div>
       </div>
-
-      <TarefasRelacionadas entidade="documento" id={doc.id} />
-
-      <Anexos entidade="documento" id={doc.id} />
-
-      <Comentarios documentoId={doc.id} />
     </div>
   );
 }

@@ -155,6 +155,14 @@ export default function DocsPage() {
   const buscando = termo.length > 0;
   const filtrando = !!(pasta || tag);
 
+  // Sem busca, a lista mostra só as páginas de topo (cuja mãe não está na lista) com a contagem de
+  // subpáginas; as filhas ficam a um clique, na árvore e dentro da página-mãe. Na busca, aparece tudo.
+  const filhasPorPai = new Map<number, number>();
+  for (const n of nosArvore) if (n.pai_id !== null) filhasPorPai.set(n.pai_id, (filhasPorPai.get(n.pai_id) ?? 0) + 1);
+  const idsListados = new Set(docs?.map((d) => d.id) ?? []);
+  const visiveis = buscando || !docs ? docs : docs.filter((d) => d.pai_id === null || !idsListados.has(d.pai_id));
+  const ocultas = docs && visiveis ? docs.length - visiveis.length : 0;
+
   function limparTudo() {
     setBusca("");
     setTermo("");
@@ -322,7 +330,7 @@ export default function DocsPage() {
           )}
 
           <ul className="docs-lista">
-            {docs?.map((d) => {
+            {visiveis?.map((d) => {
               const trecho = trechoDe(d);
               return (
                 <li key={d.id}>
@@ -341,6 +349,11 @@ export default function DocsPage() {
                         </span>
                       )}
                       {d.pasta && <span className="doc-etiqueta">{d.pasta}</span>}
+                      {(filhasPorPai.get(d.id) ?? 0) > 0 && (
+                        <span className="doc-etiqueta" title="Páginas dentro desta">
+                          {filhasPorPai.get(d.id)} subpágina{filhasPorPai.get(d.id) === 1 ? "" : "s"}
+                        </span>
+                      )}
                       {d.tags.map((t) => (
                         <span key={t} className="mono">
                           #{t}
@@ -355,6 +368,11 @@ export default function DocsPage() {
               );
             })}
           </ul>
+          {ocultas > 0 && (
+            <p className="texto-secundario" style={{ fontSize: 14, margin: "12px 4px 0" }}>
+              + {ocultas} subpágina{ocultas === 1 ? "" : "s"} dentro das páginas acima. Abra uma página, ou busque, para ver tudo.
+            </p>
+          )}
         </section>
       </div>
     </div>

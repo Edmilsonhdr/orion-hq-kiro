@@ -4537,3 +4537,46 @@ a.botao {
 
 /* Agentes: campos de texto ocupam a largura toda do cartão */
 .ag-cartao label > input:not([type="checkbox"]), .ag-cartao label > textarea, .ag-cartao label > select { width: 100%; box-sizing: border-box; }
+
+/* Documento aberto: a árvore de páginas continua na lateral, como na lista do Docs. */
+.docs-pagina-larga {
+  max-width: 1440px;
+}
+
+.docs-conteudo {
+  min-width: 0;
+}
+
+.docs-voltar {
+  padding: 0 10px;
+  font-size: 14px;
+  color: var(--texto-secundario, var(--texto));
+  text-decoration: none;
+}
+
+.docs-voltar:hover {
+  text-decoration: underline;
+}
+
+.docs-arvore-linha a[aria-current="page"] {
+  background: rgba(96, 165, 250, 0.16);
+  font-weight: 600;
+}
+
+@media (max-width: 860px) {
+  .docs-pagina-larga .docs-lateral {
+    display: none;
+  }
+}
+
+/* Texto, tarefas, anexos e comentários na mesma coluna (a do sumário fica ao lado), com respiro entre eles. */
+.doc-coluna {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.doc-coluna > * {
+  margin: 0;
+}
