@@ -16,7 +16,7 @@ import Paleta from "./Paleta";
 type Me = { usuario: string; aprovador: boolean };
 type Aprovacao = { id: number };
 
-type Item = { href: string; rotulo: string; icone: string; contador?: "aprovacoes" | "incidentes" | "comercial" };
+type Item = { href: string; rotulo: string; icone: string; tambem?: string[]; contador?: "aprovacoes" | "incidentes" | "comercial" };
 
 const GRUPOS: { titulo: string; itens: Item[] }[] = [
   {
@@ -32,7 +32,7 @@ const GRUPOS: { titulo: string; itens: Item[] }[] = [
   {
     titulo: "Operação",
     itens: [
-      { href: "/escritorio", rotulo: "Escritório", icone: "escritorio" },
+      { href: "/agentes", rotulo: "Agentes", icone: "agentes", tambem: ["/escritorio"] },
       { href: "/incidentes", rotulo: "Incidentes", icone: "incidentes", contador: "incidentes" },
       { href: "/aprovacoes", rotulo: "Aprovações", icone: "aprovacoes", contador: "aprovacoes" },
     ],
@@ -70,6 +70,14 @@ const CAMINHOS: Record<string, ReactNode> = {
     <>
       <path d="M4 21V5h10v16M14 9h6v12M2 21h20" />
       <path d="M8 9h2M8 13h2M8 17h2" />
+    </>
+  ),
+  agentes: (
+    <>
+      <circle cx="12" cy="5" r="2.5" />
+      <circle cx="5" cy="19" r="2.5" />
+      <circle cx="19" cy="19" r="2.5" />
+      <path d="M12 7.5v4M12 11.5l-6 5M12 11.5l6 5" />
     </>
   ),
   incidentes: (
@@ -285,7 +293,7 @@ export default function Header() {
             <div key={grupo.titulo} className="hq-grupo">
               <div className="hq-grupo-titulo hq-rotulo">{grupo.titulo}</div>
               {grupo.itens.map((item) => {
-                const ativo = caminho === item.href || caminho.startsWith(`${item.href}/`);
+                const ativo = [item.href, ...(item.tambem ?? [])].some((h) => caminho === h || caminho.startsWith(`${h}/`));
                 const n = item.contador ? contagem[item.contador] : 0;
                 return (
                   <Link

@@ -231,6 +231,27 @@ checklist do piloto), com campos `[preencher]` e sem preços. Para levá-los ao 
 
 Fora do escopo: envio de e-mail/WhatsApp, importação de planilhas, metas por vendedor e perfis de permissão.
 
+## Agentes (equipe sem programar)
+
+Tela **Agentes** (`/agentes`, aba "Planta" leva ao Escritório): mapa dos agentes com status ao vivo
+(lido do feed de atividades) e formulário para criar e ajustar agentes. Dados na tabela `agentes`
+(`db/schema.sql`, com os 6 nativos como seed); lógica em `api/_orion/agentes.py`; rotas `/api/agentes`.
+
+- **Nativos** (Atlas, Tobias, Lia, Bento, Rui, Pipo) têm código próprio. Edita-se nome, cor, sala,
+  descrição (como o Orquestrador roteia), instruções adicionais (Tech, Agenda e Negócios) e ativo/pausado.
+- **Criados na tela** rodam pelo especialista genérico (`especialistas.dinamico`): instruções, modelo
+  (Sonnet ou Haiku) e ferramentas de um **catálogo fechado** em `agentes.CATALOGO`. Ferramenta com efeito
+  externo (`propor_doc`, `propor_negocio`) só **propõe**: cai em Aprovações, e o servidor força
+  "exige aprovação". O Orquestrador lê a descrição de cada agente ativo para decidir quem chamar.
+- **Guardas:** até 10 agentes criados ativos; o especialista genérico dá no máximo 4 voltas de
+  ferramenta; o Orquestrador mantém o limite de 4 delegações por pedido.
+- **Quem pode:** qualquer sócio logado lê; criar, editar, remover, gerar rascunho e testar são só de
+  **aprovadores** (`ORION_APPROVERS`). "Criar a partir de uma descrição" e "Testar" chamam o modelo
+  e gastam tokens.
+- Em produção, rode `scripts/setup_db.py` uma vez para criar a tabela `agentes` (idempotente).
+- Agentes criados na tela aparecem na legenda, no log e nos tokens do Escritório, **ainda sem mesa na
+  planta**. A coluna `passos` (jsonb) está reservada para um encadeamento simples no futuro.
+
 ## Criar o banco no Neon
 
 1. No painel da **Vercel**, abra o projeto → aba **Storage** → **Marketplace** → **Neon** e crie um banco

@@ -8,6 +8,7 @@ export const ATALHOS: readonly ItemPaleta[] = [
   { id: "nova-tarefa", rotulo: "Nova tarefa", href: "/tarefas", grupo: "Ações", dica: "Tarefas" },
   { id: "ir-tarefas", rotulo: "Ir para as Tarefas", href: "/tarefas", grupo: "Ir para" },
   { id: "ir-chat", rotulo: "Ir para o Chat", href: "/chat", grupo: "Ir para" },
+  { id: "ir-agentes", rotulo: "Ir para os Agentes", href: "/agentes", grupo: "Ir para" },
   { id: "ir-escritorio", rotulo: "Ir para o Escritório", href: "/escritorio", grupo: "Ir para" },
   { id: "ir-comercial", rotulo: "Ir para o Comercial", href: "/comercial", grupo: "Ir para" },
   { id: "ir-docs", rotulo: "Ir para os Docs", href: "/docs", grupo: "Ir para" },

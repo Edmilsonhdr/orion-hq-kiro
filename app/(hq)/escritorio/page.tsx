@@ -12,10 +12,11 @@ import EscalaPlanta from "../../../components/EscalaPlanta";
 import { obter } from "../../../lib/api";
 import { usePollComEstado } from "../../../lib/usePoll";
 import { deslocarDatas, useRelogio } from "../../../lib/useRelogio";
-import { AGENTES, agentePorId, pessoaDoAgente } from "../../../lib/agents";
+import { agentePorId, pessoaDoAgente, todosAgentes } from "../../../lib/agents";
 import { plantaoEm } from "../../../lib/rotina";
 import Office, { Atividade } from "../../../components/Office";
 import PainelAgente from "../../../components/PainelAgente";
+import AbasEquipe from "../../../components/AbasEquipe";
 import LogLateral from "../../../components/LogLateral";
 
 const INTERVALO_ATIV_MS = 1500;
@@ -145,6 +146,7 @@ export default function EscritorioPage() {
 
   return (
     <div className="docs-pagina esc-pagina">
+      <AbasEquipe ativa="planta" />
       <div className="com-topo">
         <div>
           <h1 className="titulo-pixel com-titulo">Escritório</h1>
@@ -169,7 +171,7 @@ export default function EscritorioPage() {
           </p>
         </div>
         <ul className="esc-legenda" aria-label="Legenda dos agentes">
-          {AGENTES.map((ag) => (
+          {todosAgentes().map((ag) => (
             <li key={ag.id}>
               <button
                 type="button"

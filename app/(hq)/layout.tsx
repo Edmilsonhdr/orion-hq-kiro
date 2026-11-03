@@ -4,6 +4,7 @@
 // (menu à esquerda, conteúdo à direita; no celular o menu vira barra no topo).
 
 import Header from "../../components/Header";
+import CadastroAgentes from "../../components/CadastroAgentes";
 
 export default function LayoutHq({
   children,
@@ -17,7 +18,7 @@ export default function LayoutHq({
       </a>
       <Header />
       <main id="conteudo" tabIndex={-1} className="hq-conteudo">
-        {children}
+        <CadastroAgentes>{children}</CadastroAgentes>
       </main>
     </div>
   );

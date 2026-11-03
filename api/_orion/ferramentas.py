@@ -549,6 +549,21 @@ def propor_interacao(negocio_id: int, tipo: str, resumo: str) -> str:
 
 # Conjuntos de ferramentas por especialista (usados em especialistas.py).
 # Tech: consulta o changelog (Requirement 4.1).
+@tool
+def proximas_reunioes(dias: int = 14) -> str:
+    """Lista as próximas reuniões agendadas (somente leitura), com data, título e participantes."""
+    from datetime import timedelta
+
+    limite = config.agora() + timedelta(days=max(1, min(int(dias), 60)))
+    linhas = [r for r in db.proximas_reunioes() if r["inicio"] <= limite]
+    if not linhas:
+        return "Não há reuniões agendadas nesse período."
+    return "\n".join(
+        f"- {_data_ptbr(r['inicio'])} {r['inicio'].astimezone(config.TZ):%H:%M}: {r['titulo']} (participantes: {', '.join(r.get('participantes') or []) or 'não informados'})"
+        for r in linhas
+    )
+
+
 FERRAMENTAS_TECH: tuple = (
     buscar_changelog,
     mudancas_recentes,

@@ -33,7 +33,7 @@ from langchain_core.messages import (
 )
 from pydantic import BaseModel, Field
 
-from . import config, llm
+from . import agentes, config, llm
 from . import ferramentas as ferramentas_mod
 from .atividades import emitir
 
@@ -95,6 +95,7 @@ def rodar_com_ferramentas(
     ferramentas: Sequence[Any],
     run_id: str | None,
     max_voltas: int = 6,
+    modelo_base: Any = None,
 ) -> str:
     """Loop de raciocínio + ferramentas de um especialista.
 
@@ -105,7 +106,7 @@ def rodar_com_ferramentas(
 
     Retorna o texto final do modelo.
     """
-    modelo = llm.principal().bind_tools(list(ferramentas))
+    modelo = (modelo_base or llm.principal()).bind_tools(list(ferramentas))
     indice = _indexar_ferramentas(ferramentas)
     # As tools de proposta de documento precisam saber quem as chamou e em qual run.
     token_contexto = ferramentas_mod.contexto.set((agente, run_id))
@@ -166,6 +167,7 @@ def _prompt_tech() -> str:
         "Isso só PROPÕE: um sócio precisa aprovar na tela de Aprovações. Diga que "
         "propôs e que aguarda aprovação; nunca afirme que criou ou alterou.\n"
         "Responda em português do Brasil, de forma direta e objetiva."
+        + agentes.instrucoes_extras("tech")
     )
 
 
@@ -199,6 +201,7 @@ def _prompt_negocios() -> str:
         "funcionalidades, prazos nem preços que não estejam nos documentos ou no histórico; na dúvida, "
         "diga que precisa confirmar com os sócios.\n"
         "Responda em português do Brasil, de forma direta e objetiva."
+        + agentes.instrucoes_extras("negocios")
     )
 
 
@@ -224,6 +227,38 @@ def negocios(instrucao: str, run_id: str | None) -> str:
         instrucao,
         ferramentas_mod.FERRAMENTAS_NEGOCIOS,
         run_id,
+    )
+
+
+# --- Agentes criados na tela Agentes: especialista genérico ---
+
+
+def _prompt_dinamico(cfg: dict) -> str:
+    """Prompt do especialista genérico: regras fixas do HQ + as instruções que os sócios escreveram."""
+    return (
+        f"Você é {cfg['nome']}, {cfg['papel']} do Orion HQ, trabalhando para os sócios Dimi e Jullyana.\n"
+        f"Data e hora atual: {config.agora_formatado()} (fuso America/Sao_Paulo).\n\n"
+        "Regras inegociáveis:\n"
+        "- Nada inventado: use as ferramentas disponíveis para consultar os dados antes de responder e "
+        "cite a fonte (documento, PR, nota, negócio) e a data. Se não houver o dado, diga que não há.\n"
+        "- Você só PROPÕE alterações (documentos, CRM): um sócio precisa aprovar na tela de Aprovações. "
+        "Diga que propôs; nunca afirme que criou ou alterou.\n"
+        "- Nunca registre nem repita dados de saúde de pessoas.\n"
+        "- Responda em português do Brasil, de forma direta e objetiva.\n\n"
+        f"Instruções dos sócios para você:\n{cfg['instrucoes']}"
+    )
+
+
+def dinamico(cfg: dict, instrucao: str, run_id: str | None) -> str:
+    """Roda um agente criado na tela: modelo, instruções e ferramentas do cadastro."""
+    return rodar_com_ferramentas(
+        cfg["id"],
+        _prompt_dinamico(cfg),
+        instrucao,
+        agentes.ferramentas_do(cfg),
+        run_id,
+        max_voltas=agentes.MAX_VOLTAS_DINAMICO,
+        modelo_base=llm.por_nome(cfg.get("modelo", "sonnet")),
     )
 
 
@@ -298,6 +333,7 @@ def _prompt_agenda(contexto_mudancas: str) -> str:
         "contrário.\n\n"
         "Mudanças dos últimos 7 dias (contexto para a pauta):\n"
         f"{contexto_mudancas}"
+        + agentes.instrucoes_extras("agenda")
     )
 
 

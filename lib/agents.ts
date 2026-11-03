@@ -154,8 +154,45 @@ export const AGENTES: readonly Agente[] = [
 export const SALA_COPA: Sala = { rotulo: "COPA", x: 296, y: 396, piso: "#25221E", parede: "#3B4666" };
 export const GUARITA = { x: 18, y: 298, largura: 100, altura: 94 } as const;
 
+// Agentes criados na tela Agentes (sem mesa na planta). Preenchido por aplicarCadastro().
+export const AGENTES_EXTRAS: Agente[] = [];
+
 export function agentePorId(id: string): Agente | undefined {
-  return AGENTES.find((a) => a.id === id);
+  return AGENTES.find((a) => a.id === id) ?? AGENTES_EXTRAS.find((a) => a.id === id);
+}
+
+// Nativos e criados na tela, nesta ordem (legenda, log e tokens).
+export function todosAgentes(): readonly Agente[] {
+  return [...AGENTES, ...AGENTES_EXTRAS];
+}
+
+// Linha do cadastro (GET /api/agentes) que importa para a exibição.
+export type CadastroAgente = { id: string; nome: string; papel: string; cor: string; ativo: boolean; sistema: boolean };
+
+// Aplica o cadastro: nativos ganham nome/papel/cor editados; os criados na tela entram em AGENTES_EXTRAS.
+// Muta os objetos de propósito (o resto do front lê AGENTES direto); chame antes de renderizar as telas.
+export function aplicarCadastro(cadastro: readonly CadastroAgente[]): void {
+  const extras: Agente[] = [];
+  for (const c of cadastro) {
+    const nativo = AGENTES.find((a) => a.id === c.id);
+    if (nativo) {
+      const m = nativo as unknown as { papel: string; cor: string; pessoas: { nome: string }[] };
+      m.papel = c.papel || m.papel;
+      m.cor = c.cor || m.cor;
+      if (c.nome) m.pessoas[0].nome = c.nome;
+    } else if (c.ativo) {
+      extras.push({
+        id: c.id as IdAgente,
+        papel: c.papel,
+        nivel: "N2",
+        cor: c.cor,
+        pessoas: [{ nome: c.nome, corChat: c.cor, visual: { pele: "#E0AC69", cabelo: "#4A3A2A", roupa: c.cor } }],
+        frasesOciosas: ["na fila", "esperando tarefa"],
+        sala: null,
+      });
+    }
+  }
+  AGENTES_EXTRAS.splice(0, AGENTES_EXTRAS.length, ...extras);
 }
 
 // Pessoa de um agente pelo índice (o Orquestrador alterna entre as suas).

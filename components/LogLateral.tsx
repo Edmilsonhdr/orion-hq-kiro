@@ -11,7 +11,7 @@
 // página (app/(hq)/escritorio/page.tsx).
 
 import { useMemo, type ReactNode } from "react";
-import { AGENTES, agentePorId, pessoaDoAgente } from "../lib/agents";
+import { agentePorId, pessoaDoAgente, todosAgentes } from "../lib/agents";
 import { nomeEm } from "../lib/exibicao";
 import { Atividade } from "./Office";
 
@@ -77,7 +77,7 @@ export default function LogLateral({
   // Linhas de tokens por agente (na ordem de lib/agents.ts), só quem gastou,
   // mais o total.
   const linhasTokens = useMemo(() => {
-    const linhas = AGENTES.map((ag) => ({
+    const linhas = todosAgentes().map((ag) => ({
       id: ag.id,
       nome: ag.pessoas.length > 1 ? ag.papel : pessoaDoAgente(ag).nome,
       cor: ag.cor,

@@ -295,3 +295,39 @@ alter table tarefas add column if not exists documento_id bigint references docu
 alter table tarefas add column if not exists negocio_id bigint references negocios(id) on delete set null;
 create index if not exists tarefas_negocio_idx on tarefas (negocio_id);
 create index if not exists tarefas_documento_idx on tarefas (documento_id);
+
+-- Agentes: cadastro editável na tela Agentes. Os nativos (sistema = true) têm código próprio; só nome,
+-- cor, sala, descrição (roteamento), instruções adicionais, posição e ativo são editáveis. Os criados
+-- na tela rodam pelo especialista genérico, com as ferramentas do catálogo (api/_orion/agentes.py).
+create table if not exists agentes (
+  id text primary key,
+  nome text not null,
+  papel text not null,
+  cor text not null default '#8FA3C7',
+  sala text not null default 'Copa',
+  modelo text not null default 'sonnet',          -- sonnet | haiku (só vale para os criados na tela)
+  descricao text not null default '',             -- quando o Orquestrador deve chamar este agente
+  instrucoes text not null default '',
+  ferramentas text[] not null default '{}',
+  exige_aprovacao boolean not null default true,
+  ativo boolean not null default true,
+  sistema boolean not null default false,
+  pos_x integer,
+  pos_y integer,
+  passos jsonb,                                   -- reservado: encadeamento simples no futuro
+  criado_por text,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+insert into agentes (id, nome, papel, cor, sala, modelo, descricao, sistema, pos_x, pos_y) values
+  ('orq', 'Atlas', 'Orquestrador', '#4C8DFF', 'Sala do Chefe', 'sonnet', '', true, 330, 200),
+  ('tech', 'Tobias', 'Tech', '#3FC1C9', 'Engenharia', 'sonnet',
+   'produto/código/PRs do app Orion e documentação técnica', true, 60, 40),
+  ('agenda', 'Lia', 'Agenda', '#7BD88F', 'Agenda', 'sonnet', 'reuniões e pautas', true, 600, 40),
+  ('negocios', 'Bento', 'Negócios', '#A58BFF', 'Negócios', 'sonnet',
+   'custos, métricas, decisões, documentos de negócio e o COMERCIAL (leads, funil de vendas, propostas, clínicas/empresas/autônomos clientes)',
+   true, 60, 360),
+  ('work', 'Pipo', 'Worker', '#8FA3C7', 'Baia dos Workers', 'haiku', '', true, 600, 360),
+  ('vigia', 'Rui', 'Vigia', '#FF7A59', 'Guarita', 'sonnet',
+   'erros, falhas, instabilidade e incidentes do app ou do backend', true, 330, 400)
+on conflict (id) do nothing;

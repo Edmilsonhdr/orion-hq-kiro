@@ -4433,3 +4433,107 @@ a.botao {
   min-height: 40px;
   padding: 0 16px;
 }
+
+/* ===== Agentes (protótipo visual: canvas + formulário) ===== */
+.ag-pagina { display: flex; flex-direction: column; gap: 16px; padding: 20px; max-width: 1400px; }
+.ag-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.ag-titulo { margin: 0 0 4px; font-size: 20px; }
+.ag-sub { margin: 0; color: var(--texto-secundario); max-width: 60ch; }
+.ag-aviso { padding: 4px 10px; border: 1px dashed var(--espera); color: var(--espera); border-radius: 6px; font-size: 12px; }
+.ag-corpo { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+.ag-lado-canvas { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ag-barra { display: flex; align-items: center; gap: 12px; }
+.ag-dica { color: var(--texto-secundario); font-size: 13px; }
+.ag-scroll { overflow: auto; border: 1px solid var(--borda); border-radius: 10px; background: var(--piso); }
+.ag-palco {
+  position: relative; touch-action: none;
+  background-image: linear-gradient(var(--piso-grade) 1px, transparent 1px), linear-gradient(90deg, var(--piso-grade) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.ag-linhas { position: absolute; inset: 0; pointer-events: none; }
+.ag-no {
+  position: absolute; box-sizing: border-box; padding: 8px 10px 8px 14px; border: 2px solid; border-radius: 10px;
+  background: var(--painel); cursor: grab; user-select: none; display: flex; flex-direction: column; gap: 2px;
+  box-shadow: var(--sombra-1); overflow: hidden;
+}
+.ag-no:active { cursor: grabbing; }
+.ag-no.sel { box-shadow: 0 0 0 3px rgba(76, 141, 255, 0.45), var(--sombra-2); background: var(--superficie); }
+.ag-no.inativo { opacity: 0.5; border-style: dashed; }
+.ag-no.raiz .ag-no-nome::after { content: " · chefe"; color: var(--texto-secundario); font-weight: 400; }
+.ag-no-faixa { position: absolute; left: 0; top: 0; bottom: 0; width: 5px; }
+.ag-no-nome { font-size: 15px; }
+.ag-no-papel { font-size: 12px; color: var(--texto-secundario); }
+.ag-no-selos { display: flex; gap: 4px; margin-top: auto; flex-wrap: wrap; }
+.ag-selo { font-size: 10px; padding: 1px 6px; border-radius: 99px; background: var(--borda); color: var(--texto-secundario); }
+.ag-selo.espera { background: rgba(242, 165, 65, 0.15); color: var(--espera); }
+.ag-painel { display: flex; flex-direction: column; gap: 12px; }
+.ag-cartao { background: var(--painel); border: 1px solid var(--borda); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ag-cartao-topo { display: flex; justify-content: space-between; align-items: center; }
+.ag-h2 { margin: 0; font-size: 16px; }
+.ag-rotulo { display: block; font-size: 12px; color: var(--texto-secundario); margin-bottom: 4px; }
+.ag-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ag-grade input, .ag-grade select, .ag-cartao textarea { width: 100%; box-sizing: border-box; }
+.ag-ferramentas { border: 1px solid var(--borda); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.ag-ferramentas:disabled { opacity: 0.5; }
+.ag-ferramenta, .ag-interruptor { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.ag-aprovacao em { color: var(--texto-secundario); font-style: normal; font-size: 12px; }
+.ag-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ag-ok { color: #7bd88f; font-size: 12px; }
+.ag-teste { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow: auto; }
+.ag-msg { margin: 0; font-size: 13px; padding: 6px 8px; border-radius: 8px; background: var(--borda); }
+.ag-msg.agente { background: var(--superficie); }
+.ag-vazio { margin: 0; color: var(--texto-secundario); font-size: 13px; }
+.ag-envio { display: flex; gap: 8px; }
+.ag-envio input { flex: 1; min-width: 0; }
+@media (max-width: 1100px) { .ag-corpo { grid-template-columns: 1fr; } }
+
+/* Agentes: abas, status ao vivo */
+.ag-abas { display: flex; gap: 4px; border-bottom: 1px solid var(--borda); margin-bottom: 12px; }
+.ag-aba { padding: 8px 16px; color: var(--texto-secundario); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.ag-aba:hover { color: var(--texto); }
+.ag-aba.ativa { color: var(--texto); border-bottom-color: var(--destaque); font-weight: 600; }
+.ag-resumo { margin-left: auto; font-size: 12px; color: var(--texto-secundario); }
+.ag-resumo a { color: inherit; }
+.ag-alerta { color: var(--espera); font-weight: 600; }
+.ag-ponto { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--borda-forte); }
+.ag-ponto.trabalhando { background: #7bd88f; animation: ag-pulso 1.2s ease-in-out infinite; }
+.ag-ponto.aguardando { background: var(--espera); }
+.ag-no-vivo { font-size: 11px; color: var(--texto-secundario); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ag-no.trabalhando .ag-no-vivo { color: #7bd88f; }
+.ag-no.aguardando .ag-no-vivo { color: var(--espera); }
+@keyframes ag-pulso { 50% { opacity: 0.35; transform: scale(0.8); } }
+@media (prefers-reduced-motion: reduce) { .ag-ponto.trabalhando { animation: none; } }
+
+/* Agentes: ajustes de responsividade do formulário */
+.ag-corpo { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); }
+.ag-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ag-grade label, .ag-cartao > label { min-width: 0; display: block; }
+.ag-cartao input[type="checkbox"] { min-height: 0; width: 18px; height: 18px; padding: 0; flex: none; }
+.ag-ferramenta { min-height: 32px; flex-wrap: wrap; }
+.ag-interruptor { min-height: 32px; }
+.ag-grade select { text-overflow: ellipsis; }
+.ag-barra { flex-wrap: wrap; }
+@media (max-width: 1100px) { .ag-corpo { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) {
+  .ag-pagina { padding: 12px; }
+  .ag-grade { grid-template-columns: minmax(0, 1fr); }
+  .ag-resumo { margin-left: 0; }
+}
+
+/* Agentes: usa a largura toda; em telas largas o painel vira duas colunas */
+.ag-pagina { max-width: none; }
+.ag-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+@media (min-width: 1500px) {
+  .ag-corpo { grid-template-columns: minmax(0, 1fr) minmax(0, 860px); }
+  .ag-painel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+
+/* Agentes: estados reais (erro, rodapé, selo de nativo) */
+.ag-erro { margin: 0; color: #ff8a80; font-size: 13px; }
+.ag-rodape { margin: 0; font-size: 11px; color: var(--texto-secundario); }
+.ag-selo-nativo { margin-left: 8px; vertical-align: middle; }
+.ag-msg.erro { background: rgba(255, 138, 128, 0.12); }
+.ag-cartao input:disabled, .ag-cartao textarea:disabled, .ag-cartao select:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Agentes: campos de texto ocupam a largura toda do cartão */
+.ag-cartao label > input:not([type="checkbox"]), .ag-cartao label > textarea, .ag-cartao label > select { width: 100%; box-sizing: border-box; }

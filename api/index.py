@@ -26,9 +26,10 @@ from fastapi import (
 )
 from pydantic import BaseModel
 
-from _orion import anexos, atividades, auth, backup, busca, comercial, config, conversas, db, documentos, tarefas
+from _orion import agentes, anexos, atividades, auth, backup, busca, comercial, config, conversas, db, documentos, tarefas
 
 app = FastAPI(title="Orion HQ")
+logger = logging.getLogger("orion.agentes")
 
 
 class Credenciais(BaseModel):
@@ -54,6 +55,31 @@ class DecisaoAprovacao(BaseModel):
     """Corpo do `POST /aprovacoes/{id}`: aprovar ou recusar (Requirement 6.4/6.5)."""
 
     aprovado: bool
+
+
+class AgenteCorpo(BaseModel):
+    """Corpo de criar/editar agente. Só os campos enviados são alterados (PUT parcial)."""
+
+    nome: str | None = None
+    papel: str | None = None
+    cor: str | None = None
+    sala: str | None = None
+    modelo: str | None = None
+    descricao: str | None = None
+    instrucoes: str | None = None
+    ferramentas: list[str] | None = None
+    exige_aprovacao: bool | None = None
+    ativo: bool | None = None
+    pos_x: int | None = None
+    pos_y: int | None = None
+
+
+class PerguntaTeste(BaseModel):
+    pergunta: str
+
+
+class DescricaoAgente(BaseModel):
+    descricao: str
 
 
 class StatusIncidente(BaseModel):
@@ -319,6 +345,103 @@ def chat(
     if estado_inicial is not None:
         tarefas.add_task(execucao.processar, estado_inicial)
     return resultado
+
+
+# --- Agentes (tela Agentes) ---
+
+
+_MSG_MODELO = "Não foi possível falar com o modelo agora. Confira a chave da Anthropic e tente de novo."
+
+
+def _erro_agente(erro: Exception) -> HTTPException:
+    if isinstance(erro, agentes.AgenteNaoEncontrado):
+        return HTTPException(status_code=404, detail="Agente não encontrado.")
+    return HTTPException(status_code=422, detail=str(erro))
+
+
+@app.get("/api/agentes")
+def listar_agentes(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Cadastro de agentes + catálogo de ferramentas + limites (leitura: qualquer sócio logado)."""
+    return {
+        "agentes": agentes.listar(),
+        "catalogo": agentes.catalogo(),
+        "salas": list(agentes.SALAS),
+        "limites": {"max_ativos_criados": agentes.MAX_DINAMICOS_ATIVOS},
+    }
+
+
+@app.post("/api/agentes", status_code=status.HTTP_201_CREATED)
+def criar_agente(corpo: AgenteCorpo, usuario: str = Depends(auth.exigir_aprovador)) -> dict:
+    """Cria um agente (só aprovadores: o agente passa a poder propor alterações no HQ)."""
+    try:
+        return agentes.criar(corpo.model_dump(exclude_unset=True), usuario)
+    except (agentes.ErroAgente, agentes.AgenteNaoEncontrado) as erro:
+        raise _erro_agente(erro) from erro
+
+
+@app.post("/api/agentes/rascunho")
+def rascunho_agente(corpo: DescricaoAgente, usuario: str = Depends(auth.exigir_aprovador)) -> dict:
+    """Claude preenche o formulário a partir de uma descrição. Não grava nada."""
+    if not corpo.descricao.strip():
+        raise HTTPException(status_code=422, detail="Descreva o agente que você quer.")
+    try:
+        return agentes.rascunho(corpo.descricao.strip()[:2000])
+    except Exception as erro:  # noqa: BLE001 — falha do modelo vira erro claro, sem vazar detalhes
+        logger.exception("Falha ao gerar rascunho de agente")
+        raise HTTPException(status_code=502, detail=_MSG_MODELO) from erro
+
+
+@app.put("/api/agentes/{agente_id}")
+def editar_agente(
+    agente_id: str, corpo: AgenteCorpo, usuario: str = Depends(auth.exigir_aprovador)
+) -> dict:
+    try:
+        return agentes.atualizar(agente_id, corpo.model_dump(exclude_unset=True))
+    except (agentes.ErroAgente, agentes.AgenteNaoEncontrado) as erro:
+        raise _erro_agente(erro) from erro
+
+
+@app.delete("/api/agentes/{agente_id}")
+def remover_agente(agente_id: str, usuario: str = Depends(auth.exigir_aprovador)) -> dict:
+    try:
+        agentes.remover(agente_id)
+    except (agentes.ErroAgente, agentes.AgenteNaoEncontrado) as erro:
+        raise _erro_agente(erro) from erro
+    return {"status": "removido"}
+
+
+@app.post("/api/agentes/{agente_id}/testar")
+def testar_agente(
+    agente_id: str, corpo: PerguntaTeste, usuario: str = Depends(auth.exigir_aprovador)
+) -> dict:
+    """Roda o agente direto, fora do grafo, para testar instruções e ferramentas.
+
+    Gasta tokens; por isso só aprovadores. Propostas feitas no teste caem na tela de Aprovações como
+    qualquer outra (nada é gravado sem aprovação). Agenda e Orquestrador não têm teste isolado.
+    """
+    from _orion import especialistas, vigia
+
+    cfg = agentes.obter(agente_id)
+    if cfg is None:
+        raise HTTPException(status_code=404, detail="Agente não encontrado.")
+    pergunta = corpo.pergunta.strip()[:2000]
+    if not pergunta:
+        raise HTTPException(status_code=422, detail="Escreva uma pergunta de teste.")
+    if cfg["sistema"] and agente_id not in ("tech", "negocios", "vigia"):
+        raise HTTPException(status_code=422, detail="Este agente não tem teste isolado.")
+    try:
+        if not cfg["sistema"]:
+            texto = especialistas.dinamico(cfg, pergunta, None)
+        elif agente_id == "tech":
+            texto = especialistas.tech(pergunta, None)
+        elif agente_id == "negocios":
+            texto = especialistas.negocios(pergunta, None)
+        else:
+            texto = vigia.responder_sobre_incidentes(pergunta, None)
+    except Exception as erro:  # noqa: BLE001 — falha do modelo vira erro claro, sem vazar detalhes
+        logger.exception("Falha ao testar o agente %s", agente_id)
+        raise HTTPException(status_code=502, detail=_MSG_MODELO) from erro
+    return {"resposta": texto}
 
 
 @app.get("/api/aprovacoes")

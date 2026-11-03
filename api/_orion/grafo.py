@@ -33,7 +33,7 @@ import logging
 import operator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Any, Iterator, Literal, Optional, TypedDict
+from typing import Annotated, Any, Iterator, Optional, TypedDict
 from urllib.parse import quote
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -42,7 +42,7 @@ from langgraph.types import interrupt
 from psycopg.types.json import Json
 from pydantic import BaseModel, Field
 
-from . import config, db, especialistas, llm, vigia
+from . import agentes, config, db, especialistas, llm, vigia
 from .atividades import emitir
 
 logger = logging.getLogger("orion.grafo")
@@ -50,8 +50,9 @@ logger = logging.getLogger("orion.grafo")
 # Limite de delegações por run (product.md "Sem loops" / Requirement 3.4).
 MAX_PASSOS = 4
 
-# Destinos válidos que o supervisor pode escolher.
-Destino = Literal["tech", "agenda", "negocios", "vigia", "responder"]
+# Destinos nativos que o supervisor pode escolher; os agentes criados na tela Agentes (ids dinâmicos)
+# vão todos para o nó genérico `dinamico`.
+Destino = str
 
 
 class Estado(TypedDict, total=False):
@@ -88,12 +89,8 @@ class Rota(BaseModel):
 
     proximo: Destino = Field(
         description=(
-            "Quem deve trabalhar agora: 'tech' (produto/código/PRs e "
-            "documentação técnica), "
-            "'agenda' (reuniões e pautas), 'negocios' (custos, métricas, "
-            "decisões, documentos de negócio e o COMERCIAL: leads, funil, propostas e clientes), 'vigia' (erros, falhas, instabilidade, incidentes do "
-            "app ou backend) ou 'responder' (quando os relatórios já bastam ou "
-            "é conversa simples)."
+            "Id de quem deve trabalhar agora (um dos agentes listados no prompt) ou 'responder' "
+            "(quando os relatórios já bastam ou é conversa simples)."
         )
     )
     instrucao: str = Field(
@@ -117,16 +114,13 @@ def _prompt_supervisor() -> str:
     A data é formatada em PT-BR com dia da semana (config.agora_formatado()),
     nunca com `%A` (que sairia em inglês).
     """
+    linhas = "".join(f"- {a['id']} = {a['descricao']};\n" for a in agentes.roteaveis())
     return (
         "Você é o Orquestrador do Orion HQ, chefe de gabinete de Dimi e "
         "Jullyana. Você NÃO executa tarefas: decide quem trabalha.\n"
-        "- tech = produto/código/PRs do app Orion e documentação técnica;\n"
-        "- agenda = reuniões e pautas;\n"
-        "- negocios = custos, métricas, decisões, documentos de negócio e o COMERCIAL "
-        "(leads, funil de vendas, propostas, clínicas/empresas/autônomos clientes);\n"
+        f"{linhas}"
         "- perguntas sobre o que os sócios escreveram nos documentos (Docs) vão "
-        "para tech ou negocios, que sabem buscá-los;\n"
-        "- vigia = erros, falhas, instabilidade, incidentes do app ou backend;\n"
+        "para quem sabe buscá-los (tech ou negocios, ou um agente cuja descrição cubra o assunto);\n"
         "- responder = quando os relatórios já bastam ou é conversa simples.\n"
         "Dê ao especialista uma instrução autocontida (ele não vê esta "
         "conversa). Não repita um especialista para a mesma coisa.\n"
@@ -241,6 +235,10 @@ def no_supervisor(estado: Estado) -> dict:
 
     rota = decidir(estado)
     proximo = rota.proximo
+    # Destino que não é um agente ativo (ex.: pausado na tela) vira resposta com o que há.
+    if proximo != "responder" and proximo not in {a["id"] for a in agentes.roteaveis()}:
+        emitir(run_id, "orq", "pensando", f"Agente {proximo!r} indisponível; respondendo com o que há.")
+        return {"proxima": "responder"}
 
     if proximo == "responder":
         return {"proxima": "responder"}
@@ -290,6 +288,21 @@ def no_vigia(estado: Estado) -> dict:
     emitir(run_id, "vigia", "delegou", "Relatório para o Orquestrador",
            dados={"de": "vigia", "para": "orq"})
     return {"relatorios": [{"agente": "vigia", "texto": texto}], "passos": 1}
+
+
+def no_dinamico(estado: Estado) -> dict:
+    """Nó genérico: roda um agente criado na tela Agentes (cadastro em `agentes`)."""
+    run_id = estado.get("run_id")
+    agente_id = estado.get("proxima", "")
+    cfg = agentes.obter(agente_id)
+    instrucao = estado.get("instrucao") or estado.get("pedido", "")
+    if cfg is None or not cfg["ativo"] or cfg["sistema"]:
+        texto = f"O agente {agente_id!r} não está disponível."
+    else:
+        texto = especialistas.dinamico(cfg, instrucao, run_id)
+    emitir(run_id, agente_id, "delegou", "Relatório para o Orquestrador",
+           dados={"de": agente_id, "para": "orq"})
+    return {"relatorios": [{"agente": agente_id, "texto": texto}], "passos": 1}
 
 
 def no_agenda(estado: Estado) -> dict:
@@ -561,10 +574,10 @@ def no_responder(estado: Estado) -> dict:
 def _rota_supervisor(estado: Estado) -> Destino:
     """Aresta condicional a partir do supervisor: usa `estado["proxima"]`."""
     proxima = estado.get("proxima", "responder")
-    if proxima not in ("tech", "agenda", "negocios", "vigia", "responder"):
-        # Defensivo: destino inesperado encerra respondendo com o que há.
-        return "responder"
-    return proxima  # type: ignore[return-value]
+    if proxima in ("tech", "agenda", "negocios", "vigia", "responder"):
+        return proxima
+    # Qualquer outro id é um agente criado na tela; o supervisor já validou que está ativo.
+    return "dinamico"
 
 
 def _rota_agenda(estado: Estado) -> str:
@@ -588,6 +601,7 @@ def construir() -> StateGraph:
     grafo.add_node("tech", no_tech)
     grafo.add_node("negocios", no_negocios)
     grafo.add_node("vigia", no_vigia)
+    grafo.add_node("dinamico", no_dinamico)
     grafo.add_node("agenda", no_agenda)
     grafo.add_node("aprovacao", no_aprovacao)
     grafo.add_node("responder", no_responder)
@@ -601,9 +615,11 @@ def construir() -> StateGraph:
             "negocios": "negocios",
             "vigia": "vigia",
             "agenda": "agenda",
+            "dinamico": "dinamico",
             "responder": "responder",
         },
     )
+    grafo.add_edge("dinamico", "supervisor")
     grafo.add_edge("tech", "supervisor")
     grafo.add_edge("negocios", "supervisor")
     grafo.add_edge("vigia", "supervisor")

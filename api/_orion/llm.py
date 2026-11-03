@@ -37,6 +37,11 @@ def worker() -> ChatAnthropic:
     )
 
 
+def por_nome(nome: str) -> ChatAnthropic:
+    """Modelo escolhido na tela Agentes: 'haiku' usa o worker; qualquer outro, o principal."""
+    return worker() if nome == "haiku" else principal()
+
+
 def texto(msg: Any) -> str:
     """Extrai o texto de uma mensagem do modelo (AIMessage).
 
