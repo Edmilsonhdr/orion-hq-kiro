@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { parseMarkdown, type Bloco, type Inline } from "../lib/markdown";
+import { hrefInterno, parseMarkdown, type Bloco, type Inline } from "../lib/markdown";
 
 function inline(itens: Inline[]): ReactNode[] {
   return itens.map((item, i) => {
@@ -33,6 +33,13 @@ function inline(itens: Inline[]): ReactNode[] {
           </span>
         );
       case "link":
+        if (hrefInterno(item.href)) {
+          return (
+            <Link key={i} href={item.href} className="doc-link-pagina">
+              {inline(item.c)}
+            </Link>
+          );
+        }
         return (
           <a key={i} href={item.href} target="_blank" rel="noopener noreferrer nofollow">
             {inline(item.c)}

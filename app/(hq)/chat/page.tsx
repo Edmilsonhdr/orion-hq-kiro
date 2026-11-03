@@ -231,7 +231,7 @@ function ChatConversa({ conversaId }: { conversaId: number | null }) {
   return (
     <div
       style={{
-        maxWidth: "820px",
+        maxWidth: "1000px",
         margin: "0 auto",
         flex: 1,
         minWidth: 0,
@@ -275,6 +275,7 @@ function ChatConversa({ conversaId }: { conversaId: number | null }) {
           flex: 1,
           minHeight: 0,
           overflowY: "auto",
+          overflowX: "hidden",
           display: "flex",
           flexDirection: "column",
           gap: "10px",

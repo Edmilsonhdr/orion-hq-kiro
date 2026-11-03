@@ -13,6 +13,7 @@ import { enviar } from "../lib/api";
 import type { Fonte } from "../lib/fontes";
 import type { Documento } from "../lib/docs";
 import Markdown from "./Markdown";
+import { linkarDocs } from "../lib/markdown";
 import { FiguraMini } from "./Personagem";
 
 export type Mensagem = {
@@ -179,7 +180,7 @@ export default function ChatMessage({
         </div>
         {doOrquestrador ? (
           <div className="chat-markdown">
-            <Markdown texto={mensagem.texto} />
+            <Markdown texto={linkarDocs(mensagem.texto)} />
           </div>
         ) : (
           <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{comLinks(mensagem.texto)}</div>

@@ -30,7 +30,7 @@ from typing import Any, Optional
 
 from langgraph.types import Command
 
-from . import db, propostas_comercial, propostas_docs
+from . import conversas, db, propostas_comercial, propostas_docs
 from .atividades import emitir
 
 logger = logging.getLogger("orion.execucao")
@@ -210,7 +210,10 @@ def processar(estado_inicial: dict) -> dict:
     try:
         with grafo.grafo_com_checkpoint() as g:
             g.invoke(estado_inicial, _config(run_id))
-            return _finalizar(g, run_id)
+            resultado = _finalizar(g, run_id)
+        if resultado.get("status") == "respondido":
+            conversas.titular_com_ia((estado_inicial.get("dados") or {}).get("conversa_id"))
+        return resultado
     except Exception:  # noqa: BLE001 — qualquer falha do run vira mensagem amigável
         logger.exception("Falha no run do grafo (run_id=%s)", run_id)
         return _tratar_erro(run_id)

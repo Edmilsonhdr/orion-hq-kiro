@@ -31,8 +31,20 @@ export type Bloco =
 const HREF_SEGURO = /^(https?:\/\/|mailto:)/i;
 const LINK = /^\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/;
 
+// Link interno só para documentos (`/docs/12`): o chat transforma "Doc #12" nele.
+const HREF_DOC = /^\/docs\/\d+$/;
+
 export function hrefSeguro(href: string): boolean {
-  return HREF_SEGURO.test(href.trim());
+  return HREF_SEGURO.test(href.trim()) || HREF_DOC.test(href.trim());
+}
+
+export function hrefInterno(href: string): boolean {
+  return HREF_DOC.test(href.trim());
+}
+
+// "Doc #5" na resposta dos agentes vira link para o documento (ignora o que já é link).
+export function linkarDocs(texto: string): string {
+  return texto.replace(/(?<![\[\w/])Doc #(\d+)\b(?!\]|\()/g, "[Doc #$1](/docs/$1)");
 }
 
 export function parseInline(s: string): Inline[] {

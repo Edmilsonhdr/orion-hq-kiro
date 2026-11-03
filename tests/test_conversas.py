@@ -54,3 +54,42 @@ def test_rotas_criar_titular_arquivar(cliente):
     assert cliente.get("/api/conversas").json() == []
     assert cliente.post("/api/chat", json={"texto": "oi", "conversa_id": c["id"]}).status_code == 404
     assert cliente.post("/api/chat", json={"texto": "oi", "conversa_id": 9999}).status_code == 404
+
+
+def test_nova_conversa_vazia_e_reaproveitada(banco):
+    a = conversas.criar(None, "dimi")
+    assert conversas.criar(None, "dimi")["id"] == a["id"]
+    assert conversas.criar(None, "jullyana")["id"] != a["id"]  # de outra pessoa
+    db.salvar_mensagem("dimi", "oi", conversa_id=a["id"])
+    assert conversas.criar(None, "dimi")["id"] != a["id"]  # a anterior já tem mensagem
+    assert conversas.criar("Vendas", "dimi")["titulo"] == "Vendas"
+
+
+def _com_resposta(pergunta="oq consegue me dizer do modulo comercial ?"):
+    c = conversas.criar(None, "dimi")
+    conversas.titular_se_nova(c["id"], pergunta)
+    db.salvar_mensagem("dimi", pergunta, conversa_id=c["id"])
+    db.salvar_mensagem("Orquestrador", "Funil vazio...", "run-1", conversa_id=c["id"])
+    return c["id"]
+
+
+def test_titulo_da_ia_substitui_o_provisorio(banco):
+    cid = _com_resposta()
+    assert conversas.titular_com_ia(cid, lambda p, r: ' "Retrato do módulo Comercial." ') == "Retrato do módulo Comercial"
+    assert conversas.obter(cid)["titulo"] == "Retrato do módulo Comercial"
+
+
+def test_titulo_da_ia_respeita_renomeacao_e_falhas(banco):
+    cid = _com_resposta()
+    conversas.renomear(cid, "Meu título")
+    assert conversas.titular_com_ia(cid, lambda p, r: "Outro") is None
+    assert conversas.obter(cid)["titulo"] == "Meu título"
+
+    cid2 = _com_resposta("outra pergunta qualquer")
+
+    def quebra(p, r):
+        raise RuntimeError("sem chave")
+
+    assert conversas.titular_com_ia(cid2, quebra) is None
+    assert conversas.obter(cid2)["titulo"] == "outra pergunta qualquer"
+    assert conversas.titular_com_ia(None) is None

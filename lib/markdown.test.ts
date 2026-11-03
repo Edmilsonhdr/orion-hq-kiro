@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { parseInline, parseMarkdown, type Inline } from "./markdown.ts";
+import { hrefSeguro, linkarDocs, parseInline, parseMarkdown, type Inline } from "./markdown.ts";
 
 // Tudo que o parser devolve é dado; este helper junta o texto visível para conferir escapes.
 function textoVisivel(c: Inline[]): string {
@@ -143,4 +143,14 @@ test("[[Título]] vira link de página e @usuario vira menção", () => {
 test("escapes do markdown viram o caractere literal", () => {
   const r = parseInline("R$ 10 \\* 2 e snake\\_case \\[x\\] C:\\dir");
   assert.deepEqual(r, [{ t: "texto", v: "R$ 10 * 2 e snake_case [x] C:\\dir" }]);
+});
+
+test("Doc #N vira link interno para o documento; o que já é link fica como está", () => {
+  assert.equal(linkarDocs("Veja o Doc #5 e o **Doc #12**."), "Veja o [Doc #5](/docs/5) e o **[Doc #12](/docs/12)**.");
+  assert.equal(linkarDocs("[Doc #5](/docs/5)"), "[Doc #5](/docs/5)");
+  const [b] = parseMarkdown("ver [Doc #5](/docs/5)");
+  assert.deepEqual(b, { t: "paragrafo", c: [{ t: "texto", v: "ver " }, { t: "link", href: "/docs/5", c: [{ t: "texto", v: "Doc #5" }] }] });
+  // só /docs/<número>: outros caminhos continuam recusados
+  assert.equal(hrefSeguro("/docs/abc"), false);
+  assert.equal(hrefSeguro("//evil.com"), false);
 });
