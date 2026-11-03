@@ -162,6 +162,7 @@ def importar(
                 ligacoes.append((criado["id"], meta["pai"].strip(), (pai_pasta or "").strip() or None))
         relatorio["novos"].append({"titulo": dados["titulo"], "pasta": dados["pasta"]})
 
+    posicao_no_pai: dict[int, int] = {}  # a ordem dos arquivos vira a ordem das subpáginas
     for filho_id, pai_titulo, pai_pasta in ligacoes:
         pai = db.um(
             "select id from documentos where lower(titulo) = lower(%s) and pasta is not distinct from %s "
@@ -171,9 +172,61 @@ def importar(
         if pai is None or pai["id"] == filho_id:
             continue
         try:
-            documentos.editar(filho_id, {"pai_id": pai["id"]}, autor)
+            posicao = posicao_no_pai.get(pai["id"], 0)
+            documentos.mover(filho_id, pai["id"], posicao)
+            posicao_no_pai[pai["id"]] = posicao + 1
             relatorio["subpaginas"] += 1
         except ValueError:
             pass  # profundidade máxima ou ciclo: a página fica no topo
 
+    return relatorio
+
+
+def atualizar(
+    origem: Path,
+    aplicar: bool = False,
+    autor: str = "importação",
+    pastas: Optional[tuple[str, ...]] = None,
+) -> dict:
+    """Atualiza o CONTEÚDO de documentos que já existem (mesmo título e pasta) com o da origem.
+
+    Para material mantido em arquivo (documentação do produto): quando o arquivo mudou, o texto novo entra
+    e o anterior fica no histórico de versões do documento (dá para restaurar). Só mexe nas `pastas`
+    informadas (se houver), nunca cria documentos e nunca toca em título, pasta ou tags. Texto igual não
+    gera versão. Relatório: `atualizados`, `iguais`, `ausentes` (ainda não importados) e `erros`.
+    """
+    origem = Path(origem)
+    if not origem.exists():
+        raise FileNotFoundError(f"Origem não encontrada: {origem}")
+    existentes = {(d["titulo"].lower(), d["pasta"] or ""): d["id"] for d in documentos.listar(arquivados=False)}
+    relatorio: dict = {"atualizados": [], "iguais": [], "ausentes": [], "erros": []}
+    for pastas_arq, nome, texto in _arquivos(origem):
+        if Path(nome).suffix.lower() not in EXTENSOES or not texto.strip():
+            continue
+        meta, texto = _frontmatter(texto)
+        titulo, conteudo = _titulo_e_conteudo(Path(nome).stem, texto)
+        if isinstance(meta.get("titulo"), str) and meta["titulo"].strip():
+            titulo = meta["titulo"].strip()
+        pasta = " / ".join(p for p in (_limpar_nome(x) for x in pastas_arq) if p)[: documentos.PASTA_MAX] or None
+        if isinstance(meta.get("pasta"), str) and meta["pasta"].strip():
+            pasta = meta["pasta"].strip()[: documentos.PASTA_MAX]
+        if pastas is not None and (pasta or "") not in pastas:
+            continue
+        item = {"titulo": titulo, "pasta": pasta}
+        doc_id = existentes.get((titulo.lower(), pasta or ""))
+        if doc_id is None:
+            relatorio["ausentes"].append(item)
+            continue
+        try:
+            novo = documentos.validar_campos({"conteudo": conteudo})["conteudo"]
+        except ValueError as erro:
+            relatorio["erros"].append({"arquivo": "/".join((*pastas_arq, nome)), "motivo": str(erro)})
+            continue
+        atual = documentos.obter(doc_id)
+        if atual is None or (atual["conteudo"] or "").strip() == novo.strip():
+            relatorio["iguais"].append(item)
+            continue
+        if aplicar:
+            documentos.editar(doc_id, {"conteudo": novo}, autor)
+        relatorio["atualizados"].append(item)
     return relatorio

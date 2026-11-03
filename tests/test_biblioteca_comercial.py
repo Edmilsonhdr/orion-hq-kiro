@@ -26,7 +26,9 @@ def test_script_simula_sem_gravar(banco):
         capture_output=True, text=True, env=ambiente, cwd=RAIZ, timeout=60,
     )
     assert saida.returncode == 0, saida.stderr
-    assert "Entrariam (simulação): 5" in saida.stdout
+    esperados = sum(len(list((RAIZ / "docs" / pasta).glob("*.md"))) for pasta in ("comercial", "recursos", "orion", "orion-guia"))
+    assert f"Entrariam (simulação): {esperados}" in saida.stdout
+    assert "Orion (guia de uso) / Fluxos de uso" in saida.stdout
     assert "Comercial / Modelo de proposta comercial" in saida.stdout
     assert "Recursos do Orion HQ / Módulo Comercial (recurso do Orion HQ)" in saida.stdout
     assert db.um("select count(*) as n from documentos")["n"] == 0

@@ -98,3 +98,41 @@ def test_documento_importado_e_achado_pela_busca(banco, tmp_path):
     _montar(tmp_path, {"Política.md": "# Política de reembolso\nReembolso em 7 dias."})
     importacao.importar(tmp_path, aplicar=True)
     assert [d["titulo"] for d in documentos.buscar("reembolso")] == ["Política de reembolso"]
+
+
+def test_atualizar_troca_o_conteudo_e_guarda_a_versao_anterior(banco, tmp_path):
+    base = _montar(tmp_path, {"Guia/Fluxos.md": "# Fluxos\ntexto antigo"})
+    importacao.importar(base, aplicar=True, autor="dimi", tag=None)
+    (base / "Guia" / "Fluxos.md").write_text("# Fluxos\ntexto novo", encoding="utf-8")
+    simulado = importacao.atualizar(base, aplicar=False, autor="dimi")
+    assert [d["titulo"] for d in simulado["atualizados"]] == ["Fluxos"]
+    assert documentos.listar()[0]["trecho"] == "texto antigo"  # simulação não grava
+
+    rel = importacao.atualizar(base, aplicar=True, autor="jullyana")
+    assert len(rel["atualizados"]) == 1
+    doc = documentos.listar()[0]
+    assert documentos.obter(doc["id"])["conteudo"] == "texto novo"
+    assert any("texto antigo" in (documentos.versao(doc["id"], v["id"]) or {}).get("conteudo", "") for v in documentos.versoes(doc["id"]))
+
+    # Texto igual não gera nada; documento fora das pastas pedidas nem é olhado.
+    assert importacao.atualizar(base, aplicar=True, autor="dimi")["iguais"][0]["titulo"] == "Fluxos"
+    assert importacao.atualizar(base, aplicar=True, autor="dimi", pastas=("Outra",)) == {
+        "atualizados": [], "iguais": [], "ausentes": [], "erros": []
+    }
+
+
+def test_atualizar_nao_cria_documentos(banco, tmp_path):
+    base = _montar(tmp_path, {"Guia/Novo.md": "# Novo\ntexto"})
+    rel = importacao.atualizar(base, aplicar=True, autor="dimi")
+    assert rel["ausentes"] == [{"titulo": "Novo", "pasta": "Guia"}]
+    assert documentos.listar() == []
+
+
+def test_subpaginas_seguem_a_ordem_dos_arquivos(banco, tmp_path):
+    arquivos = {"G/00 Mãe.md": "# Mãe\ntexto"}
+    for nome in ("b-segundo", "a-terceiro", "0-primeiro"):
+        arquivos[f"G/{nome}.md"] = f'---\npai: "Mãe"\npai_pasta: "G"\n---\n# {nome.split("-")[1].title()}\ntexto'
+    importacao.importar(_montar(tmp_path, arquivos), aplicar=True, autor="dimi", tag=None)
+    mae = next(d for d in documentos.arvore() if d["titulo"] == "Mãe")
+    filhas = [d["titulo"] for d in documentos.subpaginas(mae["id"])]
+    assert filhas == ["Primeiro", "Terceiro", "Segundo"]  # ordem alfabética dos nomes de arquivo
