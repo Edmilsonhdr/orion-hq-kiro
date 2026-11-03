@@ -252,6 +252,32 @@ Tela **Agentes** (`/agentes`, aba "Planta" leva ao Escritório): mapa dos agente
 - Agentes criados na tela aparecem na legenda, no log e nos tokens do Escritório, **ainda sem mesa na
   planta**. A coluna `passos` (jsonb) está reservada para um encadeamento simples no futuro.
 
+## Calendário, rotinas e segurança
+
+- **Calendário** (`/calendario`): só leitura. Reúne prazos de tarefas, próximos passos do Comercial e reuniões, em mês ou
+  semana, com filtros e "Só meus". "Assinar no Google Agenda" gera um endereço pessoal (`/api/calendario/feed.ics?token=…`)
+  que o Google lê; quem tem o endereço lê o feed, então ele não deve sair do time. Trocar o `ORION_SESSION_SECRET` invalida
+  todos os endereços. Na reunião, "Criar ata" cria a página em Docs (pasta "Reuniões") com data, participantes e pauta.
+- **Resumo diário** (`/api/cron/resumo-diario`, dias úteis às 8h de Brasília): posta no chat o que está atrasado, o de hoje,
+  os próximos 7 dias, as aprovações e os incidentes (não posta se não há nada). Com `RESEND_API_KEY` e `ORION_EMAILS`
+  (`dimi:email,jullyana:email`) também envia por e-mail; sem eles, só o chat. `ORION_EMAIL_REMETENTE` é opcional e precisa
+  ser um remetente verificado no Resend.
+- **Guardião de docs** (`api/_orion/guardiao.py`): toda segunda, depois do resumo semanal (e no botão "Revisar guias" em Docs,
+  para aprovadores), compara o changelog dos últimos 7 dias com os documentos das pastas "Orion (guia de uso)" e
+  "Orion (produto)" e PROPÕE ajustes pontuais (cada trecho trocado precisa existir uma vez no texto). Nada é gravado
+  sem aprovação em Aprovações. No máximo 3 documentos por rodada; documentos com edição pendente são pulados.
+- **Uso por agente** (tela Agentes): tokens em 30 dias, execuções, série diária e últimas execuções de cada agente.
+- **Uso do piloto** (negócio): medições manuais (profissionais ativos, pacientes cadastrados e registrando) e a taxa de
+  ativação. Só contagens, nunca dado de paciente.
+- **Chat:** conversa vazia é reaproveitada, o título vira um resumo curto depois da primeira resposta, "Doc #5" vira
+  link e há "Virar tarefa" em cada resposta.
+- **Segurança** (`/seguranca`): verificação em duas etapas por aplicativo autenticador (TOTP; o login passa a pedir o
+  código) e, para aprovadores, o registro de quem mudou o quê (método, caminho e status; nunca o conteúdo; 180 dias).
+  Quem perder o aplicativo: apague a linha da pessoa em `totp` no banco.
+
+Estas funções usam tabelas novas (`negocio_metricas`, `auditoria`, `totp`): rode `scripts/setup_db.py` no banco antes de
+usar em produção. Até lá, auditoria e 2FA ficam desligados sem erro (o login segue só com senha).
+
 ## Criar o banco no Neon
 
 1. No painel da **Vercel**, abra o projeto → aba **Storage** → **Marketplace** → **Neon** e crie um banco
@@ -329,10 +355,8 @@ Itens conhecidos, fora desta rodada:
 
 - **Revogação de sessão:** o cookie assinado vale até expirar; não há como invalidar uma sessão antes disso
   (exceto trocando o `ORION_SESSION_SECRET`, o que derruba todas).
-- **Rate limit no login:** não há limite de tentativas no `POST /api/login`.
 - **Teste concorrente real:** a dupla decisão de aprovação é coberta por teste sequencial; falta um teste com
   requisições realmente simultâneas.
-- **Escape do `.ics`:** título e pauta entram no iCalendar sem escapar `,`, `;` e `\`, nem quebrar linhas longas.
 - **README para Windows:** as instruções assumem WSL/Linux; falta o passo a passo para rodar direto no Windows.
 
 ## Documentação do projeto
