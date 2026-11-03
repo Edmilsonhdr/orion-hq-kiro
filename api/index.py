@@ -24,12 +24,25 @@ from fastapi import (
     Response,
     status,
 )
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from _orion import agentes, anexos, atividades, auth, backup, busca, calendario, comercial, config, conversas, db, documentos, tarefas
+from _orion import totp as segundo_fator
+from _orion import agentes, anexos, atividades, auditoria, auth, backup, busca, calendario, comercial, config, conversas, db, documentos, tarefas
 
 app = FastAPI(title="Orion HQ")
 logger = logging.getLogger("orion.agentes")
+
+
+@app.middleware("http")
+async def _auditar_mudancas(request: Request, chamada):
+    """Registra na auditoria cada mudança (POST/PUT/PATCH/DELETE) feita por uma pessoa logada."""
+    resposta = await chamada(request)
+    if auditoria.deve_registrar(request.method, request.url.path) and request.url.path != "/api/login":
+        usuario = auth.verificar_token(request.cookies.get(auth.NOME_COOKIE, ""))
+        if usuario:
+            await run_in_threadpool(auditoria.registrar, usuario, request.method, request.url.path, resposta.status_code)
+    return resposta
 
 
 class Credenciais(BaseModel):
@@ -37,6 +50,7 @@ class Credenciais(BaseModel):
 
     usuario: str
     senha: str
+    codigo: str | None = None  # segundo fator (aplicativo autenticador), quando ativo
 
 
 class MensagemChat(BaseModel):
@@ -206,7 +220,18 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuário ou senha inválidos.",
         )
+    if segundo_fator.exigido(credenciais.usuario):
+        if not (credenciais.codigo or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+                detail="Informe o código do aplicativo autenticador.",
+            )
+        if not segundo_fator.conferir_login(credenciais.usuario, credenciais.codigo or ""):
+            db.executar("insert into login_tentativas (usuario) values (%s)", (chave,))
+            auditoria.registrar(credenciais.usuario, "POST", "/api/login (código incorreto)", 401)
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código incorreto ou já usado.")
     db.executar("delete from login_tentativas where usuario = %s", (chave,))
+    auditoria.registrar(credenciais.usuario, "POST", "/api/login", 200)
     auth.definir_cookie_sessao(response, credenciais.usuario, request)
     return {"usuario": credenciais.usuario}
 
@@ -225,6 +250,49 @@ def me(usuario: str = Depends(auth.usuario_atual)) -> dict:
     Inclui `aprovador` indicando se o usuário está em `ORION_APPROVERS`.
     """
     return {"usuario": usuario, "aprovador": usuario in config.aprovadores()}
+
+
+class CodigoCorpo(BaseModel):
+    codigo: str = ""
+
+
+@app.get("/api/2fa")
+def estado_2fa(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Estado do segundo fator da pessoa logada: sem, pendente ou ativo."""
+    return {"estado": segundo_fator.estado(usuario)}
+
+
+@app.post("/api/2fa/iniciar")
+def iniciar_2fa(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Gera um segredo novo (ainda inativo) e o endereço otpauth para cadastrar no aplicativo autenticador."""
+    try:
+        return segundo_fator.iniciar(usuario)
+    except ValueError as erro:
+        raise HTTPException(status_code=409, detail=str(erro))
+
+
+@app.post("/api/2fa/ativar")
+def ativar_2fa(corpo: CodigoCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Confirma com um código do aplicativo e liga o segundo fator."""
+    if not segundo_fator.ativar(usuario, corpo.codigo):
+        raise HTTPException(status_code=422, detail="Código incorreto. Confira o aplicativo e tente de novo.")
+    return {"estado": "ativo"}
+
+
+@app.post("/api/2fa/desativar")
+def desativar_2fa(corpo: CodigoCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Desliga o segundo fator (exige um código válido do aplicativo)."""
+    if not segundo_fator.desativar(usuario, corpo.codigo):
+        raise HTTPException(status_code=422, detail="Código incorreto. Confira o aplicativo e tente de novo.")
+    return {"estado": "sem"}
+
+
+@app.get("/api/auditoria")
+def listar_auditoria(
+    limite: int = 200, quem: str | None = None, usuario: str = Depends(auth.exigir_aprovador)
+) -> list[dict]:
+    """Últimas mudanças feitas no HQ (quem, o quê, quando). Só aprovadores."""
+    return auditoria.listar(limite, quem or None)
 
 
 @app.post("/api/presenca")
@@ -379,6 +447,30 @@ def criar_agente(corpo: AgenteCorpo, usuario: str = Depends(auth.exigir_aprovado
         raise _erro_agente(erro) from erro
 
 
+@app.post("/api/guardiao/executar")
+def executar_guardiao(usuario: str = Depends(auth.exigir_aprovador)) -> dict:
+    """Roda o Guardião de docs agora: propõe (nunca aplica) atualizações dos guias do produto. Só aprovadores."""
+    from _orion import guardiao
+
+    try:
+        return guardiao.revisar()
+    except Exception:  # noqa: BLE001
+        logger.exception("Falha ao rodar o Guardião de docs")
+        raise HTTPException(status_code=502, detail=_MSG_MODELO)
+
+
+@app.get("/api/agentes/uso")
+def uso_dos_agentes(dias: int = 30, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Tokens, execuções e série diária por agente nos últimos `dias` (até 90)."""
+    return atividades.uso_por_agente(dias)
+
+
+@app.get("/api/agentes/{agente_id}/execucoes")
+def execucoes_do_agente(agente_id: str, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    """Últimas execuções do agente (um run cada), com tokens e se houve erro."""
+    return atividades.execucoes_do_agente(agente_id)
+
+
 @app.post("/api/agentes/rascunho")
 def rascunho_agente(corpo: DescricaoAgente, usuario: str = Depends(auth.exigir_aprovador)) -> dict:
     """Claude preenche o formulário a partir de uma descrição. Não grava nada."""
@@ -505,10 +597,35 @@ def calendario_periodo(de: date, ate: date, usuario: str = Depends(auth.usuario_
         raise HTTPException(status_code=422, detail=str(erro))
 
 
+@app.get("/api/calendario/feed")
+def calendario_feed(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """URL pessoal para assinar o calendário no Google Agenda (ou outro app). Quem tem a URL lê o feed."""
+    return {"url": calendario.url_feed(usuario)}
+
+
+@app.get("/api/calendario/feed.ics")
+def calendario_feed_ics(token: str) -> Response:
+    """Feed iCalendar público, protegido pelo token pessoal da URL (os apps de agenda não enviam cookie)."""
+    if calendario.usuario_do_token(token) is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido.")
+    return Response(content=calendario.montar_ics(), media_type="text/calendar; charset=utf-8",
+                    headers={"Cache-Control": "private, max-age=300"})
+
+
 @app.get("/api/calendario/agenda")
 def calendario_agenda(usuario: str = Depends(auth.usuario_atual)) -> dict:
     """Atrasados, hoje e próximos 7 dias (cartão do Início)."""
     return calendario.agenda()
+
+
+@app.post("/api/reunioes/{reuniao_id}/ata")
+def criar_ata_da_reuniao(reuniao_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Cria a ata da reunião em Docs (pasta "Reuniões") já com data, participantes e pauta; se já existe, devolve a mesma."""
+    linha = db.reuniao(reuniao_id)
+    if linha is None:
+        raise HTTPException(status_code=404, detail="Reunião não encontrada.")
+    doc, criado = documentos.ata_da_reuniao(linha, usuario)
+    return {"id": doc["id"], "titulo": doc["titulo"], "criado": criado}
 
 
 @app.get("/api/reunioes")
@@ -556,10 +673,10 @@ def _montar_ics(reuniao: dict) -> str:
     inicio = reuniao["inicio"]
     fim = reuniao["fim"]
     pauta = reuniao.get("pauta") or []
-    if isinstance(pauta, (list, tuple)):
-        descricao = "\\n".join(str(item) for item in pauta)
-    else:
-        descricao = str(pauta)
+    # Cada item é escapado (`,` `;` `\\`) e os itens se juntam com `\\n` literal; linhas longas são dobradas (RFC 5545).
+    itens = [str(item) for item in pauta] if isinstance(pauta, (list, tuple)) else [str(pauta)]
+    descricao = "\\n".join(calendario._escapar(item) for item in itens)
+    titulo = calendario._escapar(titulo)
 
     # Timestamp de criação do evento (agora em UTC).
     carimbo = _formato_utc(config.agora())
@@ -579,7 +696,7 @@ def _montar_ics(reuniao: dict) -> str:
         "END:VEVENT",
         "END:VCALENDAR",
     ]
-    return "\r\n".join(linhas) + "\r\n"
+    return "\r\n".join(parte for linha in linhas for parte in calendario._dobrar(linha)) + "\r\n"
 
 
 def _documento_ou_404(documento: dict | None) -> dict:
@@ -714,6 +831,12 @@ def mover_documento_na_arvore(
         raise _invalido(erro)
     _documento_ou_404({} if ids is not None else None)
     return ids or []
+
+
+@app.get("/api/documentos/{documento_id}/citacoes")
+def citacoes_do_documento(documento_id: int, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    """Páginas que citam este documento por [[Título]] ("citado em")."""
+    return documentos.citacoes(documento_id)
 
 
 @app.get("/api/documentos/{documento_id}/comentarios")
@@ -924,6 +1047,36 @@ def registrar_interacao_comercial(
         ),
         "Negócio",
     )
+
+
+class MetricaCorpo(BaseModel):
+    medido_em: str | None = None
+    profissionais_ativos: int | None = None
+    pacientes_cadastrados: int | None = None
+    pacientes_registrando: int | None = None
+    observacao: str | None = None
+
+
+@app.get("/api/comercial/negocios/{negocio_id}/metricas")
+def listar_metricas_comercial(negocio_id: int, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return comercial.listar_metricas(negocio_id)
+
+
+@app.post("/api/comercial/negocios/{negocio_id}/metricas", status_code=status.HTTP_201_CREATED)
+def registrar_metrica_comercial(
+    negocio_id: int, corpo: MetricaCorpo, usuario: str = Depends(auth.usuario_atual)
+) -> dict:
+    return _comercial_404(
+        _comercial(lambda: comercial.registrar_metrica(negocio_id, corpo.model_dump(exclude_unset=True), usuario)),
+        "Negócio",
+    )
+
+
+@app.delete("/api/comercial/metricas/{metrica_id}")
+def excluir_metrica_comercial(metrica_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    if not comercial.excluir_metrica(metrica_id):
+        raise HTTPException(status_code=404, detail="Medição não encontrada.")
+    return {"status": "excluida"}
 
 
 @app.delete("/api/comercial/interacoes/{interacao_id}")
@@ -1252,32 +1405,52 @@ async def webhook_sentry(
     return resultado
 
 
+def _exigir_cron(authorization: str | None) -> None:
+    """Cron da Vercel: `Authorization: Bearer <CRON_SECRET>`. Sem o header, formato errado ou segredo diferente → 401."""
+    esperado = config.cron_secret()
+    fornecido = ""
+    if authorization and authorization.startswith("Bearer "):
+        fornecido = authorization[len("Bearer "):]
+    if not esperado or not secrets.compare_digest(fornecido, esperado):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Não autorizado.")
+
+
 @app.get("/api/cron/resumo-semanal")
 def cron_resumo_semanal(
     authorization: str | None = Header(default=None),
 ) -> dict:
     """Resumo semanal disparado pelo Vercel Cron (Requirement 10).
 
-    Rota pública quanto à sessão, protegida por `Authorization: Bearer
-    <CRON_SECRET>` (a Vercel envia esse cabeçalho — Requirement 10.2). Sem o
-    header, com formato errado ou segredo diferente → 401.
-
-    Import tardio de `resumo` para não exigir o modelo em quem só importa o app.
+    Rota pública quanto à sessão, protegida por `Authorization: Bearer <CRON_SECRET>`. Depois do resumo,
+    roda o Guardião de docs (propõe atualizações de documentos; nunca grava sozinho). Falha do Guardião
+    não derruba o resumo.
     """
-    esperado = config.cron_secret()
-    fornecido = ""
-    if authorization and authorization.startswith("Bearer "):
-        fornecido = authorization[len("Bearer "):]
-
-    if not esperado or not secrets.compare_digest(fornecido, esperado):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Não autorizado.",
-        )
+    _exigir_cron(authorization)
 
     from _orion import resumo
 
-    return resumo.resumo_semanal()
+    resultado = resumo.resumo_semanal()
+    auditoria.limpar()
+    try:
+        from _orion import guardiao
+
+        resultado["guardiao"] = guardiao.revisar()
+    except Exception:  # noqa: BLE001 — o Guardião é um extra do cron semanal
+        logging.getLogger("orion.guardiao").exception("Falha no Guardião de docs")
+        resultado["guardiao"] = {"status": "erro"}
+    return resultado
+
+
+@app.get("/api/cron/resumo-diario")
+def cron_resumo_diario(
+    authorization: str | None = Header(default=None),
+) -> dict:
+    """Resumo do dia (atrasados, hoje, próximos 7 dias, aprovações e incidentes) no chat e, se configurado, por e-mail."""
+    _exigir_cron(authorization)
+
+    from _orion import resumo
+
+    return resumo.resumo_diario()
 
 
 @app.get("/api/saude")

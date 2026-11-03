@@ -36,6 +36,7 @@ const GRUPOS: { titulo: string; itens: Item[] }[] = [
       { href: "/agentes", rotulo: "Agentes", icone: "agentes", tambem: ["/escritorio"] },
       { href: "/incidentes", rotulo: "Incidentes", icone: "incidentes", contador: "incidentes" },
       { href: "/aprovacoes", rotulo: "Aprovações", icone: "aprovacoes", contador: "aprovacoes" },
+      { href: "/seguranca", rotulo: "Segurança", icone: "seguranca" },
     ],
   },
 ];
@@ -103,6 +104,12 @@ const CAMINHOS: Record<string, ReactNode> = {
     <>
       <rect x="3.5" y="5" width="17" height="15" rx="2" />
       <path d="M3.5 10h17M8 3v4M16 3v4" />
+    </>
+  ),
+  seguranca: (
+    <>
+      <path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z" />
+      <path d="M9 12l2 2 4-4" />
     </>
   ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,

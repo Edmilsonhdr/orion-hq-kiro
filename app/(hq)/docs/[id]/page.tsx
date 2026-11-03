@@ -6,6 +6,7 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import CitadoEm from "../../../../components/CitadoEm";
 import ArvoreDocs from "../../../../components/ArvoreDocs";
 import DocEditor from "../../../../components/DocEditor";
 import Markdown from "../../../../components/Markdown";
@@ -350,6 +351,8 @@ export default function DocumentoPage() {
                   </section>
                 )}
               </article>
+
+              <CitadoEm documentoId={doc.id} />
 
               <TarefasRelacionadas entidade="documento" id={doc.id} />
 

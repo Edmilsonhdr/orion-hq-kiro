@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 import type { Pessoa } from "../lib/agents";
 import { useState } from "react";
 import Link from "next/link";
-import { enviar } from "../lib/api";
+import { enviar, obter } from "../lib/api";
 import type { Fonte } from "../lib/fontes";
 import type { Documento } from "../lib/docs";
 import Markdown from "./Markdown";
@@ -87,6 +87,27 @@ export default function ChatMessage({
   const [salvo, setSalvo] = useState<number | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [virouTarefa, setVirouTarefa] = useState(false);
+  const [criandoTarefa, setCriandoTarefa] = useState(false);
+
+  async function virarTarefa() {
+    if (criandoTarefa) return;
+    setCriandoTarefa(true);
+    setErro(null);
+    try {
+      const eu = await obter<{ usuario: string }>("/me");
+      await enviar("/tarefas", {
+        titulo: tituloDe(mensagem.texto).slice(0, 200),
+        descricao: mensagem.texto.slice(0, 5000),
+        responsavel: eu.usuario,
+      });
+      setVirouTarefa(true);
+    } catch {
+      setErro("Não foi possível criar a tarefa.");
+    } finally {
+      setCriandoTarefa(false);
+    }
+  }
 
   async function salvarNoDocs() {
     if (salvando) return;
@@ -203,6 +224,13 @@ export default function ChatMessage({
             ) : (
               <button type="button" className="chat-salvar" onClick={salvarNoDocs} disabled={salvando}>
                 {salvando ? "Salvando…" : "Salvar no Docs"}
+              </button>
+            )}
+            {virouTarefa ? (
+              <Link href="/tarefas">Tarefa criada — abrir</Link>
+            ) : (
+              <button type="button" className="chat-salvar" onClick={virarTarefa} disabled={criandoTarefa}>
+                {criandoTarefa ? "Criando…" : "Virar tarefa"}
               </button>
             )}
             {erro && <span role="alert" className="doc-erro">{erro}</span>}

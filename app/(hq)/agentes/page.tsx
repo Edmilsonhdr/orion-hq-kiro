@@ -9,6 +9,7 @@
 // - Ao vivo: cada cartão mostra o que o agente faz, lido do mesmo feed do Escritório (/atividades).
 // - Arrastar um cartão grava a posição (aprovadores).
 
+import UsoAgente from "../../../components/UsoAgente";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { atualizar, enviar, excluir, obter, ErroApi } from "../../../lib/api";
@@ -603,6 +604,8 @@ export default function AgentesPage() {
                 {ativosCriados}/{limite} agentes criados ativos
               </p>
             </div>
+
+            {atual.id !== NOVO && <UsoAgente agenteId={atual.id} nome={atual.nome} />}
 
             <div className="ag-cartao">
               <h2 className="ag-h2">Testar {atual.nome}</h2>

@@ -103,3 +103,52 @@ def resumo_semanal() -> dict:
     resumo = _redigir_resumo(contexto, f"resumo-{config.agora():%Y-%m-%d}")
     db.salvar_mensagem(AUTOR_ORQ, resumo)
     return {"status": "resumido", "resposta": resumo, "comercial": resumo_comercial()}
+
+
+def _linhas_itens(itens: list[dict], limite: int = 8) -> list[str]:
+    linhas = []
+    for i in itens[:limite]:
+        quando = f"{i['data'][8:]}/{i['data'][5:7]}" + (f" {i['hora'][:5]}" if i.get("hora") else "")
+        linhas.append(f"- {quando}: {i['titulo']}")
+    if len(itens) > limite:
+        linhas.append(f"- … e mais {len(itens) - limite}")
+    return linhas
+
+
+def texto_resumo_diario(agenda: dict, aprovacoes: int, incidentes: int) -> str:
+    """Resumo do dia em texto puro (sem modelo). Vazio quando não há nada a dizer."""
+    blocos: list[str] = []
+    if agenda["atrasados"]:
+        blocos.append("**Atrasados**\n" + "\n".join(_linhas_itens(agenda["atrasados"])))
+    if agenda["de_hoje"]:
+        blocos.append("**Hoje**\n" + "\n".join(_linhas_itens(agenda["de_hoje"])))
+    if agenda["proximos"]:
+        blocos.append("**Próximos 7 dias**\n" + "\n".join(_linhas_itens(agenda["proximos"], 6)))
+    espera = []
+    if aprovacoes:
+        espera.append(f"{aprovacoes} aprovaç{'ão' if aprovacoes == 1 else 'ões'} pendente{'' if aprovacoes == 1 else 's'}")
+    if incidentes:
+        espera.append(f"{incidentes} incidente{'' if incidentes == 1 else 's'} aberto{'' if incidentes == 1 else 's'}")
+    if espera:
+        blocos.append("**Esperando por vocês**\n- " + "\n- ".join(espera))
+    if not blocos:
+        return ""
+    return "Bom dia! O resumo do dia no Orion HQ:\n\n" + "\n\n".join(blocos)
+
+
+def resumo_diario() -> dict:
+    """Posta o resumo do dia no chat (e por e-mail, se configurado). Sem pendências, não posta nada."""
+    from . import calendario, emails
+
+    agenda = calendario.agenda()
+    aprovacoes = db.um("select count(*) as n from aprovacoes where status = 'pendente'")["n"]
+    texto = texto_resumo_diario(agenda, int(aprovacoes), int(db.contar_incidentes_abertos()))
+    if not texto:
+        return {"status": "sem_pendencias", "emails": 0}
+    db.salvar_mensagem(AUTOR_ORQ, texto)
+    enviados = 0
+    if emails.configurado():
+        for usuario, endereco in config.emails().items():
+            if emails.enviar(endereco, f"Orion HQ: resumo de {config.agora():%d/%m}", texto.replace("**", "")):
+                enviados += 1
+    return {"status": "enviado", "emails": enviados, "texto": texto}

@@ -73,6 +73,8 @@ export default function DocsPage() {
   const [docs, setDocs] = useState<DocumentoResumo[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const campoBusca = useRef<HTMLInputElement>(null);
+  const [aprovador, setAprovador] = useState(false);
+  const [guardiao, setGuardiao] = useState<{ rodando: boolean; msg: string | null }>({ rodando: false, msg: null });
 
   // Filtros iniciais a partir da URL (depois da montagem, para não divergir do HTML do servidor).
   useEffect(() => {
@@ -98,6 +100,27 @@ export default function DocsPage() {
   async function moverPagina(id: number, paiId: number | null, posicao: number) {
     await enviar(`/documentos/${id}/mover`, { pai_id: paiId, posicao });
     carregarArvore();
+  }
+
+  useEffect(() => {
+    obter<{ aprovador: boolean }>("/me").then((m) => setAprovador(!!m.aprovador)).catch(() => {});
+  }, []);
+
+  async function rodarGuardiao() {
+    if (guardiao.rodando) return;
+    setGuardiao({ rodando: true, msg: null });
+    try {
+      const r = await enviar<{ status: string; propostas: unknown[] }>("/guardiao/executar", {});
+      const msg =
+        r.status === "propostas"
+          ? `${r.propostas.length} atualização(ões) proposta(s). Veja em Aprovações.`
+          : r.status === "sem_mudancas"
+            ? "Nenhuma mudança recente no changelog: nada a atualizar."
+            : "Os guias estão em dia com as mudanças recentes.";
+      setGuardiao({ rodando: false, msg });
+    } catch (e) {
+      setGuardiao({ rodando: false, msg: e instanceof Error ? e.message : "Não foi possível rodar o Guardião." });
+    }
   }
 
   useEffect(() => {
@@ -188,6 +211,11 @@ export default function DocsPage() {
           />
           {!busca && <kbd aria-hidden="true">/</kbd>}
         </div>
+        {aprovador && (
+          <button type="button" className="botao" onClick={rodarGuardiao} disabled={guardiao.rodando} title="Compara as mudanças recentes com os guias do produto e propõe atualizações (você aprova)">
+            {guardiao.rodando ? "Revisando…" : "Revisar guias"}
+          </button>
+        )}
         <Link
           href="/docs/novo"
           className="botao botao-destaque"
@@ -196,6 +224,12 @@ export default function DocsPage() {
           + Novo documento
         </Link>
       </div>
+
+      {guardiao.msg && (
+        <p role="status" className="texto-secundario" style={{ margin: "0 0 12px" }}>
+          {guardiao.msg} <Link href="/aprovacoes">Abrir aprovações</Link>
+        </p>
+      )}
 
       <div className="docs-grade">
         <aside className="docs-lateral" aria-label="Pastas e tags">

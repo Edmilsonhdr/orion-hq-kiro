@@ -135,6 +135,25 @@ def cron_secret() -> str:
     return os.environ.get("CRON_SECRET", "")
 
 
+def emails() -> dict[str, str]:
+    """E-mails dos sócios para o resumo diário: `ORION_EMAILS=usuario:email,usuario2:email2`."""
+    saida: dict[str, str] = {}
+    for par in os.environ.get("ORION_EMAILS", "").split(","):
+        usuario, _, email = par.partition(":")
+        if usuario.strip() and "@" in email:
+            saida[usuario.strip()] = email.strip()
+    return saida
+
+
+def resend_key() -> str:
+    """Chave da API do Resend (envio de e-mail). Vazia = só o chat recebe o resumo."""
+    return os.environ.get("RESEND_API_KEY", "").strip()
+
+
+def email_remetente() -> str:
+    return os.environ.get("ORION_EMAIL_REMETENTE", "Orion HQ <onboarding@resend.dev>").strip()
+
+
 def base_url() -> str:
     """URL pública do Orion HQ, sem barra no fim (para links absolutos).
 

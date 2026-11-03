@@ -2,6 +2,7 @@
 
 // Negócio: dados, mudança de etapa, histórico e registro de interações (spec comercial, Requirement 5.5).
 
+import MetricasPiloto from "../../../../../components/MetricasPiloto";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -198,6 +199,8 @@ export default function NegocioPage() {
         <TarefasRelacionadas entidade="negocio" id={n.id} />
 
         <Anexos entidade="negocio" id={n.id} />
+
+        <MetricasPiloto negocioId={n.id} />
 
         <section className="painel com-bloco">
           <h2 className="com-grupo-titulo">Histórico</h2>

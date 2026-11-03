@@ -11,10 +11,11 @@ Cada item: `tipo` (tarefa | negocio | reuniao), `id`, `titulo`, `data` (AAAA-MM-
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+import hmac
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
-from . import config, db
+from . import auth, config, db
 
 INTERVALO_MAX_DIAS = 62  # um mês com folga para as semanas das pontas
 DIAS_PROXIMOS = 7
@@ -118,3 +119,75 @@ def agenda(hoje: Optional[date] = None) -> dict[str, Any]:
         "de_hoje": [i for i in futuro if i["data"] == hoje_iso],
         "proximos": [i for i in futuro if i["data"] != hoje_iso],
     }
+
+
+# --- Feed .ics assinável (Google Agenda, Apple Calendar, Outlook) ---
+
+FEED_ANTES_DIAS = 30
+FEED_DEPOIS_DIAS = 180
+
+
+def _contexto_feed(usuario: str) -> str:
+    return f"ics-feed:{usuario}"
+
+
+def token_feed(usuario: str) -> str:
+    """Token estável por pessoa para a URL do feed (apps de agenda não enviam cookie). Troca se o segredo da sessão mudar."""
+    return f"{usuario}.{auth._assinar(_contexto_feed(usuario))[:40]}"
+
+
+def usuario_do_token(token: str) -> Optional[str]:
+    usuario, _, assinatura = (token or "").rpartition(".")
+    if not usuario or usuario not in config.usuarios():
+        return None
+    esperado = auth._assinar(_contexto_feed(usuario))[:40]
+    return usuario if hmac.compare_digest(assinatura, esperado) else None
+
+
+def url_feed(usuario: str) -> str:
+    return f"{config.base_url()}/api/calendario/feed.ics?token={token_feed(usuario)}"
+
+
+def _escapar(texto: str) -> str:
+    return (texto or "").replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\r", "").replace("\n", "\\n")
+
+
+def _dobrar(linha: str) -> list[str]:
+    """Dobra a linha em 75 octetos (RFC 5545), sem cortar caractere no meio."""
+    partes, atual, tamanho = [], "", 0
+    for ch in linha:
+        n = len(ch.encode("utf-8"))
+        if tamanho + n > (75 if not partes else 74):
+            partes.append(atual)
+            atual, tamanho = ch, n
+        else:
+            atual += ch
+            tamanho += n
+    partes.append(atual)
+    return [partes[0], *(" " + p for p in partes[1:])]
+
+
+def montar_ics(hoje: Optional[date] = None) -> str:
+    """Calendário iCalendar com reuniões (com hora) e prazos/próximos passos (dia inteiro)."""
+    hoje = hoje or config.agora().date()
+    de, ate = hoje - timedelta(days=FEED_ANTES_DIAS), hoje + timedelta(days=FEED_DEPOIS_DIAS)
+    agora = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    linhas = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Orion HQ//Calendario//PT-BR", "CALSCALE:GREGORIAN",
+              "X-WR-CALNAME:Orion HQ", "X-WR-TIMEZONE:America/Sao_Paulo"]
+    for r in db.consultar("select id, titulo, inicio, fim, participantes from reunioes "
+                          "where (inicio at time zone 'America/Sao_Paulo')::date between %s and %s order by inicio", (de, ate)):
+        linhas += ["BEGIN:VEVENT", f"UID:reuniao-{r['id']}@orion-hq", f"DTSTAMP:{agora}",
+                   f"DTSTART:{r['inicio'].astimezone(timezone.utc):%Y%m%dT%H%M%SZ}",
+                   f"DTEND:{r['fim'].astimezone(timezone.utc):%Y%m%dT%H%M%SZ}",
+                   f"SUMMARY:{_escapar(r['titulo'])}"]
+        if r["participantes"]:
+            linhas.append(f"DESCRIPTION:{_escapar('Participantes: ' + ', '.join(r['participantes']))}")
+        linhas.append("END:VEVENT")
+    for i in [*_tarefas(de, ate, so_abertas=True), *_negocios(de, ate)]:
+        dia = date.fromisoformat(i["data"])
+        rotulo = "Tarefa" if i["tipo"] == "tarefa" else "Comercial"
+        linhas += ["BEGIN:VEVENT", f"UID:{i['tipo']}-{i['id']}@orion-hq", f"DTSTAMP:{agora}",
+                   f"DTSTART;VALUE=DATE:{dia:%Y%m%d}", f"DTEND;VALUE=DATE:{dia + timedelta(days=1):%Y%m%d}",
+                   f"SUMMARY:{_escapar(f'[{rotulo}] ' + i['titulo'])}", "TRANSP:TRANSPARENT", "END:VEVENT"]
+    linhas.append("END:VCALENDAR")
+    return "\r\n".join(parte for linha in linhas for parte in _dobrar(linha)) + "\r\n"

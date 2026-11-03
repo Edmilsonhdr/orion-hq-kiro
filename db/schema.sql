@@ -331,3 +331,37 @@ insert into agentes (id, nome, papel, cor, sala, modelo, descricao, sistema, pos
   ('vigia', 'Rui', 'Vigia', '#FF7A59', 'Guarita', 'sonnet',
    'erros, falhas, instabilidade e incidentes do app ou do backend', true, 330, 400)
 on conflict (id) do nothing;
+
+-- Piloto: métricas de uso registradas à mão por negócio (só contagens, nunca dado de saúde).
+create table if not exists negocio_metricas (
+  id bigserial primary key,
+  negocio_id bigint not null references negocios(id) on delete cascade,
+  medido_em date not null,
+  profissionais_ativos integer,
+  pacientes_cadastrados integer,
+  pacientes_registrando integer,
+  observacao text,
+  autor text not null,
+  criado_em timestamptz not null default now()
+);
+create index if not exists negocio_metricas_idx on negocio_metricas (negocio_id, medido_em desc, id desc);
+
+-- Auditoria: quem fez qual mudança (método, caminho e status; nunca o conteúdo enviado).
+create table if not exists auditoria (
+  id bigserial primary key,
+  usuario text,
+  metodo text not null,
+  caminho text not null,
+  status integer not null,
+  criado_em timestamptz not null default now()
+);
+create index if not exists auditoria_criado_idx on auditoria (criado_em desc);
+
+-- Segundo fator (TOTP): `ativo` só depois de confirmar um código; `ultimo_passo` impede reaproveitar o mesmo código.
+create table if not exists totp (
+  usuario text primary key,
+  segredo text not null,
+  ativo boolean not null default false,
+  ultimo_passo bigint not null default 0,
+  criado_em timestamptz not null default now()
+);

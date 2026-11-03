@@ -20,6 +20,7 @@ como JSON de verdade.
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import Any, Optional
 
 from psycopg.types.json import Json
@@ -145,3 +146,54 @@ def tokens_hoje() -> dict[str, int]:
         (hoje,),
     )
     return {linha["agente"]: int(linha["total"]) for linha in linhas}
+
+
+def uso_por_agente(dias: int = 30) -> dict:
+    """Tokens, execuções e última atividade por agente nos últimos `dias`, com a série diária de tokens."""
+    dias = max(1, min(int(dias), 90))
+    totais = db.consultar(
+        """
+        select agente, coalesce(sum(tokens), 0)::int as tokens, count(distinct run_id)::int as execucoes,
+               max(criado_em) as ultima_em
+        from atividades where criado_em > now() - make_interval(days => %s)
+        group by agente
+        """,
+        (dias,),
+    )
+    diarios = db.consultar(
+        """
+        select agente, (criado_em at time zone 'America/Sao_Paulo')::date as dia, sum(tokens)::int as tokens
+        from atividades where criado_em > now() - make_interval(days => %s) and tokens > 0
+        group by 1, 2
+        """,
+        (dias,),
+    )
+    hoje = config.agora().date()
+    janela = [hoje - timedelta(days=dias - 1 - n) for n in range(dias)]
+    serie: dict[str, list[int]] = {}
+    for d in diarios:
+        linha = serie.setdefault(d["agente"], [0] * dias)
+        if d["dia"] in janela:
+            linha[janela.index(d["dia"])] = d["tokens"]
+    return {
+        "dias": dias,
+        "agentes": {
+            t["agente"]: {"tokens": t["tokens"], "execucoes": t["execucoes"], "ultima_em": t["ultima_em"],
+                          "serie": serie.get(t["agente"], [0] * dias)}
+            for t in totais
+        },
+    }
+
+
+def execucoes_do_agente(agente: str, limite: int = 10) -> list[dict]:
+    """Últimas execuções (um `run_id` cada) do agente: início, duração, tokens, primeiro detalhe e se deu erro."""
+    return db.consultar(
+        """
+        select run_id, min(criado_em) as inicio, max(criado_em) as fim, coalesce(sum(tokens), 0)::int as tokens,
+               (array_agg(detalhe order by id) filter (where detalhe is not null))[1] as detalhe,
+               bool_or(tipo = 'erro') as erro, count(*)::int as eventos
+        from atividades where agente = %s and run_id is not null
+        group by run_id order by max(id) desc limit %s
+        """,
+        (agente, max(1, min(int(limite), 30))),
+    )

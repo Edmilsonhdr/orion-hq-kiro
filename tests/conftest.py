@@ -58,6 +58,8 @@ _TABELAS_DOMINIO = (
     "organizacoes",
     "presenca",
     "login_tentativas",
+    "auditoria",
+    "totp",
 )
 
 

@@ -10,6 +10,8 @@ import { enviar, ErroApi } from "../../lib/api";
 export default function LoginPage() {
   const [usuario, setUsuario] = useState("");
   const [senha, setSenha] = useState("");
+  const [codigo, setCodigo] = useState("");
+  const [pedeCodigo, setPedeCodigo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [expirou, setExpirou] = useState(false);
@@ -24,11 +26,16 @@ export default function LoginPage() {
     setErro(null);
     setEnviando(true);
     try {
-      await enviar("/login", { usuario, senha });
+      await enviar("/login", { usuario, senha, ...(pedeCodigo ? { codigo } : {}) });
       window.location.href = "/inicio";
     } catch (e) {
       // 401 e demais erros mostram a mesma mensagem genérica (Requirement 1.2).
-      if (e instanceof ErroApi && e.status === 401) {
+      if (e instanceof ErroApi && e.status === 428) {
+        setPedeCodigo(true);
+        setErro(null);
+      } else if (e instanceof ErroApi && e.status === 401 && pedeCodigo) {
+        setErro("Código incorreto ou já usado. Espere o próximo código do aplicativo.");
+      } else if (e instanceof ErroApi && e.status === 401) {
         setErro("Usuário ou senha inválidos.");
       } else if (e instanceof ErroApi && e.status === 429) {
         setErro("Muitas tentativas. Aguarde alguns minutos e tente de novo.");
@@ -88,6 +95,24 @@ export default function LoginPage() {
             required
           />
         </label>
+
+        {pedeCodigo && (
+          <label className="login-campo">
+            <span>Código do aplicativo autenticador</span>
+            <input
+              type="text"
+              name="codigo"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9 ]*"
+              maxLength={7}
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value)}
+              required
+              autoFocus
+            />
+          </label>
+        )}
 
         {erro && (
           <p role="alert" style={{ margin: 0, color: "var(--espera)" }}>

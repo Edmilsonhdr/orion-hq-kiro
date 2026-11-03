@@ -802,3 +802,46 @@ def importar_csv(texto: str, autor: str) -> dict:
         except (ValueError, ConflitoError) as erro:
             resultado["erros"].append({"linha": numero, "erro": str(erro)})
     return resultado
+
+
+# --- piloto: métricas de uso registradas à mão (só contagens, nunca dado de saúde) ---
+
+OBS_METRICA_MAX = 300
+
+
+def registrar_metrica(negocio_id: int, campos: dict[str, Any], autor: str) -> Optional[dict]:
+    """Registra uma medição do piloto; `None` se o negócio não existe. Exige ao menos um número."""
+    medido_em = _data(campos.get("medido_em"), "Data") or date.today()
+    profissionais = _numero(campos.get("profissionais_ativos"), "Profissionais ativos", inteiro=True)
+    cadastrados = _numero(campos.get("pacientes_cadastrados"), "Pacientes cadastrados", inteiro=True)
+    registrando = _numero(campos.get("pacientes_registrando"), "Pacientes registrando", inteiro=True)
+    if profissionais is None and cadastrados is None and registrando is None:
+        raise ValueError("Informe ao menos um número.")
+    if cadastrados is not None and registrando is not None and registrando > cadastrados:
+        raise ValueError("Pacientes registrando não pode passar dos cadastrados.")
+    observacao = _texto(campos.get("observacao"), "Observação", OBS_METRICA_MAX)
+    if db.um("select 1 as ok from negocios where id = %s", (negocio_id,)) is None:
+        return None
+    return db.um(
+        """
+        insert into negocio_metricas (negocio_id, medido_em, profissionais_ativos, pacientes_cadastrados,
+                                      pacientes_registrando, observacao, autor)
+        values (%s, %s, %s, %s, %s, %s, %s) returning *
+        """,
+        (negocio_id, medido_em, profissionais, cadastrados, registrando, observacao, autor),
+    )
+
+
+def listar_metricas(negocio_id: int) -> list[dict]:
+    """Medições da mais recente para a mais antiga, com a taxa de ativação (registrando ÷ cadastrados)."""
+    linhas = db.consultar(
+        "select * from negocio_metricas where negocio_id = %s order by medido_em desc, id desc", (negocio_id,)
+    )
+    for m in linhas:
+        c, r = m["pacientes_cadastrados"], m["pacientes_registrando"]
+        m["taxa_ativacao"] = round(r / c * 100) if c and r is not None else None
+    return linhas
+
+
+def excluir_metrica(metrica_id: int) -> bool:
+    return db.um("delete from negocio_metricas where id = %s returning id", (metrica_id,)) is not None

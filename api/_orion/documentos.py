@@ -14,7 +14,7 @@ import re
 
 from typing import Any, Optional
 
-from . import db
+from . import config, db
 from .texto import casa as _casa
 from .texto import radical as _radical
 from .texto import radicais as _radicais
@@ -643,3 +643,48 @@ def mencoes_para(usuario: str, dias: int = 14) -> list[dict]:
     )
     alvo = usuario.lower()
     return [l for l in linhas if alvo in {m.lower() for m in _MENCAO.findall(l["texto"])}][:10]
+
+
+# --- retornos ("citado em") e ata de reunião ---
+
+
+def citacoes(documento_id: int) -> list[dict]:
+    """Documentos que citam este por `[[Título]]` (sem contar ele mesmo nem os arquivados)."""
+    atual = db.um("select titulo from documentos where id = %s", (documento_id,))
+    if atual is None:
+        return []
+    return db.consultar(
+        r"""
+        select id, titulo, pasta from documentos
+        where not arquivado and id <> %s and conteudo ilike %s escape '\'
+        order by lower(titulo), id
+        """,
+        (documento_id, f"%[[{_escapar_like(atual['titulo'])}]]%"),
+    )
+
+
+PASTA_ATAS = "Reuniões"
+
+
+def ata_da_reuniao(reuniao: dict, autor: str) -> tuple[dict, bool]:
+    """Cria (ou devolve, se já existe) a ata da reunião, com data, participantes e pauta preenchidos.
+
+    Devolve `(documento, criado)`. A identidade é o título `Ata: <reunião> (dd/mm/aaaa)` na pasta "Reuniões".
+    """
+    inicio = reuniao["inicio"].astimezone(config.TZ)
+    fim = reuniao["fim"].astimezone(config.TZ)
+    titulo = f"Ata: {reuniao['titulo']} ({inicio:%d/%m/%Y})"[:TITULO_MAX]
+    existente = db.um(
+        "select id from documentos where titulo = %s and pasta = %s and not arquivado order by id limit 1",
+        (titulo, PASTA_ATAS),
+    )
+    if existente is not None:
+        return obter(existente["id"]), False
+    participantes = ", ".join(reuniao.get("participantes") or []) or "—"
+    pauta = "\n".join(f"- {item}" for item in (reuniao.get("pauta") or [])) or "- "
+    conteudo = (
+        f"**Quando:** {inicio:%d/%m/%Y}, {inicio:%H:%M} às {fim:%H:%M}\n"
+        f"**Participantes:** {participantes}\n\n"
+        f"## Pauta\n{pauta}\n\n## Decisões\n- \n\n## Próximos passos\n- [ ] \n"
+    )
+    return criar(titulo, conteudo, PASTA_ATAS, ["ata"], autor=autor), True

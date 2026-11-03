@@ -6,6 +6,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { enviar } from "../../../lib/api";
 import { obter } from "../../../lib/api";
 import { hojeISO } from "../../../lib/comercial";
 import {
@@ -54,6 +56,10 @@ function Item({ item, hoje }: { item: ItemCal; hoje: string }) {
 }
 
 export default function CalendarioPage() {
+  const router = useRouter();
+  const [feed, setFeed] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
+  const [criandoAta, setCriandoAta] = useState<number | null>(null);
   const [hoje, setHoje] = useState(() => hojeISO());
   const [ref, setRef] = useState(() => hojeISO());
   const [visao, setVisao] = useState<Visao>("mes");
@@ -78,6 +84,37 @@ export default function CalendarioPage() {
     const p = new URLSearchParams({ visao, data: ref });
     window.history.replaceState(null, "", `/calendario?${p.toString()}`);
   }, [visao, ref]);
+
+  async function mostrarFeed() {
+    try {
+      setFeed((await obter<{ url: string }>("/calendario/feed")).url);
+    } catch {
+      setErro("Não foi possível gerar o link de assinatura.");
+    }
+  }
+
+  async function copiarFeed() {
+    if (!feed) return;
+    try {
+      await navigator.clipboard.writeText(feed);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    } catch {
+      // o campo continua selecionável para copiar à mão
+    }
+  }
+
+  async function criarAta(reuniaoId: number) {
+    if (criandoAta !== null) return;
+    setCriandoAta(reuniaoId);
+    try {
+      const ata = await enviar<{ id: number }>(`/reunioes/${reuniaoId}/ata`, {});
+      router.push(`/docs/${ata.id}`);
+    } catch {
+      setErro("Não foi possível criar a ata.");
+      setCriandoAta(null);
+    }
+  }
 
   const dias = useMemo(() => diasVisiveis(ref, visao), [ref, visao]);
 
@@ -145,12 +182,33 @@ export default function CalendarioPage() {
               {ROTULO_TIPO[t]}
             </button>
           ))}
+          <button type="button" className="cal-filtro" onClick={feed ? () => setFeed(null) : mostrarFeed} aria-expanded={feed !== null}>
+            Assinar no Google Agenda
+          </button>
           <label className="cal-meus">
             <input type="checkbox" checked={somenteMeus} onChange={(e) => setSomenteMeus(e.target.checked)} />
             Só meus
           </label>
         </div>
       </div>
+
+      {feed && (
+        <section className="painel cal-feed" aria-label="Assinar o calendário">
+          <p style={{ margin: 0 }}>
+            No Google Agenda: <strong>Outras agendas → Por URL</strong>, e cole o endereço abaixo. As reuniões, os prazos e os
+            próximos passos passam a aparecer lá (a atualização do Google pode levar algumas horas).
+          </p>
+          <div className="cal-feed-linha">
+            <input readOnly value={feed} onFocus={(e) => e.currentTarget.select()} aria-label="Endereço do calendário" />
+            <button type="button" className="botao" onClick={copiarFeed}>
+              {copiado ? "Copiado" : "Copiar"}
+            </button>
+          </div>
+          <p className="texto-secundario" style={{ margin: 0, fontSize: 13 }}>
+            Este endereço é pessoal e dá acesso de leitura: não compartilhe fora do time.
+          </p>
+        </section>
+      )}
 
       {erro && (
         <p role="alert" className="doc-erro">
@@ -211,6 +269,11 @@ export default function CalendarioPage() {
               {doDiaAberto.map((i) => (
                 <li key={`${i.tipo}-${i.id}`}>
                   <Item item={i} hoje={hoje} />
+                  {i.tipo === "reuniao" && (
+                    <button type="button" className="botao cal-ata" disabled={criandoAta === i.id} onClick={() => criarAta(i.id)}>
+                      {criandoAta === i.id ? "Criando…" : "Criar ata"}
+                    </button>
+                  )}
                   {(i.detalhe || i.responsavel) && (
                     <span className="texto-secundario cal-sub">{[i.responsavel, i.detalhe].filter(Boolean).join(" · ")}</span>
                   )}
