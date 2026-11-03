@@ -1,4 +1,8 @@
-# Orion — modelo de dados
+---
+pai: "Documentação técnica do Orion"
+pai_pasta: "Orion (produto)"
+---
+# Modelo de dados
 
 Fonte: `orion_back/prisma/schema.prisma` (Prisma 7, PostgreSQL). Gerado a partir do arquivo em outubro/2026; **o schema vence** em caso de divergência. Os campos de relação (que apontam para outras tabelas) aparecem na coluna *Relações* de cada modelo; só os campos gravados na tabela estão na lista de campos. A tabela real de `User` se chama `user` (`@@map`).
 

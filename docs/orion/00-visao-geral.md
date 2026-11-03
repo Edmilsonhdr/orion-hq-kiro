@@ -1,23 +1,28 @@
-# Orion — visão geral do ecossistema
+---
+pai: "Documentação técnica do Orion"
+pai_pasta: "Orion (produto)"
+---
+# Ecossistema (visão geral)
 
-Este conjunto de documentos descreve o **Orion**, o produto dos sócios, a partir da leitura do código dos três repositórios (`orion_back`, `orion-front` e `orion-mobile`) em 29/10/2026. Ele foi escrito para quem precisa entender **o que o produto faz, quem usa cada parte e quais são as regras**, sem ter de ler o código.
+Este conjunto de documentos descreve o **Orion**, o produto dos sócios, a partir da leitura do código dos três repositórios (`orion_back`, `orion-front` e `orion-mobile`), atualizada em 03/11/2026 sobre a linha principal de cada um. Ele foi escrito para quem precisa entender **o que o produto faz, quem usa cada parte e quais são as regras**, sem ter de ler o código.
 
 > **Regra deste material:** só entra o que foi confirmado no código ou em configuração dos repositórios. Quando um documento antigo dos repositórios diverge do código, vale o código, e a divergência é anotada em [06-regras-fluxos-e-pendencias.md](06-regras-fluxos-e-pendencias.md). Textos de planejamento (`docs/DESIGN-*.md`) descrevem intenção e não foram usados como prova de que algo existe.
 
 ## Estado lido do código
 
-Os repositórios estavam em branches diferentes quando este material foi escrito. Isto é o que foi lido (e, portanto, o que os documentos descrevem):
+Os documentos descrevem a **linha principal** de cada repositório (o que está mesclado), conferida em 03/11/2026:
 
-| Repositório | Branch lido | Último commit | Observação |
+| Repositório | Branch | Último commit | Data |
 |---|---|---|---|
-| `orion_back` | `master` | `9fcb1e6` (24/10/2026) | Base de referência da API |
-| `orion-front` | `fix/sessao-nao-derruba` | `a88bdb3` (24/10/2026) | É a `main` mais 1 correção de sessão |
-| `orion-mobile` | `feat/push-expo` | `cc8da3b` (24/10/2026) | É a `master` mais 2 commits de **push** |
+| `orion_back` | `master` | `9fcb1e6` (PR #23) | 24/10/2026 |
+| `orion-front` | `main` | `48286cd` (PR #8) | 24/10/2026 |
+| `orion-mobile` | `master` | `a7d6a91` (PR #10) | 24/10/2026 |
 
-**Trabalho em branches ainda não mesclados** (existe no código, mas não está na linha principal; os documentos o tratam como "em desenvolvimento"):
-- **Push no celular** (`feat/push-expo`, back e app): o back ganha a tabela `PushToken` e as rotas `POST /me/push-token` e `/me/push-token/remove`; o app registra o aparelho e abre a tela do aviso ao tocar. Na `master` do back **não existe push**; o app deste branch chama rotas que a `master` não tem (a falha é silenciosa).
-- **Resposta do paciente à consulta** (back: já na `master`; telas: `feat/confirmar-consulta` no app e `feat/resposta-do-paciente` no web, **não mesclados**): a API já recebe a confirmação ou o pedido de remarcação, mas nenhuma das duas telas aparece nos branches lidos.
-- Outros branches do front e do app (`fix/agenda-solo-professional`, `fix/sinal-inativo-aviso`, `proto/antropometria-anamnese`, `fix/lembrete-some-apos-responder`, `teste/home-e-sessao`) não foram descritos aqui.
+**Trabalho em pull requests ainda abertos** (existe no código, mas não está na linha principal; os documentos o tratam como "em revisão"):
+- **Push no celular:** back #24 (e #25, só de documentação) e app #11. O back ganha a tabela `PushToken` e as rotas `POST /me/push-token` e `/me/push-token/remove`; o app registra o aparelho e abre a tela do aviso ao tocar. Na `master` do back **não existe push**.
+- **Resposta do paciente à consulta:** a API já está mesclada no back (PR #18); as telas estão em app #9 (paciente confirma ou pede para remarcar) e front #7 (profissional vê a resposta), ainda abertas.
+- **Sessão que não derruba:** front #5 e app #8 (uma falha de rede ao consultar a sessão não manda a pessoa para o login).
+- **Lembrete some depois de responder:** app #12.
 
 ## O que é o Orion
 

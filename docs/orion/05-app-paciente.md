@@ -1,8 +1,12 @@
-# Orion — app do paciente (`orion-mobile`)
+---
+pai: "Documentação técnica do Orion"
+pai_pasta: "Orion (produto)"
+---
+# App do paciente
 
 O aplicativo que o paciente (ou aluno, na Educação Física) usa no celular entre as consultas. Expo 57, React Native 0.86, `expo-router`. **Só o paciente usa o app**; profissional e secretária usam o site ([04](04-web-profissional.md)). O foco é **Android**: o código serve ao iPhone, mas a leitura do relógio (Health Connect) e os widgets são só de Android, e não há build iOS publicado nas configurações lidas.
 
-Lido do código em 29/10/2026 (branch `feat/push-expo`, que é a `master` mais 2 commits de push; ver [00](00-visao-geral.md)): a árvore `app/`, `app.json`, `eas.json`, `lib/features.ts`, o menu da aba Mais, `lib/checkins.ts`, `lib/onboarding.ts`, `lib/push.ts` e os textos das telas.
+Atualizado em 03/11/2026 sobre a `master` (`a7d6a91`; push, confirmação de consulta e correção de sessão estão em pull requests abertos, ver [00](00-visao-geral.md)): a árvore `app/`, `app.json`, `eas.json`, `lib/features.ts`, o menu da aba Mais, `lib/checkins.ts`, `lib/onboarding.ts` e os textos das telas.
 
 ## 1. Estrutura de navegação
 
@@ -24,7 +28,7 @@ Telas fora das abas: `login`, `onboarding`, `termos`, `chat`, `plano`, `compras`
 3. **Onboarding.** Na primeira vez, o paciente responde o onboarding em formato de conversa, que salva o rascunho por etapa.
 4. **Abas.** Só então o app carrega as abas, busca em segundo plano o que elas vão mostrar e, se o relógio estiver liberado e consentido, sincroniza ao abrir e ao voltar para o app (no máximo a cada 30 minutos; qualquer falha é silenciosa).
 
-Se a verificação de sessão falhar por rede, a regra é **não deslogar** o paciente à toa (correção recente no branch `fix/sessao-nao-derruba`, ainda não mesclada no app).
+Se a verificação de sessão falhar por rede, a regra é **não deslogar** o paciente à toa (correção no PR #8 do app, ainda aberto).
 
 ## 2. Entrada
 
@@ -36,9 +40,9 @@ Se a verificação de sessão falhar por rede, a regra é **não deslogar** o pa
 
 ### Início
 O dia do paciente. Os blocos aparecem conforme houver dados:
-- **Faixas no topo**, quando existirem: **Meu plano** (próxima refeição do plano ativo), **formulário para responder** (se o profissional enviou uma anamnese), **consulta online** (com o botão de entrar na sala, em destaque de 15 minutos antes até 1 hora depois do horário), **caixa de avisos** (com contador de não lidos) e o **treino de hoje** (sugerido, em andamento ou feito, quando há ficha ativa).
+- **Faixas no topo**, quando existirem: **Meu plano** (próxima refeição do plano ativo; à noite, sem mais refeições no dia, mostra "dia encerrado" e, se o plano recomeça de manhã, "O plano recomeça amanhã, às HH:MM"), **formulário para responder** (se o profissional enviou uma anamnese), **consulta online** (com o botão de entrar na sala, em destaque de 15 minutos antes até 1 hora depois do horário), **caixa de avisos** (com contador de não lidos) e o **treino de hoje** (sugerido, em andamento ou feito, quando há ficha ativa).
 - **Cartão principal ("Seu dia em tempo real"):** a **prioridade agora** (por exemplo, quanto falta de proteína para a meta), o diagnóstico do dia e o botão **Sugestões de refeição**, que abre o chat já com o pedido.
-- **Próximo retorno** (consulta marcada).
+- **Próximo retorno** (a próxima consulta marcada, sempre uma data futura).
 - **Sua semana:** um anel por dia e a **sequência** de dias seguidos de registro.
 - **Seus pilares:** nutrição, água, treino e sono, com atalho "Ver jornada".
 - **Progresso de hoje:** proteína, carboidrato, gordura e calorias contra a meta.
@@ -106,7 +110,7 @@ O paciente conversa sobre o dia e o Orion responde com base nos dados reais (pro
 ## 7. Avisos, privacidade e conta
 
 - **Caixa de avisos (`avisos`):** avisos do profissional (plano atualizado, ficha de treino atualizada, consulta marcada, remarcada ou cancelada, formulário recebido, documento emitido ou cancelado). Cada aviso leva à tela certa ao tocar. "Marcar todos como lidos". O paciente pode **receber também por e-mail** (plano, formulários e consultas; os detalhes ficam só no app). Com a caixa vazia, a tela explica quando aparecem avisos. Avisos lidos são apagados depois de 90 dias.
-- **Push no celular:** no branch lido, o app pede a permissão, registra o aparelho no servidor (`/me/push-token`) e abre a tela do aviso ao tocar; um canal Android "Avisos do seu profissional" é criado. **Isso depende do branch `feat/push-expo` do back, que ainda não está na `master`**: sem ele, o registro falha em silêncio e os avisos continuam só na caixa do app.
+- **Push no celular:** **não existe na `master`.** Está no PR #11 do app (com o PR #24 do back): o app pede a permissão, registra o aparelho no servidor (`/me/push-token`) e abre a tela do aviso ao tocar. Enquanto não for mesclado, os avisos aparecem só na caixa do app (e por e-mail nos casos da seção acima).
 - **Meus documentos (`documentos`):** prescrições e declarações em PDF emitidos pelo profissional. **Escondida:** só aparece com `DOCUMENTS_ENABLED = true` em `lib/features.ts` (hoje `false`) e novo build, junto com `DOCUMENTS_ENABLED=true` na API.
 - **Excluir minha conta (`excluir-conta`):** a tela lista **o que é apagado na hora** e **o que fica guardado pelos profissionais** (por obrigação legal, sem acesso pelo app), oferece **Baixar meus dados antes**, exige a **senha** e uma caixa "Entendi que a minha conta será excluída e que isso não pode ser desfeito". Regras de retenção em [01](01-backend.md), seção 5.14.
 

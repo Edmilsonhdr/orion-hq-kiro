@@ -1,6 +1,10 @@
-# Orion — catálogo de rotas da API
+---
+pai: "Documentação técnica do Orion"
+pai_pasta: "Orion (produto)"
+---
+# Rotas da API
 
-Fonte: as definições de rota em `orion_back/src/**/*.route.ts` e `app.ts`, lidas do código em outubro/2026 (222 rotas). A documentação interativa gerada pelo servidor (`/docs`, Scalar, e `/swagger.json`) **vence** em caso de divergência com este arquivo.
+Fonte: as definições de rota em `orion_back/src/**/*.route.ts` e `app.ts`, lidas do código em outubro/2026 e reconferidas em 03/11/2026 contra a `master` `9fcb1e6` (222 rotas). A documentação interativa gerada pelo servidor (`/docs`, Scalar, e `/swagger.json`) **vence** em caso de divergência com este arquivo.
 
 ## Como ler
 

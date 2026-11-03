@@ -1,6 +1,10 @@
-# Orion — fluxos, regras de negócio e pendências
+---
+pai: "Documentação técnica do Orion"
+pai_pasta: "Orion (produto)"
+---
+# Regras, fluxos e pendências
 
-Reúne o que atravessa os três repositórios: os **fluxos de ponta a ponta**, as **regras de negócio em lista** (consulta rápida), as **divergências confirmadas** entre código e documentação, e as **pendências declaradas** pelos próprios repositórios. Lido em 29/10/2026; estado dos branches em [00](00-visao-geral.md).
+Reúne o que atravessa os três repositórios: os **fluxos de ponta a ponta**, as **regras de negócio em lista** (consulta rápida), as **divergências confirmadas** entre código e documentação, e as **pendências declaradas** pelos próprios repositórios. Atualizado em 03/11/2026; estado dos repositórios e dos pull requests abertos em [00](00-visao-geral.md).
 
 ## 1. Fluxos de ponta a ponta
 
@@ -69,7 +73,7 @@ Reúne o que atravessa os três repositórios: os **fluxos de ponta a ponta**, a
 | Alerta | Máx. um por paciente por dia e nenhum igual enquanto houver um não lido; adiar por 1, 3 ou 7 dias; inatividade = mais de 48 h sem registro |
 | Sinal | Calculado na hora, janela de 14 dias; gravidade alta, média ou baixa; 23 códigos (inclui 4 do relógio e 1 de aderência ao plano) |
 | Consulta | Estados marcada, realizada, falta, cancelada; realizada não se remarca; conflito de horário avisa mas permite; online exige link `https`; motivo de cancelamento é interno |
-| Aviso | Caixa do app; sem dado clínico; só plano atualizado e formulário enviado também vão por e-mail; lidos apagados em 90 dias |
+| Aviso | Caixa do app; sem dado clínico; plano atualizado, formulário enviado, consulta marcada e consulta remarcada também vão por e-mail (o paciente pode desligar); lidos apagados em 90 dias |
 | Documentos | Emitido não se edita (cancela e emite outro); sequência por profissional; **desligado por padrão** |
 | Financeiro | Centavos inteiros; repetição de 1 a 12 meses; recibo numerado por profissional e ano; registro manual; **desligado por padrão** |
 | Relógio | Consentimento por tipo de dado; liberado por `WEARABLES_ENABLED`; treino do relógio dentro da janela da ficha (±10 min) não conta em dobro |
@@ -86,8 +90,8 @@ Cada item abaixo foi **conferido no código**. "Documento" é a documentação a
 | # | O que o código faz | O que diz ou espera o outro lado | Onde |
 |---|---|---|---|
 | 1 | O back **não tem** as rotas `GET` e `PATCH /clinics/modules`. | O front (`/funcionalidades` e o menu) as consulta para saber os módulos que a clínica ligou; sem resposta, **mostra tudo**. O teste do front até simula "Route GET:/clinics/modules not found". Portanto o **liga-desliga de módulos por clínica não funciona** hoje | back × front |
-| 2 | Na `master` do back **não existe** `/me/push-token`. | O app (branch `feat/push-expo`) registra o aparelho nessa rota; a falha é silenciosa. O push só existe no branch `feat/push-expo` do back, não mesclado | back × app |
-| 3 | O back (`master`) já aceita a **resposta do paciente à consulta** (`POST /patients/appointments/:id/response`). | Nenhuma tela usa isso nos branches lidos: as telas estão em `feat/confirmar-consulta` (app) e `feat/resposta-do-paciente` (web), não mesclados | back × front/app |
+| 2 | Na `master` do back **não existe** `/me/push-token`. | O app (branch `feat/push-expo`) registra o aparelho nessa rota; a falha é silenciosa. O push só existe nos PRs abertos back #24 e app #11, não mesclados | back × app |
+| 3 | O back (`master`) já aceita a **resposta do paciente à consulta** (`POST /patients/appointments/:id/response`). | Nenhuma tela usa isso nos branches lidos: as telas estão nos PRs abertos app #9 (paciente) e front #7 (profissional) | back × front/app |
 | 4 | A aba **Segurança** das Configurações do web tem campos e o botão "Atualizar Senha", **sem ação ligada**. | Parece uma troca de senha funcional. Hoje a senha só muda por "Esqueci minha senha" | front |
 | 5 | O catálogo `/funcionalidades` do web lista **Financeiro** e **Prescrições e documentos** como "Planejado". | A API e as telas já existem, desligadas por chave (`CHARGES_ENABLED`, `DOCUMENTS_ENABLED`) | front |
 | 6 | O aviso de plano, formulário e consulta vai para a **caixa do app** (e e-mail em alguns casos); **sem push** na `master`. | `ORION_ECOSSISTEMA.md` (back) ainda cita Firebase e `/api/notifications/fcm-token`; ambos foram removidos | docs do back |
@@ -98,7 +102,7 @@ Cada item abaixo foi **conferido no código**. "Documento" é a documentação a
 | 11 | O campo de **status de verificação** do profissional (`pending_documents`, `in_review`, `verified`, `rejected`) existe no banco. | A API **não o aplica**: `requireVerifiedProfessional` só exige perfil de profissional | back |
 | 12 | Há cliente de reserva para o OpenRouter. | Ele **não está ligado** como alternativa automática à OpenAI | back |
 | 13 | A versão do `better-auth` difere: back `1.4.18` (fixa), front declara `^1.2.7` (instalado `1.6.5`), app `^1.4.18`. | O `STATUS.md` do back registra que alinhar versões exige uma rodada própria, com teste de login | os três |
-| 14 | A correção "falha na verificação de sessão não derruba o usuário" existe no branch `fix/sessao-nao-derruba` do web (já na árvore lida) e do app (**não mesclada** no branch lido). | Sem ela, uma falha de rede na leitura de sessão pode mandar o usuário para o login | front, app |
+| 14 | A correção "falha na verificação de sessão não derruba o usuário" está nos PRs abertos front #5 e app #8, **não mesclados**. | Sem ela, uma falha de rede na leitura de sessão pode mandar o usuário para o login | front, app |
 
 ## 4. Pendências declaradas nos repositórios
 
@@ -107,7 +111,7 @@ Vêm do `docs/STATUS.md` do back (entradas de 22 a 24/10/2026) e de comentários
 - **Jurídico (antes da publicação pública nas lojas):** textos finais dos termos e da política de privacidade; prazo e lista do que reter na exclusão de conta (hoje provisório, 20 anos); declarações de privacidade das lojas (Google e Apple); regras de cada conselho (CRN, CRM, CREF) para prescrições e documentos.
 - **Testes manuais pendentes:** os fluxos novos de privacidade (exportação, aceite, avisos, exclusão) num aparelho; a execução de treino e o alarme do cronômetro de descanso no celular real (o Android pode adiar alarmes em economia de bateria).
 - **Segurança:** as chaves do armazenamento (S3) apareceram no histórico do git do back e **precisam ser rotacionadas**; o bloqueio de login por conta é em memória e permite travar a conta de outra pessoa por 15 minutos (quem sabe o e-mail); rodar `prisma migrate deploy` em produção e, no Railway, definir `TRUST_PROXY_HOPS=1`.
-- **Plataforma:** o app é só Android (iPhone fica para depois); sem push, o paciente só vê avisos ao abrir o app (decisão pendente: e-mail, push via Expo ou aviso dentro do app; ver `feat/push-expo`).
+- **Plataforma:** o app é só Android (iPhone fica para depois); sem push, o paciente só vê avisos ao abrir o app (push via Expo em revisão: back #24 e app #11).
 - **Produto (planejado, sem data):** chat entre profissional e paciente; agendamento pelo paciente e Google Agenda; exames e fotos de evolução; IA lendo a anamnese; integração de pagamento; paciente convidado por outro paciente; avatar de evolução.
 - **Alerta com vários profissionais:** com nutricionista e educador no mesmo paciente, o alerta crítico do dia vai para o **primeiro** profissional vinculado (a busca é `findFirst` sem filtro de área, confirmada no código), e não necessariamente o nutricionista que definiu a meta.
 - **Aceite do aluno:** o vínculo criado pelo profissional não exige o aceite para o profissional ler os dados; a decisão de exigir está em aberto.

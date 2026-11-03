@@ -1,8 +1,12 @@
-# Orion — backend (`orion_back`)
+---
+pai: "Documentação técnica do Orion"
+pai_pasta: "Orion (produto)"
+---
+# Backend
 
 A API do Orion. Concentra as regras de negócio, o banco de dados, a inteligência artificial e os jobs agendados. Web e app são só clientes dela.
 
-Lido do código em 29/10/2026. Convenção: o texto diz o que o código faz; quando algo está desligado por padrão ou provisório, isso está dito.
+Atualizado em 03/11/2026 contra a `master` (`9fcb1e6`). Convenção: o texto diz o que o código faz; quando algo está desligado por padrão ou provisório, isso está dito.
 
 ## 1. Estrutura
 
@@ -119,11 +123,11 @@ Avaliação com medidas, dobras e circunferências; o servidor calcula índices 
 - O **paciente responde** ao aviso da consulta (confirma ou pede para remarcar) pelo app; a resposta volta a nulo quando o horário muda.
 - O motivo do cancelamento é **interno**: o paciente recebe o aviso, mas não vê o motivo.
 - O aviso ao paciente (criada, remarcada, cancelada) vai para a caixa de avisos (seção 5.13).
-- A **API** de resposta do paciente já existe na `master`, mas as telas que a usam (no app e no web) estão em branches ainda não mesclados.
+- A **API** de resposta do paciente já existe na `master`; as telas que a usam estão em pull requests abertos (app #9 e front #7).
 
 ### 5.8 Alertas e sinais
 - **Alerta** é gerado por jobs e pelo resumo do dia (seção 7). Tipos: inatividade e desvio nutricional. É **deduplicado**: no máximo um por paciente por dia e nenhum enquanto houver um igual não lido. O profissional pode **resolver** ou **adiar** (1, 3 ou 7 dias; enquanto adiado, o job não cria outro do mesmo tipo) e **desfazer** logo depois. Na central, cada paciente aparece uma vez. Alertas, e o painel "para ver hoje", exigem o módulo de refeições: o educador físico recebe 403.
-- **Sinal** é calculado na hora (não é gravado) a partir dos últimos **14 dias** do diário, do plano e do relógio. Cada sinal tem gravidade (`alto`, `medio`, `baixo`), os fatos, a interpretação, as fontes e uma **ação sugerida**. O profissional pode dizer se o contexto ajudou e registrar ação ou observação.
+- **Sinal** é calculado na hora (não é gravado) a partir dos últimos **14 dias** do diário, do plano e do relógio. Cada sinal tem gravidade (`alto`, `medio`, `baixo`), os fatos, a interpretação, as fontes e uma **ação sugerida**. **Sem registro** só dispara depois de dois dias completos sem refeição; a proteína é avaliada em **dias completos**; e o sinal de **registro incompleto** evita ler um diário esparso como se o paciente tivesse comido pouco. O profissional pode dizer se o contexto ajudou e registrar ação ou observação.
 
 Catálogo dos 23 sinais (código, título, gravidade):
 
@@ -185,7 +189,7 @@ Só existe com `CHARGES_ENABLED=true` (sem isso, as rotas respondem 404 `FEATURE
 ### 5.13 Documentos, arquivos e avisos
 - **Documentos** (desligado por padrão, `DOCUMENTS_ENABLED=true`): prescrição de suplementos, de fitoterápicos, declaração de comparecimento e atestado. Cada documento recebe um número sequencial do profissional, **não se edita depois de emitido** (corrige-se cancelando e emitindo outro) e some para o paciente quando cancelado. O app só mostra "Meus documentos" com a chave de compilação ligada. Há uma pendência declarada sobre as regras de cada conselho (CRN, CRM) antes de liberar.
 - **Exames e arquivos do paciente:** PDF, JPG, PNG ou HEIC, **até 10 MB**; o profissional vinculado vê e baixa por link temporário de 5 minutos; o próprio paciente pode apagar o que enviou.
-- **Avisos ao paciente** (caixa de avisos do app; **na `master` não há push**, ver seção 6): tipos `plan_updated`, `workout_updated`, `document_issued`, `document_cancelled`, `anamnesis_sent`, `appointment_created`, `appointment_rescheduled`, `appointment_cancelled`. O texto **não leva dado clínico**: diz que algo mudou e para onde ir. Só **plano atualizado** e **formulário enviado** também vão por e-mail (o paciente pode desligar o e-mail; a caixa do app continua). Avisos lidos são apagados após **90 dias** (`NOTICES_RETENTION_DAYS`).
+- **Avisos ao paciente** (caixa de avisos do app; **na `master` não há push**, ver seção 6): tipos `plan_updated`, `workout_updated`, `document_issued`, `document_cancelled`, `anamnesis_sent`, `appointment_created`, `appointment_rescheduled`, `appointment_cancelled`. O texto **não leva dado clínico**: diz que algo mudou e para onde ir. Também vão por e-mail: **plano atualizado**, **formulário enviado**, **consulta marcada** e **consulta remarcada** (o paciente pode desligar o e-mail; a caixa do app continua). Ficha de treino, documento e consulta cancelada ficam só na caixa do app. Avisos lidos são apagados após **90 dias** (`NOTICES_RETENTION_DAYS`).
 
 ### 5.14 Privacidade e direitos do titular (LGPD)
 - **Exportação:** `GET /patients/me/export` entrega em JSON tudo o que o Orion guarda do paciente.
@@ -196,7 +200,7 @@ Só existe com `CHARGES_ENABLED=true` (sem isso, as rotas respondem 404 `FEATURE
 - **OpenAI** (chat, planos, receitas, voz, foto) — `OPENAI_API_KEY`.
 - **Resend** (e-mail) — `RESEND_API_KEY`, remetente `EMAIL_FROM` (padrão `contato@projetoorion.com`). Há suporte a SendGrid (`SENDGRID_API_KEY`) declarado nas variáveis.
 - **Armazenamento S3 privado** (PDFs do InBody e exames) — quatro variáveis `STORAGE_*`.
-- **Firebase/push:** **removidos** da `master` do back (o app usa lembretes locais e a caixa de avisos). Existe um branch não mesclado, `feat/push-expo`, que acrescenta push via **Expo** (tabela `PushToken` e rotas `POST /me/push-token` e `/me/push-token/remove`); ele **não faz parte** do que este documento descreve.
+- **Firebase/push:** **removidos** da `master` do back (o app usa lembretes locais e a caixa de avisos). Existe um pull request aberto (#24, branch `feat/push-expo`) que acrescenta push via **Expo** (tabela `PushToken` e rotas `POST /me/push-token` e `/me/push-token/remove`); ele **não faz parte** do que este documento descreve.
 
 ## 7. Jobs agendados
 

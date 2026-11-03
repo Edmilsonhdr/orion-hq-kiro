@@ -1,8 +1,12 @@
-# Orion — web do profissional (`orion-front`)
+---
+pai: "Documentação técnica do Orion"
+pai_pasta: "Orion (produto)"
+---
+# Web do profissional
 
 O site onde o profissional e a equipe da clínica atendem, acompanham e decidem. Next.js 14 (App Router), com o visual em Tailwind e shadcn/ui. O paciente **não** usa este site: ele usa o app (documento [05](05-app-paciente.md)).
 
-Lido do código em 29/10/2026: a árvore `src/app`, o menu (`light-app-shell.tsx`), `area-modules.ts`, `clinic-modules.ts`, `features.ts`, `feature-catalog.ts`, `next.config.mjs` e os componentes das telas. As descrições de comportamento seguem o guia `docs/TELAS-DO-ORION.md` do back (de 19/10), **conferido contra o código** nos pontos que mudaram; o que mudou depois dele está marcado.
+Atualizado em 03/11/2026 sobre a `main` (`48286cd`; a correção de sessão do PR #5 ainda está aberta): a árvore `src/app`, o menu (`light-app-shell.tsx`), `area-modules.ts`, `clinic-modules.ts`, `features.ts`, `feature-catalog.ts`, `next.config.mjs` e os componentes das telas. As descrições de comportamento seguem o guia `docs/TELAS-DO-ORION.md` do back (de 19/10), **conferido contra o código** nos pontos que mudaram; o que mudou depois dele está marcado.
 
 ## 1. Mapa de rotas
 
@@ -99,12 +103,17 @@ Para o educador físico, a ficha oferece o botão **Fichas de treino**, em vez d
 
 ### Consultas (`/agenda`)
 - Visões **Dia**, **Semana** e **Mês**; a visão e o dia ficam no endereço. Filtros por profissional (quando há mais de um) e por situação (Marcada, Realizada, Falta, Cancelada, com contagem).
+- **Dia como linha do tempo:** cada hora mostra as consultas ou um **horário livre**; tocar num horário livre abre **Nova consulta** já naquela hora, e a hora atual aparece marcada com "Agora". Horário com consulta (de qualquer situação, menos cancelada) não aparece como livre.
+- **Consultas sem desfecho:** a consulta que ficou **Marcada** e já passou há mais de 1 hora (nos últimos 30 dias) aparece com destaque na agenda, na **Visão geral** (cartão "N consultas passadas sem desfecho", com **Resolver na agenda**) e no sino de notificações, para marcar realizada, falta ou cancelada e manter histórico e relatórios certos.
 - **Ações:** marcar realizada, marcar falta, cancelar e remarcar (consulta realizada não se remarca).
-- **Nova consulta:** paciente, profissional, dia, horário e observações; aviso de **conflito de horário** (você escolhe outro horário ou confirma "Agendar mesmo assim"). Links de outras telas (como "Agendar retorno") já abrem a janela com o paciente preenchido.
+- **Confirmar consulta:** na consulta marcada e ainda por vir, o botão abre o **WhatsApp** do profissional com a mensagem pronta (há outros modelos).
+- **Cancelar:** pede confirmação. O paciente recebe um aviso no app e o horário volta a ficar livre; o **motivo** (opcional, até 200 caracteres, com atalhos como "O paciente pediu") fica **só para a equipe**.
+- **Nova consulta:** paciente, profissional, dia, horário, **duração** (30, 45, 60 ou 90 minutos; padrão 60) e observações; aviso de **conflito de horário** (você escolhe outro horário ou confirma "Agendar mesmo assim"). Links de outras telas (como "Agendar retorno") já abrem a janela com o paciente preenchido. Profissional **sem clínica** agenda na própria agenda.
+- **Sugestão de retorno:** ao ativar um protocolo, o Orion convida a marcar o retorno na data que o próprio protocolo definiu (**Agendar retorno**).
 - **Consulta online:** marque como online e informe o link da sala (`https://`); vem preenchido com o **link padrão** do perfil. A agenda mostra a etiqueta **Online** e o botão **Entrar**.
 
 ### Sinais, alertas e revisão de refeições *(nutrição)*
-- **Sinais (`/sinais`):** lista dos sinais de atenção, do mais grave ao menos grave, com a prova ("média de 52 g frente à meta de 120 g"), a recorrência em 7 dias e filtros por gravidade; ícone de WhatsApp. O **detalhe** mostra o que está acontecendo, o contexto do paciente (últimas mensagens do chat e resumo), a interpretação, as evidências e fontes, a ação sugerida, e permite dizer se o contexto ajudou e registrar ação ou observação. Catálogo dos sinais em [01-backend.md](01-backend.md), seção 5.8.
+- **Sinais (`/sinais`):** lista dos sinais de atenção, do mais grave ao menos grave, com a prova ("média de 52 g frente à meta de 120 g"), a recorrência em 7 dias e filtros por gravidade; ícone de WhatsApp. O **detalhe** mostra o que está acontecendo, o contexto do paciente (últimas mensagens do chat e resumo), a interpretação, as evidências e fontes, a ação sugerida, e permite dizer se o contexto ajudou e registrar ação ou observação. Se o sinal **já não está ativo** (o paciente voltou ao normal), a tela avisa. Catálogo dos sinais em [01-backend.md](01-backend.md), seção 5.8.
 - **Alertas (`/alertas`):** abas Abertos, Adiados e Resolvidos; filtro por tipo (Inatividade, Desvio nutricional); um cartão por paciente com a gravidade (Crítico, Em risco). **Resolver** e **Adiar** (1, 3 ou 7 dias) valem por alerta ou por paciente, com **Desfazer** logo depois.
 - **Revisar refeições (`/refeicoes`):** período de 3, 7 ou 30 dias; cada refeição estimada pela IA pode ser **aprovada** ou **corrigida**; o resumo do dia do paciente é atualizado. Sem pendência, aparece "Tudo conferido".
 
