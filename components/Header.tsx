@@ -25,6 +25,7 @@ const GRUPOS: { titulo: string; itens: Item[] }[] = [
       { href: "/inicio", rotulo: "Início", icone: "inicio" },
       { href: "/chat", rotulo: "Chat", icone: "chat" },
       { href: "/tarefas", rotulo: "Tarefas", icone: "tarefas" },
+      { href: "/calendario", rotulo: "Calendário", icone: "calendario" },
       { href: "/comercial", rotulo: "Comercial", icone: "comercial", contador: "comercial" },
       { href: "/docs", rotulo: "Docs", icone: "docs" },
     ],
@@ -96,6 +97,12 @@ const CAMINHOS: Record<string, ReactNode> = {
     <>
       <circle cx="11" cy="11" r="6" />
       <path d="M16 16l4 4" />
+    </>
+  ),
+  calendario: (
+    <>
+      <rect x="3.5" y="5" width="17" height="15" rx="2" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
     </>
   ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,

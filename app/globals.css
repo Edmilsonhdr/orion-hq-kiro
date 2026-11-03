@@ -4580,3 +4580,342 @@ a.botao {
 .doc-coluna > * {
   margin: 0;
 }
+
+/* Chat: os botões de renomear/arquivar não cobrem mais o título da conversa. */
+.chat-conversa-linha:hover .chat-conversa-titulo,
+.chat-conversa-linha:focus-within .chat-conversa-titulo {
+  padding-right: 58px;
+}
+
+.chat-conversa-acoes {
+  top: 5px;
+  right: 6px;
+  padding-left: 4px;
+  border-radius: 6px;
+  background: var(--painel, #0f1730);
+}
+
+.chat-conversa-linha:hover .chat-conversa.ativa ~ .chat-conversa-acoes,
+.chat-conversa-linha:hover .chat-conversa-acoes {
+  box-shadow: -6px 0 6px 0 var(--painel, #0f1730);
+}
+
+/* Chat: a coluna da conversa nunca estoura a janela (a busca e as bolhas não são cortadas). */
+.chat-layout {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+/* ===== Calendário ===== */
+
+.cal-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 14px 0 12px;
+}
+
+.cal-nav,
+.cal-controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-nav button {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.cal-titulo {
+  margin: 0 0 0 10px;
+  font-size: 18px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.cal-visao {
+  display: inline-flex;
+  margin-right: 6px;
+}
+
+.cal-visao button {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 0;
+}
+
+.cal-visao button:first-child {
+  border-radius: 8px 0 0 8px;
+}
+
+.cal-visao button:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+.cal-visao button[aria-pressed="true"] {
+  background: rgba(76, 141, 255, 0.2);
+  border-color: var(--destaque);
+}
+
+.cal-filtro {
+  min-height: 34px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-filtro[aria-pressed="false"] {
+  opacity: 0.45;
+}
+
+.cal-meus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--texto-secundario);
+}
+
+.cal-meus input {
+  min-height: 0;
+  width: 16px;
+}
+
+.cal-tarefa {
+  --cal-cor: #4c8dff;
+}
+
+.cal-negocio {
+  --cal-cor: #7bd88f;
+}
+
+.cal-reuniao {
+  --cal-cor: #f2a541;
+}
+
+.cal-ponto {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cal-cor, var(--texto-secundario));
+}
+
+.cal-grade {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--borda);
+  gap: 1px;
+}
+
+.cal-grade[aria-busy="true"] {
+  opacity: 0.6;
+}
+
+.cal-cabeca {
+  padding: 8px 10px;
+  background: var(--painel);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--texto-secundario);
+}
+
+.cal-dia {
+  min-height: 112px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--fundo);
+  min-width: 0;
+}
+
+.cal-grade.semana .cal-dia {
+  min-height: 320px;
+}
+
+.cal-dia.fora {
+  background: var(--piso);
+  opacity: 0.6;
+}
+
+.cal-dia.hoje {
+  box-shadow: inset 0 0 0 2px var(--destaque);
+}
+
+.cal-dia.aberto {
+  background: rgba(76, 141, 255, 0.1);
+}
+
+.cal-dia-num {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cal-dia.hoje .cal-dia-num {
+  color: var(--destaque);
+}
+
+.cal-contagem {
+  display: none;
+  font-size: 11px;
+  color: var(--texto-secundario);
+}
+
+.cal-itens {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cal-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 6px;
+  border-radius: 5px;
+  border-left: 3px solid var(--cal-cor);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--texto);
+  font-size: 12px;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.cal-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cal-item .cal-ponto {
+  display: none;
+}
+
+.cal-item-txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-grade.semana .cal-item-txt,
+.cal-detalhe .cal-item-txt {
+  white-space: normal;
+}
+
+.cal-hora {
+  color: var(--texto-secundario);
+}
+
+.cal-item.feito .cal-item-txt {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.cal-item.atrasado {
+  border-left-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.12);
+}
+
+.cal-mais {
+  align-self: flex-start;
+  min-height: 0;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-size: 12px;
+  color: var(--texto-secundario);
+}
+
+.cal-detalhe {
+  margin-top: 14px;
+}
+
+.cal-detalhe ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-detalhe li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.cal-detalhe .cal-item {
+  font-size: 14px;
+}
+
+.cal-sub {
+  font-size: 13px;
+}
+
+/* Telefone: a célula mostra só pontos coloridos e a contagem; o detalhe do dia abre embaixo. */
+@media (max-width: 720px) {
+  .cal-dia {
+    min-height: 64px;
+    padding: 4px;
+  }
+
+  .cal-grade.mes .cal-itens {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  .cal-grade.mes .cal-item {
+    padding: 0;
+    border: none;
+    background: transparent;
+  }
+
+  .cal-grade.mes .cal-item .cal-ponto {
+    display: block;
+  }
+
+  .cal-grade.mes .cal-item-txt,
+  .cal-grade.mes .cal-mais {
+    display: none;
+  }
+
+  .cal-grade.semana {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cal-grade.semana .cal-cabeca {
+    display: none;
+  }
+
+  .cal-grade.semana .cal-dia {
+    min-height: 0;
+  }
+
+  .cal-contagem {
+    display: inline;
+  }
+}

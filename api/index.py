@@ -9,7 +9,7 @@ import logging
 import os
 import secrets
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 sys.path.append(os.path.dirname(__file__))
@@ -26,7 +26,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 
-from _orion import agentes, anexos, atividades, auth, backup, busca, comercial, config, conversas, db, documentos, tarefas
+from _orion import agentes, anexos, atividades, auth, backup, busca, calendario, comercial, config, conversas, db, documentos, tarefas
 
 app = FastAPI(title="Orion HQ")
 logger = logging.getLogger("orion.agentes")
@@ -494,6 +494,21 @@ def retomar_aprovacao(
             detail="Só dá para tentar de novo aprovações que falharam.",
         )
     return resultado
+
+
+@app.get("/api/calendario")
+def calendario_periodo(de: date, ate: date, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    """Prazos de tarefas, próximos passos do Comercial e reuniões entre duas datas (só leitura)."""
+    try:
+        return calendario.itens(de, ate)
+    except ValueError as erro:
+        raise HTTPException(status_code=422, detail=str(erro))
+
+
+@app.get("/api/calendario/agenda")
+def calendario_agenda(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Atrasados, hoje e próximos 7 dias (cartão do Início)."""
+    return calendario.agenda()
 
 
 @app.get("/api/reunioes")

@@ -9,6 +9,7 @@ import { obter } from "../../../lib/api";
 import { formatarDia, hojeISO, type Hoje, type Negocio, type ResumoFunil } from "../../../lib/comercial";
 import { tempoRelativo, type DocumentoResumo } from "../../../lib/docs";
 import { agentePorId } from "../../../lib/agents";
+import { diaPorExtenso, type AgendaResumo } from "../../../lib/calendario";
 import { resumoDoDia } from "../../../lib/resumoDia";
 import { situacaoPrazo, type Tarefa } from "../../../lib/tarefas";
 
@@ -49,6 +50,7 @@ export default function InicioPage() {
   const [minhasTarefas, setMinhasTarefas] = useState<Tarefa[]>([]);
   const [parados, setParados] = useState<(Negocio & { dias_parado?: number })[]>([]);
   const [pilotos, setPilotos] = useState<(Negocio & { dias_no_piloto: number })[]>([]);
+  const [agenda, setAgenda] = useState<AgendaResumo | null>(null);
 
   useEffect(() => {
     let ativo = true;
@@ -67,6 +69,7 @@ export default function InicioPage() {
     pegar<AtividadeItem[]>("/atividades", (l) => setAtividades(Array.isArray(l) ? l.slice(-8).reverse() : []));
     pegar<typeof parados>("/comercial/parados", (l) => setParados(Array.isArray(l) ? l : []));
     pegar<typeof pilotos>("/comercial/pilotos", (l) => setPilotos(Array.isArray(l) ? l : []));
+    pegar<AgendaResumo>("/calendario/agenda", setAgenda);
     pegar<Mencao[]>("/mencoes", (l) => setMencoes(Array.isArray(l) ? l : []));
     pegar<DocumentoResumo[]>("/documentos", (l) => setDocs(Array.isArray(l) ? l.slice(0, 5) : []));
     return () => {
@@ -172,6 +175,28 @@ export default function InicioPage() {
             </ul>
           </section>
         )}
+
+        <section className="painel ini-bloco" aria-label="Próximos 7 dias">
+          <h2 className="com-grupo-titulo">Próximos 7 dias</h2>
+          {!agenda || agenda.de_hoje.length + agenda.proximos.length === 0 ? (
+            <p className="texto-secundario" style={{ margin: 0 }}>
+              Nada marcado para esta semana.
+            </p>
+          ) : (
+            <ul className="ini-lista">
+              {[...agenda.de_hoje, ...agenda.proximos].slice(0, 6).map((i) => (
+                <li key={`${i.tipo}-${i.id}`}>
+                  <span className="texto-secundario mono">{i.data === agenda.hoje ? "hoje" : diaPorExtenso(i.data).split(",")[0] + " " + i.data.slice(8)} </span>
+                  {i.href ? <Link href={i.href}>{i.titulo}</Link> : <span>{i.titulo}</span>}
+                  {i.hora && <span className="texto-secundario"> · {i.hora.slice(0, 5)}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p style={{ margin: "10px 0 0" }}>
+            <Link href="/calendario">Abrir o calendário</Link>
+          </p>
+        </section>
 
         <section className="painel ini-bloco" aria-label="Comercial hoje">
           <h2 className="com-grupo-titulo">Comercial hoje</h2>
