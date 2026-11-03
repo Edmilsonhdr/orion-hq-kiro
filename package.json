@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n next,api -c cyan,magenta \"next dev\" \"uvicorn api.index:app --reload --port 8000 --env-file .env\"",
+    "dev": "concurrently -n next,api -c cyan,magenta \"next dev\" \".venv/bin/python -m uvicorn api.index:app --reload --port 8000 --env-file .env\"",
     "next-dev": "next dev",
-    "api-dev": "uvicorn api.index:app --reload --port 8000 --env-file .env",
+    "api-dev": ".venv/bin/python -m uvicorn api.index:app --reload --port 8000 --env-file .env",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
