@@ -24,7 +24,7 @@ no padrão do template oficial `nextjs-fastapi` da Vercel.
 ## Restrições da Vercel que moldam o design
 
 - **Sem WebSocket.** O front atualiza por **polling incremental** (`?desde=<ultimo_id>`) a cada ~1,5 s.
-  Isso permite que Dimi e Jullyana vejam o mesmo escritório de dispositivos diferentes.
+  Isso permite que Dimi, Jullyana e Rayssa vejam o mesmo escritório de dispositivos diferentes.
 - **Tempo máximo por função.** `maxDuration: 300` em `vercel.json`. Um pedido deve terminar dentro disso.
 - **Nada fica rodando esperando humano.** A aprovação usa `interrupt()` do LangGraph: o estado vai para o
   Postgres, a função termina, e uma nova requisição retoma com `Command(resume=...)`.
@@ -50,7 +50,7 @@ DATABASE_URL=postgresql://...          # Neon
 ANTHROPIC_API_KEY=...
 ORION_MODEL=claude-sonnet-5
 ORION_WORKER_MODEL=claude-haiku-4-5
-ORION_USERS=dimi:<senha>,jullyana:<senha>
+ORION_USERS=dimi:<senha>,jullyana:<senha>,rayssa:<senha>
 ORION_APPROVERS=dimi,jullyana
 ORION_SESSION_SECRET=<aleatório longo>
 GITHUB_TOKEN=<token só leitura do repo do Orion>

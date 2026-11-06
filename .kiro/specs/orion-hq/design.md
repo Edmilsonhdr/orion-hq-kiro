@@ -7,7 +7,7 @@ IA vive no backend, orquestrada por um `StateGraph` do LangGraph com estado pers
 O front não tem WebSocket: lê mensagens, atividades e aprovações por polling incremental.
 
 ```
-Navegador (Dimi / Jullyana)
+Navegador (Dimi / Jullyana / Rayssa)
    │  polling /api/mensagens, /api/atividades, /api/aprovacoes   POST /api/chat, /api/aprovacoes/{id}
    ▼
 Next.js (Vercel) ──rewrite /api/*──► FastAPI api/index.py (Vercel Python, maxDuration 300)
@@ -36,7 +36,7 @@ START → supervisor ──► tech ────────► supervisor
 ```python
 class Estado(TypedDict, total=False):
     run_id: str
-    autor: str            # "dimi" | "jullyana"
+    autor: str            # "dimi" | "jullyana" | "rayssa"
     pedido: str
     historico: str        # últimas 12 mensagens formatadas "Autor: texto"
     relatorios: Annotated[list[dict], operator.add]   # [{"agente": "tech", "texto": "..."}]

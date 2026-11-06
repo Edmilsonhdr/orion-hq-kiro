@@ -1,7 +1,7 @@
 # Orion HQ
 
-Ecossistema de agentes de IA de Dimi e Jullyana, sócios do **Orion** (app B2C de saúde com copiloto de IA).
-O Orion HQ é o "chefe de gabinete" dos dois: responde perguntas sobre o projeto, acompanha o que muda no
+Ecossistema de agentes de IA de Dimi, Jullyana e Rayssa, do time do **Orion** (app B2C de saúde com copiloto de IA).
+O Orion HQ é o "chefe de gabinete" do time: responde perguntas sobre o projeto, acompanha o que muda no
 código, propõe reuniões e registra decisões. É um produto **separado** do app Orion — ele observa o
 repositório do Orion, mas não altera o app.
 
@@ -15,7 +15,7 @@ persistido no Postgres (Neon). O front não usa WebSocket: lê mensagens, ativid
 **polling incremental** (`?desde=<ultimo_id>`).
 
 ```
-Navegador (Dimi / Jullyana)
+Navegador (Dimi / Jullyana / Rayssa)
    │  polling /api/mensagens, /api/atividades, /api/aprovacoes   POST /api/chat, /api/aprovacoes/{id}
    ▼
 Next.js (Vercel) ──rewrite /api/*──► FastAPI api/index.py (Vercel Python, maxDuration 300)
@@ -79,7 +79,7 @@ cp .env.example .env
 | `ANTHROPIC_API_KEY` | Chave da API da Anthropic. |
 | `ORION_MODEL` | Modelo principal (orquestrador e especialistas). Padrão: `claude-sonnet-5`. |
 | `ORION_WORKER_MODEL` | Modelo worker (tarefas curtas/baratas). Padrão: `claude-haiku-4-5`. |
-| `ORION_USERS` | Usuários no formato `usuario:senha` separados por vírgula. Ex.: `dimi:<senha>,jullyana:<senha>`. |
+| `ORION_USERS` | Usuários no formato `usuario:senha` separados por vírgula. Ex.: `dimi:<senha>,jullyana:<senha>,rayssa:<senha>`. |
 | `ORION_APPROVERS` | Quem pode aprovar ações sensíveis (subconjunto de `ORION_USERS`). Ex.: `dimi,jullyana`. |
 | `ORION_SESSION_SECRET` | Segredo aleatório longo para assinar o cookie de sessão (HMAC). |
 | `GITHUB_TOKEN` | Token **só leitura** (fine-grained: Pull requests e Contents = Read) para ler os arquivos dos PRs. Usado para qualquer repositório sem token específico. |
@@ -260,7 +260,7 @@ Tela **Agentes** (`/agentes`, aba "Planta" leva ao Escritório): mapa dos agente
   todos os endereços. Na reunião, "Criar ata" cria a página em Docs (pasta "Reuniões") com data, participantes e pauta.
 - **Resumo diário** (`/api/cron/resumo-diario`, dias úteis às 8h de Brasília): posta no chat o que está atrasado, o de hoje,
   os próximos 7 dias, as aprovações e os incidentes (não posta se não há nada). Com `RESEND_API_KEY` e `ORION_EMAILS`
-  (`dimi:email,jullyana:email`) também envia por e-mail; sem eles, só o chat. `ORION_EMAIL_REMETENTE` é opcional e precisa
+  (`dimi:email,jullyana:email,rayssa:email`) também envia por e-mail; sem eles, só o chat. `ORION_EMAIL_REMETENTE` é opcional e precisa
   ser um remetente verificado no Resend.
 - **Guardião de docs** (`api/_orion/guardiao.py`): toda segunda, depois do resumo semanal (e no botão "Revisar guias" em Docs,
   para aprovadores), compara o changelog dos últimos 7 dias com os documentos das pastas "Orion (guia de uso)" e

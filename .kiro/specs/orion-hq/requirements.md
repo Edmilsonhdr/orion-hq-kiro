@@ -2,7 +2,7 @@
 
 ## Introdução
 
-Primeira entrega do Orion HQ: uma aplicação web (Vercel) em que Dimi e Jullyana conversam com um Orquestrador
+Primeira entrega do Orion HQ: uma aplicação web (Vercel) em que Dimi, Jullyana e Rayssa conversam com um Orquestrador
 de IA que delega para agentes especialistas (Tech, Agenda, Negócios, Workers), com memória do projeto
 alimentada pelo GitHub, aprovação humana para ações sensíveis e um escritório virtual que mostra os agentes
 trabalhando em tempo real. Contexto de produto em `.kiro/steering/product.md`.
@@ -11,7 +11,7 @@ trabalhando em tempo real. Contexto de produto em `.kiro/steering/product.md`.
 
 ### Requirement 1 — Acesso
 
-**User Story:** Como sócio, quero entrar com meu usuário e senha, para que só Dimi e Jullyana usem o Orion HQ.
+**User Story:** Como sócio, quero entrar com meu usuário e senha, para que só Dimi, Jullyana e Rayssa usem o Orion HQ.
 
 #### Acceptance Criteria
 

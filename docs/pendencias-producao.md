@@ -16,7 +16,7 @@ Atualizado em 03/11/2026. Conforme cada item for resolvido, apague-o daqui.
 3. **`ANTHROPIC_API_KEY` válida na Vercel.** Sem ela falham: Testar e Rascunho dos Agentes, o Guardião de docs e o título
    gerado pela IA no chat.
 4. **Resumo diário por e-mail (opcional):** criar a conta no Resend, verificar o remetente e definir na Vercel
-   `RESEND_API_KEY`, `ORION_EMAILS` (`dimi:email,jullyana:email`) e, se quiser, `ORION_EMAIL_REMETENTE`. Sem isso o resumo
+   `RESEND_API_KEY`, `ORION_EMAILS` (`dimi:email,jullyana:email,rayssa:email`) e, se quiser, `ORION_EMAIL_REMETENTE`. Sem isso o resumo
    vai só para o chat.
 5. **Conferir os crons na Vercel após o deploy.** O projeto agora declara dois: `resumo-semanal` (segundas, 12h UTC; roda
    também o Guardião de docs) e `resumo-diario` (dias úteis, 11h UTC). O plano gratuito limita a 2 crons por conta; se a
