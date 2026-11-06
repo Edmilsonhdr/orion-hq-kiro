@@ -30,5 +30,5 @@ Como usar: depois de cada conversa, acrescente aqui a objeção nova, a resposta
 - **Exemplo real:** [preencher]
 
 ## "Tem aplicativo para iPhone?" (e outras funcionalidades ausentes)
-- **Resposta-base:** responda com a verdade, conforme a documentação atual, sem prometer prazo. Anote o pedido no Comercial: ele ajuda a priorizar o que construir.
+- **Resposta-base:** responda com a verdade, conforme a documentação atual, sem prometer prazo. Hoje o app é só para Android, mas o paciente com iPhone (ou que não queira instalar nada) **pode usar a versão web do Orion pelo navegador**, com quase todas as telas do app; só não tem relógio, notificações no celular e widgets. Anote o pedido de app para iPhone no Comercial: ele ajuda a priorizar o que construir.
 - **Exemplo real:** [preencher]

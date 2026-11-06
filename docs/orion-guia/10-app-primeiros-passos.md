@@ -4,7 +4,7 @@ pai_pasta: "Orion (guia de uso)"
 ---
 # App: primeiros passos
 
-Como o paciente (ou aluno, na Educação Física) entra no Orion, faz o onboarding e se conecta ao profissional. O app é usado no **celular Android**.
+Como o paciente (ou aluno, na Educação Física) entra no Orion, faz o onboarding e se conecta ao profissional. O app é usado no **celular Android**; quem não quiser instalar pode usar a **versão web** pelo navegador (ver [15](15-versao-web-do-paciente.md)).
 
 ## 1. Entrar no app
 

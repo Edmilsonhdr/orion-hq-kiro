@@ -102,7 +102,7 @@ Cada item abaixo foi **conferido no código**. "Documento" é a documentação a
 | 11 | O campo de **status de verificação** do profissional (`pending_documents`, `in_review`, `verified`, `rejected`) existe no banco. | A API **não o aplica**: `requireVerifiedProfessional` só exige perfil de profissional | back |
 | 12 | Há cliente de reserva para o OpenRouter. | Ele **não está ligado** como alternativa automática à OpenAI | back |
 | 13 | A versão do `better-auth` difere: back `1.4.18` (fixa), front declara `^1.2.7` (instalado `1.6.5`), app `^1.4.18`. | O `STATUS.md` do back registra que alinhar versões exige uma rodada própria, com teste de login | os três |
-| 14 | A correção "falha na verificação de sessão não derruba o usuário" está nos PRs abertos front #5 e app #8, **não mesclados**. | Sem ela, uma falha de rede na leitura de sessão pode mandar o usuário para o login | front, app |
+| 14 | A correção "falha na verificação de sessão não derruba o usuário" foi mesclada no front (PR #5, 06/11/2026) e segue no PR aberto app #8, **não mesclado**. | Sem ela, uma falha de rede na leitura de sessão pode mandar o usuário para o login | front, app |
 
 ## 4. Pendências declaradas nos repositórios
 
@@ -111,8 +111,9 @@ Vêm do `docs/STATUS.md` do back (entradas de 22 a 24/10/2026) e de comentários
 - **Jurídico (antes da publicação pública nas lojas):** textos finais dos termos e da política de privacidade; prazo e lista do que reter na exclusão de conta (hoje provisório, 20 anos); declarações de privacidade das lojas (Google e Apple); regras de cada conselho (CRN, CRM, CREF) para prescrições e documentos.
 - **Testes manuais pendentes:** os fluxos novos de privacidade (exportação, aceite, avisos, exclusão) num aparelho; a execução de treino e o alarme do cronômetro de descanso no celular real (o Android pode adiar alarmes em economia de bateria).
 - **Segurança:** as chaves do armazenamento (S3) apareceram no histórico do git do back e **precisam ser rotacionadas**; o bloqueio de login por conta é em memória e permite travar a conta de outra pessoa por 15 minutos (quem sabe o e-mail); rodar `prisma migrate deploy` em produção e, no Railway, definir `TRUST_PROXY_HOPS=1`.
-- **Plataforma:** o app é só Android (iPhone fica para depois); sem push, o paciente só vê avisos ao abrir o app (push via Expo em revisão: back #24 e app #11).
+- **Plataforma:** o app é só Android (iPhone fica para depois; quem usa iPhone pode usar a [versão web do paciente](07-web-paciente.md)); sem push, o paciente só vê avisos ao abrir o app (push via Expo em revisão: back #24 e app #11).
 - **Produto (planejado, sem data):** chat entre profissional e paciente; agendamento pelo paciente e Google Agenda; exames e fotos de evolução; IA lendo a anamnese; integração de pagamento; paciente convidado por outro paciente; avatar de evolução.
 - **Alerta com vários profissionais:** com nutricionista e educador no mesmo paciente, o alerta crítico do dia vai para o **primeiro** profissional vinculado (a busca é `findFirst` sem filtro de área, confirmada no código), e não necessariamente o nutricionista que definiu a meta.
 - **Aceite do aluno:** o vínculo criado pelo profissional não exige o aceite para o profissional ler os dados; a decisão de exigir está em aberto.
 - **Treino:** o PDF de relatório do educador conta só os treinos da ficha, enquanto o painel e a retenção contam todos.
+- **Versão web do paciente** (anotado em 06/11/2026; detalhe em [07](07-web-paciente.md)): trocar a senha de teste da conta `mariana@lnmedicina.com.br` em produção; comparar as telas com o app em tablet, desktop e aparelhos reais (Safari do iPhone); portar o que falta (relógio, perguntas rápidas, lembrete de treino, iniciar treino pelo Registro, push); testes das telas e dos fluxos; o preview da Vercel não loga (só produção ou local); voltar o atalho de documentos e tirar os redirects quando o recurso for ligado.
