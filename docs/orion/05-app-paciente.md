@@ -6,6 +6,8 @@ pai_pasta: "Orion (produto)"
 
 O aplicativo que o paciente (ou aluno, na Educação Física) usa no celular entre as consultas. Expo 57, React Native 0.86, `expo-router`. **Só o paciente usa o app**; profissional e secretária usam o site ([04](04-web-profissional.md)). O foco é **Android**: o código serve ao iPhone, mas a leitura do relógio (Health Connect) e os widgets são só de Android, e não há build iOS publicado nas configurações lidas.
 
+> **Também existe a versão web do paciente** (`/paciente`, no site), com as mesmas telas na maior parte: ver [07](07-web-paciente.md).
+
 Atualizado em 03/11/2026 sobre a `master` (`a7d6a91`; push, confirmação de consulta e correção de sessão estão em pull requests abertos, ver [00](00-visao-geral.md)): a árvore `app/`, `app.json`, `eas.json`, `lib/features.ts`, o menu da aba Mais, `lib/checkins.ts`, `lib/onboarding.ts` e os textos das telas.
 
 ## 1. Estrutura de navegação

@@ -11,6 +11,7 @@ Documentação do produto **Orion** (back, web do profissional e app do paciente
 | 04 | [Web do profissional](04-web-profissional.md) | Quem vende, treina e dá suporte | Todas as telas do site e o que cada uma faz |
 | 05 | [App do paciente](05-app-paciente.md) | Quem vende, treina e dá suporte | Todas as telas do app e o que cada uma faz |
 | 06 | [Fluxos, regras e pendências](06-regras-fluxos-e-pendencias.md) | Todos | Fluxos de ponta a ponta, regras em lista, divergências confirmadas e pendências |
+| 07 | [Versão web do paciente](07-web-paciente.md) | Quem vende, treina e dá suporte | O app do paciente no navegador (`/paciente`): entrada, moldura, telas, o que ainda falta e como difere do app |
 
 **Importar no Docs do HQ:** `scripts/seed_comercial_docs.py` já inclui esta pasta (vira a pasta "Orion (produto)" no Docs). Sem `--aplicar` só simula; com `--aplicar --autor <nome>` grava, pulando o que já existe.
 

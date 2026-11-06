@@ -10,7 +10,7 @@ Este conjunto de documentos descreve o **Orion**, o produto dos sócios, a parti
 
 ## Estado lido do código
 
-Os documentos descrevem a **linha principal** de cada repositório (o que está mesclado), conferida em 03/11/2026:
+Os documentos descrevem a **linha principal** de cada repositório (o que está mesclado), conferida em 03/11/2026. **Atualização de 06/11/2026:** o `orion-front` ganhou a versão web do paciente (PR #9) e a correção de sessão (PR #5); a `main` do front está em `1feca24`. Documento novo: [07](07-web-paciente.md).
 
 | Repositório | Branch | Último commit | Data |
 |---|---|---|---|
@@ -21,7 +21,7 @@ Os documentos descrevem a **linha principal** de cada repositório (o que está 
 **Trabalho em pull requests ainda abertos** (existe no código, mas não está na linha principal; os documentos o tratam como "em revisão"):
 - **Push no celular:** back #24 (e #25, só de documentação) e app #11. O back ganha a tabela `PushToken` e as rotas `POST /me/push-token` e `/me/push-token/remove`; o app registra o aparelho e abre a tela do aviso ao tocar. Na `master` do back **não existe push**.
 - **Resposta do paciente à consulta:** a API já está mesclada no back (PR #18); as telas estão em app #9 (paciente confirma ou pede para remarcar) e front #7 (profissional vê a resposta), ainda abertas.
-- **Sessão que não derruba:** front #5 e app #8 (uma falha de rede ao consultar a sessão não manda a pessoa para o login).
+- **Sessão que não derruba:** o front #5 foi mesclado em 06/11/2026; o app #8 segue aberto (uma falha de rede ao consultar a sessão não manda a pessoa para o login).
 - **Lembrete some depois de responder:** app #12.
 
 ## O que é o Orion
@@ -32,7 +32,7 @@ Há três tipos de usuário (campo `role`) e quatro papéis dentro de uma clíni
 
 | Quem | O que faz | Onde usa |
 |---|---|---|
-| **Paciente** (ou aluno, na Educação Física) | Registra refeições, água, sono, treino e peso; conversa com a IA; vê plano alimentar e ficha de treino; responde formulários; envia exames | App Android |
+| **Paciente** (ou aluno, na Educação Física) | Registra refeições, água, sono, treino e peso; conversa com a IA; vê plano alimentar e ficha de treino; responde formulários; envia exames | App Android e **versão web** (`/paciente`) |
 | **Profissional** (nutricionista, médico, educador físico) | Cadastra pacientes, define protocolo e plano, monta ficha de treino, acompanha alertas e sinais, agenda consultas, emite relatórios | Web |
 | **Secretária** | Vê a lista e o monitoramento e a agenda da clínica; **não** acessa dado clínico | Web |
 | **Papéis na clínica** | `owner` (dono), `admin`, `professional`, `secretary` | Web |
@@ -42,12 +42,13 @@ Há três tipos de usuário (campo `role`) e quatro papéis dentro de uma clíni
 | Projeto | O que é | Tecnologia (conforme `package.json`) | Quem usa |
 |---|---|---|---|
 | `orion_back` | API e regras de negócio, banco, jobs agendados | Node 24, TypeScript, Fastify 5, Prisma 7, PostgreSQL, Better Auth, Zod | Web e app (nenhum usuário final usa direto) |
-| `orion-front` | Site do profissional e da equipe da clínica | Next.js 14 (App Router), React 18, Tailwind, shadcn/ui, Recharts | Profissional, secretária, administrador |
+| `orion-front` | Site do profissional e da equipe da clínica, **e a versão web do paciente** (`/paciente`) | Next.js 14 (App Router), React 18, Tailwind, shadcn/ui, Recharts | Profissional, secretária, administrador e, em `/paciente`, o paciente |
 | `orion-mobile` | App do paciente | Expo 57, React Native 0.86, React 19, expo-router | Paciente |
 
 ```
  Web do profissional (Next.js) ──┐
-                                 ├──►  API (Fastify) ──►  PostgreSQL
+ Web do paciente (Next.js,        │
+   mesmo projeto, /paciente) ─────┼──►  API (Fastify) ──►  PostgreSQL
  App do paciente (Expo) ─────────┘          │
                                             ├─ OpenAI: chat, transcrição de voz (Whisper), análise de foto (Vision), planos e receitas
                                             ├─ Resend: e-mails (confirmação, convite, relatórios, avisos)
@@ -55,14 +56,14 @@ Há três tipos de usuário (campo `role`) e quatro papéis dentro de uma clíni
                                             └─ PDFKit: PDFs de plano, relatório, documentos, recibos
 ```
 
-Os dois clientes falam com a **mesma API** e entram com o **mesmo login** (Better Auth). O web usa cookie de sessão; o app guarda o cookie no armazenamento seguro do celular e o reenvia a cada chamada.
+Os clientes (site do profissional, web do paciente e app) falam com a **mesma API** e entram com o **mesmo login** (Better Auth). O web usa cookie de sessão; o app guarda o cookie no armazenamento seguro do celular e o reenvia a cada chamada.
 
 ### Endereços configurados nos repositórios
 
 | | Local | Produção |
 |---|---|---|
 | API | porta 8081 (padrão de `PORT`) | `https://api.orion-copiloto.com.br` (aparece em `orion-mobile/eas.json`) |
-| Web | porta 3000 | `https://app.orion-copiloto.com.br` (aparece nos `.env.example`) |
+| Web (profissional e paciente) | porta 3000 | `https://app.orion-copiloto.com.br`; o paciente em `/paciente` (aparece nos `.env.example`) |
 | App | porta 8082 (Metro) | build EAS, pacote Android `br.com.orion.paciente` |
 
 Deploy da API: workflow `ci-cd.yml` no GitHub Actions (instala, gera o Prisma, checa tipos, roda os testes e aplica as migrações no banco Neon). O hospedeiro da API em produção é o Railway, segundo a documentação dos repositórios.
@@ -85,6 +86,7 @@ Deploy da API: workflow `ci-cd.yml` no GitHub Actions (instala, gera o Prisma, c
 | [04-web-profissional.md](04-web-profissional.md) | Todas as telas do site do profissional |
 | [05-app-paciente.md](05-app-paciente.md) | Todas as telas do app do paciente |
 | [06-regras-fluxos-e-pendencias.md](06-regras-fluxos-e-pendencias.md) | Fluxos de ponta a ponta, regras de negócio em lista, divergências e pendências conhecidas |
+| [07-web-paciente.md](07-web-paciente.md) | A versão web do paciente (`/paciente`), no mesmo projeto do site |
 
 ## Fontes lidas
 

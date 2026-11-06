@@ -4,7 +4,7 @@ pai_pasta: "Orion (produto)"
 ---
 # Web do profissional
 
-O site onde o profissional e a equipe da clínica atendem, acompanham e decidem. Next.js 14 (App Router), com o visual em Tailwind e shadcn/ui. O paciente **não** usa este site: ele usa o app (documento [05](05-app-paciente.md)).
+O site onde o profissional e a equipe da clínica atendem, acompanham e decidem. Next.js 14 (App Router), com o visual em Tailwind e shadcn/ui. O paciente **não** usa as telas deste documento: ele usa o app ([05](05-app-paciente.md)) ou a **versão web do paciente**, que mora no mesmo projeto em `/paciente/*` ([07](07-web-paciente.md)).
 
 Atualizado em 03/11/2026 sobre a `main` (`48286cd`; a correção de sessão do PR #5 ainda está aberta): a árvore `src/app`, o menu (`light-app-shell.tsx`), `area-modules.ts`, `clinic-modules.ts`, `features.ts`, `feature-catalog.ts`, `next.config.mjs` e os componentes das telas. As descrições de comportamento seguem o guia `docs/TELAS-DO-ORION.md` do back (de 19/10), **conferido contra o código** nos pontos que mudaram; o que mudou depois dele está marcado.
 

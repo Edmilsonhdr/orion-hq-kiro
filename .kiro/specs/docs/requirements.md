@@ -3,7 +3,7 @@
 ## Introdução
 
 Terceira entrega do Orion HQ: o módulo **Docs**, um espaço próprio de documentação e textos dos sócios
-(Dimi e Jullyana), no lugar de ferramentas pagas como Notion e Confluence. Os documentos ficam no mesmo
+(Dimi, Jullyana e Rayssa), no lugar de ferramentas pagas como Notion e Confluence. Os documentos ficam no mesmo
 Postgres do Orion HQ, são escritos em markdown e podem ser consultados pelos agentes: quando alguém
 perguntar algo no chat, o Tobias (Tech) e o Negócios buscam nos documentos antes de responder.
 

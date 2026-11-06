@@ -24,7 +24,7 @@ Para detalhes técnicos (rotas da API, modelo de dados, regras do backend), veja
 | 06 | [Educação Física](06-educacao-fisica.md) | Exercícios, fichas de treino, acompanhamento e retenção |
 | 07 | [Relatórios, modelos e avisos](07-relatorios-modelos-e-avisos.md) | PDFs, resumo do mês, modelos e o que o paciente recebe |
 
-## Para o paciente (app)
+## Para o paciente (app e versão web)
 
 | # | Documento | Conteúdo |
 |---|---|---|
@@ -33,6 +33,7 @@ Para detalhes técnicos (rotas da API, modelo de dados, regras do backend), veja
 | 12 | [Plano, compras e copiloto](12-app-plano-compras-e-copiloto.md) | Meu plano, Comi isso, receitas, lista de compras e chat com a IA |
 | 13 | [Treino](13-app-treino.md) | Ficha, sessão de treino e cronômetro de descanso |
 | 14 | [Saúde, avisos e conta](14-app-saude-avisos-e-conta.md) | Exames, formulários, perguntas rápidas, relógio, widgets, avisos e meus dados |
+| 15 | [Versão web do paciente](15-versao-web-do-paciente.md) | Usar o Orion pelo navegador, sem instalar o app: como entrar, o que muda e o que só existe no app |
 
 ## Para todos
 
