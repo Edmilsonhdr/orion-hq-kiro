@@ -60,7 +60,7 @@ class Estado(TypedDict, total=False):
 
 Arestas condicionais: `supervisor → estado["proxima"]`. `agenda → aprovacao → supervisor`.
 
-**Prompt do supervisor** (resumo): "Você é o Orquestrador do Orion HQ, chefe de gabinete de Dimi e Jullyana.
+**Prompt do supervisor** (resumo): "Você é o Orquestrador do Orion HQ, chefe de gabinete de Dimi, Jullyana e Rayssa.
 Você NÃO executa tarefas: decide quem trabalha. tech = produto/código/PRs; agenda = reuniões e pautas;
 negocios = custos, métricas, decisões; responder = quando os relatórios bastam ou é conversa simples.
 Não repita um especialista para a mesma coisa. Agora é {data em PT-BR}." A data deve ser formatada com dia da

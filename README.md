@@ -80,7 +80,7 @@ cp .env.example .env
 | `ORION_MODEL` | Modelo principal (orquestrador e especialistas). Padrão: `claude-sonnet-5`. |
 | `ORION_WORKER_MODEL` | Modelo worker (tarefas curtas/baratas). Padrão: `claude-haiku-4-5`. |
 | `ORION_USERS` | Usuários no formato `usuario:senha` separados por vírgula. Ex.: `dimi:<senha>,jullyana:<senha>,rayssa:<senha>`. |
-| `ORION_APPROVERS` | Quem pode aprovar ações sensíveis (subconjunto de `ORION_USERS`). Ex.: `dimi,jullyana`. |
+| `ORION_APPROVERS` | Quem pode aprovar ações sensíveis (subconjunto de `ORION_USERS`). Ex.: `dimi,jullyana,rayssa`. |
 | `ORION_SESSION_SECRET` | Segredo aleatório longo para assinar o cookie de sessão (HMAC). |
 | `GITHUB_TOKEN` | Token **só leitura** (fine-grained: Pull requests e Contents = Read) para ler os arquivos dos PRs. Usado para qualquer repositório sem token específico. |
 | `GITHUB_TOKEN_<DONO>` | Opcional. Token de um dono específico (perfil ou organização), já que um token fine-grained só enxerga um dono. Nome em maiúsculas, com `-` virando `_`: dono `minha-org` → `GITHUB_TOKEN_MINHA_ORG`. |

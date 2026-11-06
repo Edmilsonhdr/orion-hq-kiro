@@ -107,7 +107,7 @@ que nenhum agente aja sozinho fora do sistema.
    banco e devolver um link "adicionar ao Google Agenda" e um link `.ics`.
 5. QUANDO um usuário recusar ENTÃO o sistema DEVE retomar o grafo sem criar a reunião e o Orquestrador DEVE
    informar no chat quem recusou.
-6. SE os dois sócios decidirem ao mesmo tempo ENTÃO apenas a primeira decisão DEVE valer (update atômico com
+6. SE dois aprovadores decidirem ao mesmo tempo ENTÃO apenas a primeira decisão DEVE valer (update atômico com
    `status = 'pendente'`); a segunda DEVE receber "já decidida".
 7. A aprovação DEVE funcionar mesmo que horas se passem entre o pedido e a decisão (estado no Postgres).
 

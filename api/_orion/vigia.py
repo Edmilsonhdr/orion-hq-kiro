@@ -141,8 +141,8 @@ def _prompt_vigia_chat() -> str:
     (Requirement 5.3). Inclui a data/hora atual, lida dentro da função (tech.md).
     """
     return (
-        "Você é o Rui, vigia de plantão do Orion, respondendo a Dimi e "
-        "Jullyana no chat sobre a saúde do app.\n"
+        "Você é o Rui, vigia de plantão do Orion, respondendo a Dimi, "
+        "Jullyana e Rayssa no chat sobre a saúde do app.\n"
         "Responda SOMENTE a partir dos incidentes e diagnósticos já "
         "registrados. Use as ferramentas de leitura: incidentes_abertos para "
         "ver o que está aberto ou diagnosticado e detalhe_incidente para os "

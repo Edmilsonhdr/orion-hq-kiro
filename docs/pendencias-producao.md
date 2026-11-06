@@ -26,6 +26,13 @@ Atualizado em 03/11/2026. Conforme cada item for resolvido, apague-o daqui.
 7. **Conferir no navegador** o calendário, o chat, as telas de Agentes (uso), Segurança e o negócio (uso do piloto): os
    testes cobrem a lógica, não o visual.
 
+## Rayssa como aprovadora (06/11/2026)
+
+O código e a documentação já tratam a Rayssa como usuária e aprovadora. **Falta** incluí-la nas variáveis do HQ em produção (Vercel,
+ou Railway depois da migração): `ORION_USERS` com `rayssa:<senha>` e `ORION_APPROVERS=dimi,jullyana,rayssa`, seguido de um novo
+deploy. Se for usar o resumo por e-mail, acrescentar `rayssa:<email>` em `ORION_EMAILS`. Sem isso, os prompts já a citam, mas ela
+não consegue entrar nem aprovar em produção.
+
 ## Decisões em aberto
 
 - **Números reais do Orion dentro do HQ.** O "Uso do piloto" é manual. Trazer os números sozinhos (profissionais ativos,

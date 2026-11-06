@@ -98,7 +98,7 @@ def usuarios() -> dict[str, str]:
 def aprovadores() -> set[str]:
     """Usuários que podem aprovar ações sensíveis (`ORION_APPROVERS`).
 
-    Formato: `dimi,jullyana`. Retorna um set (vazio se não definida).
+    Formato: `dimi,jullyana,rayssa`. Retorna um set (vazio se não definida).
     """
     bruto = os.environ.get("ORION_APPROVERS", "")
     return {nome.strip() for nome in bruto.split(",") if nome.strip()}
