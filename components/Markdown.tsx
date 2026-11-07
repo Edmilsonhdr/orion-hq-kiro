@@ -49,8 +49,30 @@ function inline(itens: Inline[]): ReactNode[] {
   });
 }
 
-function bloco(b: Bloco, i: number): ReactNode {
+// Anexos do documento, para resolver `![legenda](anexo:arquivo.jpg)` (pelo nome do arquivo ou pelo id).
+export type AnexoImagem = { id: number; nome: string };
+
+function bloco(b: Bloco, i: number, anexos: AnexoImagem[]): ReactNode {
   switch (b.t) {
+    case "imagem": {
+      const achado = anexos.find((a) => a.nome === b.anexo || String(a.id) === b.anexo);
+      if (!achado) {
+        return (
+          <p key={i} className="texto-secundario">
+            [Imagem “{b.anexo}” não encontrada nos anexos deste documento.]
+          </p>
+        );
+      }
+      const url = `/api/anexos/${achado.id}`;
+      return (
+        <figure key={i} className="doc-figura">
+          <a href={url} target="_blank" rel="noopener noreferrer">
+            <img src={url} alt={b.alt || achado.nome} loading="lazy" />
+          </a>
+          {b.alt && <figcaption>{b.alt}</figcaption>}
+        </figure>
+      );
+    }
     case "titulo": {
       const nivel = Math.min(b.nivel + 1, 6); // o h1 da página é o título do documento
       const Tag = `h${nivel}` as "h2" | "h3" | "h4" | "h5" | "h6";
@@ -115,10 +137,10 @@ function bloco(b: Bloco, i: number): ReactNode {
   }
 }
 
-export default function Markdown({ texto }: { texto: string }) {
+export default function Markdown({ texto, anexos = [] }: { texto: string; anexos?: AnexoImagem[] }) {
   const blocos = parseMarkdown(texto);
   if (blocos.length === 0) {
     return <p className="texto-secundario">Documento vazio.</p>;
   }
-  return <div className="doc-markdown">{blocos.map(bloco)}</div>;
+  return <div className="doc-markdown">{blocos.map((b, i) => bloco(b, i, anexos))}</div>;
 }

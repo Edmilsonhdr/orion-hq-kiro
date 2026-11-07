@@ -833,6 +833,27 @@ input[type="checkbox"] {
   margin-top: 0;
 }
 
+/* Imagem do documento (anexo), com legenda; clicar abre em tamanho real. */
+.doc-figura {
+  margin: 1.2em 0;
+}
+
+.doc-figura img {
+  display: block;
+  max-width: 100%;
+  max-height: 520px;
+  width: auto;
+  height: auto;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+}
+
+.doc-figura figcaption {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--texto-secundario, inherit);
+}
+
 .doc-markdown h2,
 .doc-markdown h3,
 .doc-markdown h4,

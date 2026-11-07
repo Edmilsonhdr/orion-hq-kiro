@@ -20,6 +20,16 @@ test("HTML bruto vira texto, não elemento", () => {
   assert.equal(textoVisivel(c), '<script>alert(1)</script> e <img src=x onerror=alert(1)>');
 });
 
+test("imagem só vale como anexo do documento", () => {
+  const [a] = parseMarkdown("![Painel do educador](anexo:01-educador-painel.jpg)");
+  assert.deepEqual(a, { t: "imagem", alt: "Painel do educador", anexo: "01-educador-painel.jpg" });
+  // URL externa ou javascript: nunca vira imagem: continua parágrafo de texto.
+  for (const texto of ["![x](https://evil.example/a.png)", "![x](javascript:alert(1))", "![x](/api/anexos/1)"]) {
+    const [b] = parseMarkdown(texto);
+    assert.equal(b.t, "paragrafo");
+  }
+});
+
 test("link http(s) e mailto são aceitos", () => {
   const [a] = parseInline("[site](https://orion.app/x)");
   assert.deepEqual(a, { t: "link", href: "https://orion.app/x", c: [{ t: "texto", v: "site" }] });

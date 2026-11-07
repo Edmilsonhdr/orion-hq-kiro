@@ -4,7 +4,7 @@ pai_pasta: "Orion (guia de uso)"
 ---
 # Novidades do Orion (21/10 a 07/11/2026)
 
-O que mudou no Orion nas últimas semanas, por tema. A lista vem do histórico de código; **não foi conferido o que de fato já está em produção**. Os prints, tirados com dados de demonstração, estão nos **anexos** deste documento, numerados na ordem em que aparecem aqui.
+O que mudou no Orion nas últimas semanas, por tema. A lista vem do histórico de código; **não foi conferido o que de fato já está em produção**. Os prints foram tirados com dados de demonstração e estão no texto; clicar na imagem abre em tamanho real. Os mesmos arquivos ficam na lista de anexos, no fim do documento.
 
 ## Educação física (22 a 24/10)
 
@@ -20,7 +20,13 @@ Web e app. O Orion passou a atender também o educador físico, não só a nutri
 - Modelos de anamnese para o educador, alerta de PAR-Q e relatório de evolução do treino.
 - Relatório do treino enviado por e-mail ao aluno e resumo mensal para o educador.
 
-Prints: anexos 01 a 04 (painel, acompanhamento do treino, biblioteca de exercícios, fichas de treino).
+![Painel do educador, com a retenção dos alunos](anexo:01-educador-painel.jpg)
+
+![Acompanhamento do treino: meta da semana, treinos por semana e carga](anexo:02-educador-acompanhamento.jpg)
+
+![Biblioteca com 66 exercícios, por grupo muscular](anexo:03-educador-exercicios.jpg)
+
+![Fichas de treino do aluno: editar, duplicar e salvar como modelo](anexo:04-educador-treino.jpg)
 
 ## Equipe de profissionais (23/10)
 
@@ -30,7 +36,7 @@ Web e app.
 - No app, o aluno vê o que cada profissional enxerga dele.
 - Resumo entre as áreas na ficha do paciente (nutrição e treino lado a lado).
 
-Print: anexo 05 (paciente aceita o vínculo).
+![O paciente vê a equipe e aceita o vínculo](anexo:05-paciente-mais.jpg)
 
 ## Financeiro: cobrança e recibo (24/10 e 07/11)
 
@@ -40,7 +46,9 @@ Web.
 - Página Financeiro, aba na ficha do paciente e botão "Cobrar esta consulta" na agenda.
 - Em 07/11 o financeiro passou a vir ligado por padrão (antes ficava escondido). Esta mudança está em dois pedidos de revisão abertos e ainda não foi para produção.
 
-Prints: anexos 06 e 07 (página Financeiro e cobranças na ficha).
+![Página Financeiro: recebido, a receber e atrasado](anexo:06-nutri-financeiro.jpg)
+
+![Cobranças na ficha do paciente, com recibo](anexo:07-nutri-ficha-financeiro.jpg)
 
 ## Agenda (24/10 e 06/11)
 
@@ -52,7 +60,9 @@ Web e app.
 - O profissional autônomo agenda na própria agenda.
 - O paciente confirma ou pede para remarcar a próxima consulta pelo app, e o profissional vê a resposta na agenda.
 
-Prints: anexos 08 e 09 (agenda do dia e da semana).
+![Agenda do dia](anexo:08-nutri-agenda-dia.jpg)
+
+![Agenda da semana](anexo:09-nutri-agenda-semana.jpg)
 
 ## Exames e arquivos do paciente (24/10)
 
@@ -61,7 +71,9 @@ Web e app.
 - O paciente envia exames e bioimpedância pelo app e pode listar, baixar e apagar.
 - O profissional vê e baixa os arquivos na aba Exames da ficha.
 
-Prints: anexos 10 e 11 (aba Exames do profissional e envio pelo paciente).
+![Aba Exames na ficha do profissional](anexo:10-nutri-ficha-exames.jpg)
+
+![O paciente envia exames e bioimpedância](anexo:11-paciente-exames.jpg)
 
 ## Privacidade e segurança (23 e 24/10)
 
@@ -73,7 +85,9 @@ App e sistema.
 - Só o primeiro nome do paciente vai para a IA.
 - Limite de tentativas de senha erradas por conta, e a checagem da sessão deixou de gastar esse limite.
 
-Prints: anexos 12 e 13 (aceite dos termos e exclusão de conta).
+![Aceite dos termos antes de usar o app](anexo:12-paciente-termos.jpg)
+
+![Excluir conta: o que é apagado e o que fica guardado](anexo:13-paciente-excluir-conta.jpg)
 
 ## Avisos ao paciente (23/10 a 06/11)
 
@@ -86,7 +100,7 @@ App e sistema.
 - A notificação de check-in some depois que o paciente responde.
 - O envio antigo de notificações foi removido e trocado pelo novo.
 
-Print: anexo 14 (aviso de ficha de treino atualizada).
+![Aviso de ficha de treino atualizada](anexo:14-aluno-avisos.jpg)
 
 ## Chat do Orion (05 e 06/11)
 
@@ -100,7 +114,7 @@ App, web e sistema.
 - Medição do chat e cenários difíceis de teste.
 - No app: resposta que aparece enquanto é escrita, "bom dia" local, notas do Orion e menu ao segurar a mensagem.
 
-Print: anexo 15 (chat do paciente).
+![Chat do Orion no app do paciente](anexo:15-paciente-chat.jpg)
 
 ## Sinais de alerta (24/10)
 
@@ -111,7 +125,9 @@ Web e sistema.
 - Registro esparso deixou de ser lido como "comeu pouco"; proteína é avaliada só em dias completos.
 - O sistema avisa quando um sinal não está mais ativo.
 
-Prints: anexos 16 e 17 (Sinais do Orion e Alertas).
+![Sinais do Orion](anexo:16-nutri-sinais.jpg)
+
+![Alertas por paciente: adiar ou resolver](anexo:17-nutri-alertas.jpg)
 
 ## App do paciente na web (05 e 06/11)
 
@@ -120,7 +136,13 @@ Web.
 - Versão web do app do paciente, no mesmo desenho do app: Jornada, Corpo, Plano e Registrar.
 - Demais telas: Treino, Formulários, Exames, Mais, Chat, Compras e Avisos.
 
-Prints: anexos 18 a 21 (onboarding, início, Jornada e Meu treino).
+![Onboarding de 5 passos](anexo:18-paciente-onboarding.jpg)
+
+![Tela inicial](anexo:19-paciente-home.jpg)
+
+![Jornada](anexo:20-paciente-jornada.jpg)
+
+![Meu treino](anexo:21-aluno-treino.jpg)
 
 ## App do celular: ajustes (23/10 a 06/11)
 
