@@ -41,6 +41,7 @@ Para detalhes técnicos (rotas da API, modelo de dados, regras do backend), veja
 |---|---|---|
 | 20 | [Fluxos de uso](20-fluxos-de-uso.md) | Os caminhos de ponta a ponta |
 | 21 | [Glossário](21-glossario.md) | Os termos do Orion |
+| 22 | [Novidades recentes](22-novidades-recentes.md) | O que mudou de 21/10 a 07/11, com prints |
 | 30 | [Recursos opcionais](30-recursos-opcionais.md) | Financeiro, Documentos e Dados do relógio |
 
 **Importar no Docs do HQ:** `scripts/seed_comercial_docs.py` inclui esta pasta (vira "Orion (guia de uso)" no Docs). Sem `--aplicar` só simula; com `--aplicar --autor <nome>` grava, pulando o que já existe.

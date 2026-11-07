@@ -26,7 +26,12 @@ export type Bloco =
   | { t: "tabela"; cabecalho: Inline[][]; linhas: Inline[][][] }
   | { t: "citacao"; c: Inline[] }
   | { t: "codigo"; v: string }
+  // ![legenda](anexo:arquivo.jpg): imagem que é um anexo do próprio documento (nunca uma URL externa).
+  | { t: "imagem"; alt: string; anexo: string }
   | { t: "linha" };
+
+// Linha só com a imagem. Aceita apenas `anexo:` (nome do arquivo anexado ou id); URL externa não vira imagem.
+const IMAGEM = /^\s*!\[([^\]]*)\]\(anexo:([^()\n]+)\)\s*$/;
 
 const HREF_SEGURO = /^(https?:\/\/|mailto:)/i;
 const LINK = /^\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/;
@@ -215,6 +220,13 @@ export function parseMarkdown(texto: string): Bloco[] {
         c: filhos,
         id: idUnico(textoDe(filhos)),
       });
+      i++;
+      continue;
+    }
+
+    const imagem = IMAGEM.exec(linha);
+    if (imagem) {
+      blocos.push({ t: "imagem", alt: imagem[1].trim(), anexo: imagem[2].trim() });
       i++;
       continue;
     }

@@ -4,6 +4,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { hrefInterno, parseMarkdown, type Bloco, type Inline } from "../lib/markdown";
+import ImagemAmpliavel from "./ImagemAmpliavel";
 
 function inline(itens: Inline[]): ReactNode[] {
   return itens.map((item, i) => {
@@ -49,8 +50,28 @@ function inline(itens: Inline[]): ReactNode[] {
   });
 }
 
-function bloco(b: Bloco, i: number): ReactNode {
+// Anexos do documento, para resolver `![legenda](anexo:arquivo.jpg)` (pelo nome do arquivo ou pelo id).
+export type AnexoImagem = { id: number; nome: string };
+
+function bloco(b: Bloco, i: number, anexos: AnexoImagem[]): ReactNode {
   switch (b.t) {
+    case "imagem": {
+      const achado = anexos.find((a) => a.nome === b.anexo || String(a.id) === b.anexo);
+      if (!achado) {
+        return (
+          <p key={i} className="texto-secundario">
+            [Imagem “{b.anexo}” não encontrada nos anexos deste documento.]
+          </p>
+        );
+      }
+      const url = `/api/anexos/${achado.id}`;
+      return (
+        <figure key={i} className="doc-figura">
+          <ImagemAmpliavel src={url} alt={b.alt || achado.nome} legenda={b.alt} />
+          {b.alt && <figcaption>{b.alt}</figcaption>}
+        </figure>
+      );
+    }
     case "titulo": {
       const nivel = Math.min(b.nivel + 1, 6); // o h1 da página é o título do documento
       const Tag = `h${nivel}` as "h2" | "h3" | "h4" | "h5" | "h6";
@@ -115,10 +136,29 @@ function bloco(b: Bloco, i: number): ReactNode {
   }
 }
 
-export default function Markdown({ texto }: { texto: string }) {
+export default function Markdown({ texto, anexos = [] }: { texto: string; anexos?: AnexoImagem[] }) {
   const blocos = parseMarkdown(texto);
   if (blocos.length === 0) {
     return <p className="texto-secundario">Documento vazio.</p>;
   }
-  return <div className="doc-markdown">{blocos.map(bloco)}</div>;
+  // Imagens seguidas viram uma galeria: as estreitas (prints de celular) ficam lado a lado.
+  const saida: ReactNode[] = [];
+  for (let i = 0; i < blocos.length; i++) {
+    if (blocos[i].t !== "imagem") {
+      saida.push(bloco(blocos[i], i, anexos));
+      continue;
+    }
+    const inicio = i;
+    const grupo: ReactNode[] = [];
+    while (i < blocos.length && blocos[i].t === "imagem") grupo.push(bloco(blocos[i], i++, anexos));
+    i--;
+    saida.push(
+      grupo.length === 1 ? grupo[0] : (
+        <div key={`g${inicio}`} className="doc-galeria">
+          {grupo}
+        </div>
+      ),
+    );
+  }
+  return <div className="doc-markdown">{saida}</div>;
 }

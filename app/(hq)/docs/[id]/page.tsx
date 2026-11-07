@@ -9,7 +9,7 @@ import Link from "next/link";
 import CitadoEm from "../../../../components/CitadoEm";
 import ArvoreDocs from "../../../../components/ArvoreDocs";
 import DocEditor from "../../../../components/DocEditor";
-import Markdown from "../../../../components/Markdown";
+import Markdown, { type AnexoImagem } from "../../../../components/Markdown";
 import Comentarios from "../../../../components/Comentarios";
 import Anexos from "../../../../components/Anexos";
 import TarefasRelacionadas from "../../../../components/TarefasRelacionadas";
@@ -43,9 +43,16 @@ export default function DocumentoPage() {
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
   const [versaoAberta, setVersaoAberta] = useState<Versao | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  // Anexos do documento: é por eles que `![legenda](anexo:arquivo.jpg)` vira imagem no texto.
+  const [anexos, setAnexos] = useState<AnexoImagem[]>([]);
 
   useEffect(() => {
     let ativo = true;
+    obter<AnexoImagem[]>(`/anexos?entidade=documento&id=${id}`)
+      .then((a) => ativo && setAnexos(a))
+      .catch(() => {
+        // sem a lista as imagens aparecem como aviso, o texto continua legível
+      });
     obter<Documento>(`/documentos/${id}`)
       .then((d) => {
         if (ativo) setDoc(d);
@@ -318,7 +325,7 @@ export default function DocumentoPage() {
                   <p className="texto-secundario" style={{ marginTop: 0 }}>
                     Versão de {formatarData(versaoAberta.criado_em)} — “{versaoAberta.titulo}”
                   </p>
-                  <Markdown texto={versaoAberta.conteudo} />
+                  <Markdown texto={versaoAberta.conteudo} anexos={anexos} />
                 </div>
               )}
             </section>
@@ -327,7 +334,7 @@ export default function DocumentoPage() {
           <div className="doc-leitura-grade">
             <div className="doc-coluna">
               <article className="painel doc-artigo">
-                <Markdown texto={doc.conteudo} />
+                <Markdown texto={doc.conteudo} anexos={anexos} />
                 {doc.subpaginas && doc.subpaginas.length > 0 && (
                   <section className="doc-subpaginas" aria-label="Subpáginas">
                     <h2>Subpáginas</h2>
