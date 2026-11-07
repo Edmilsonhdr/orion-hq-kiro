@@ -4,6 +4,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { hrefInterno, parseMarkdown, type Bloco, type Inline } from "../lib/markdown";
+import ImagemAmpliavel from "./ImagemAmpliavel";
 
 function inline(itens: Inline[]): ReactNode[] {
   return itens.map((item, i) => {
@@ -66,9 +67,7 @@ function bloco(b: Bloco, i: number, anexos: AnexoImagem[]): ReactNode {
       const url = `/api/anexos/${achado.id}`;
       return (
         <figure key={i} className="doc-figura">
-          <a href={url} target="_blank" rel="noopener noreferrer">
-            <img src={url} alt={b.alt || achado.nome} loading="lazy" />
-          </a>
+          <ImagemAmpliavel src={url} alt={b.alt || achado.nome} legenda={b.alt} />
           {b.alt && <figcaption>{b.alt}</figcaption>}
         </figure>
       );
