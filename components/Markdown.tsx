@@ -142,5 +142,24 @@ export default function Markdown({ texto, anexos = [] }: { texto: string; anexos
   if (blocos.length === 0) {
     return <p className="texto-secundario">Documento vazio.</p>;
   }
-  return <div className="doc-markdown">{blocos.map((b, i) => bloco(b, i, anexos))}</div>;
+  // Imagens seguidas viram uma galeria: as estreitas (prints de celular) ficam lado a lado.
+  const saida: ReactNode[] = [];
+  for (let i = 0; i < blocos.length; i++) {
+    if (blocos[i].t !== "imagem") {
+      saida.push(bloco(blocos[i], i, anexos));
+      continue;
+    }
+    const inicio = i;
+    const grupo: ReactNode[] = [];
+    while (i < blocos.length && blocos[i].t === "imagem") grupo.push(bloco(blocos[i], i++, anexos));
+    i--;
+    saida.push(
+      grupo.length === 1 ? grupo[0] : (
+        <div key={`g${inicio}`} className="doc-galeria">
+          {grupo}
+        </div>
+      ),
+    );
+  }
+  return <div className="doc-markdown">{saida}</div>;
 }

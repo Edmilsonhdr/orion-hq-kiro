@@ -848,6 +848,27 @@ input[type="checkbox"] {
   border-radius: 8px;
 }
 
+/* Imagens seguidas: lado a lado quando cabem, quebrando linha quando não. */
+.doc-galeria {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 1.2em 0;
+}
+
+.doc-galeria .doc-figura {
+  margin: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* A legenda não alarga a figura: quebra na largura da imagem. */
+.doc-galeria .doc-figura figcaption {
+  contain: inline-size;
+}
+
 .doc-figura figcaption {
   margin-top: 6px;
   font-size: 13px;
