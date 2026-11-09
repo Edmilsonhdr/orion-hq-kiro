@@ -1,6 +1,6 @@
 """Autenticação por sessão em cookie assinado (HMAC).
 
-Só Dimi, Jullyana e Rayssa usam o Orion HQ. A sessão é um cookie `orion_sessao`
+Só Edmilson, Jullyana e Rayssa usam o Orion HQ. A sessão é um cookie `orion_sessao`
 `httpOnly`, `SameSite=Lax`, assinado com HMAC-SHA256 usando `ORION_SESSION_SECRET`
 (Requirement 1.1). Não há estado de sessão no banco: o próprio token carrega o
 usuário e a expiração, e a assinatura garante que não foi adulterado.

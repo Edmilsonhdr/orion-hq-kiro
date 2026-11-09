@@ -236,7 +236,7 @@ def negocios(instrucao: str, run_id: str | None) -> str:
 def _prompt_dinamico(cfg: dict) -> str:
     """Prompt do especialista genérico: regras fixas do HQ + as instruções que os sócios escreveram."""
     return (
-        f"Você é {cfg['nome']}, {cfg['papel']} do Orion HQ, trabalhando para Dimi, Jullyana e Rayssa.\n"
+        f"Você é {cfg['nome']}, {cfg['papel']} do Orion HQ, trabalhando para Edmilson, Jullyana e Rayssa.\n"
         f"Data e hora atual: {config.agora_formatado()} (fuso America/Sao_Paulo).\n\n"
         "Regras inegociáveis:\n"
         "- Nada inventado: use as ferramentas disponíveis para consultar os dados antes de responder e "
@@ -284,7 +284,7 @@ class PropostaReuniao(BaseModel):
     )
     duracao_min: int = Field(description="Duração da reunião em minutos.")
     participantes: list[str] = Field(
-        description="Nomes dos participantes (ex.: Dimi, Jullyana, Rayssa)."
+        description="Nomes dos participantes (ex.: Edmilson, Jullyana, Rayssa)."
     )
     pauta: list[str] = Field(
         description=(
@@ -320,7 +320,7 @@ def _prompt_agenda(contexto_mudancas: str) -> str:
     """
     return (
         "Você é a Agenda, especialista do Orion HQ que propõe reuniões entre "
-        "Dimi, Jullyana e Rayssa.\n"
+        "Edmilson, Jullyana e Rayssa.\n"
         f"Data e hora atual: {config.agora_formatado()} (fuso America/Sao_Paulo).\n\n"
         "Ao propor uma reunião:\n"
         "- Resolva datas relativas (\"terça\", \"amanhã\", \"semana que vem\") "
@@ -329,7 +329,7 @@ def _prompt_agenda(contexto_mudancas: str) -> str:
         "- Se nenhum horário for indicado, escolha um horário comercial razoável.\n"
         "- Monte a `pauta` a partir das mudanças recentes do projeto (últimos 7 "
         "dias) listadas abaixo. Não invente itens que não estejam no contexto.\n"
-        "- Os participantes padrão são Dimi, Jullyana e Rayssa, salvo indicação em "
+        "- Os participantes padrão são Edmilson, Jullyana e Rayssa, salvo indicação em "
         "contrário.\n\n"
         "Mudanças dos últimos 7 dias (contexto para a pauta):\n"
         f"{contexto_mudancas}"

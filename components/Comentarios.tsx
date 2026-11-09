@@ -81,7 +81,7 @@ export default function Comentarios({ documentoId }: { documentoId: number }) {
           rows={2}
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
-          placeholder="Escreva um comentário. Use @dimi ou @jullyana para avisar alguém."
+          placeholder="Escreva um comentário. Use @edmilson ou @jullyana para avisar alguém."
           aria-label="Novo comentário"
         />
         {erro && (

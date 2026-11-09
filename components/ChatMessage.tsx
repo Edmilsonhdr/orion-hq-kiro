@@ -2,7 +2,7 @@
 
 // Bolha de mensagem do chat do grupo (design.md).
 // - Orquestrador ("Orquestrador") à esquerda, com a cor do agente `orq`.
-// - Sócios (dimi/jullyana) à direita.
+// - Sócios (edmilson/jullyana) à direita.
 // O componente é puramente de apresentação; recebe a mensagem já pronta.
 
 import type { ReactNode } from "react";

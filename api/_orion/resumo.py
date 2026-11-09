@@ -45,7 +45,7 @@ _PREFIXO_VAZIO = "Nenhuma mudança no changelog"
 
 _PROMPT_RESUMO = (
     "Você é o Orquestrador do Orion HQ. Escreva um resumo semanal curto para "
-    "Dimi, Jullyana e Rayssa, em português do Brasil, com base SOMENTE nas mudanças e "
+    "Edmilson, Jullyana e Rayssa, em português do Brasil, com base SOMENTE nas mudanças e "
     "decisões listadas abaixo. Destaque o que mudou para o usuário e as "
     "decisões tomadas. Não invente nada além do que está no contexto. "
     "Comece com uma linha de abertura amistosa."

@@ -63,7 +63,7 @@ class Estado(TypedDict, total=False):
     """
 
     run_id: str
-    autor: str  # "dimi" | "jullyana" | "rayssa"
+    autor: str  # "edmilson" | "jullyana" | "rayssa"
     pedido: str
     historico: str  # últimas 12 mensagens formatadas "Autor: texto"
     relatorios: Annotated[list[dict], operator.add]  # [{"agente","texto"}]
@@ -116,7 +116,7 @@ def _prompt_supervisor() -> str:
     """
     linhas = "".join(f"- {a['id']} = {a['descricao']};\n" for a in agentes.roteaveis())
     return (
-        "Você é o Orquestrador do Orion HQ, chefe de gabinete de Dimi, "
+        "Você é o Orquestrador do Orion HQ, chefe de gabinete de Edmilson, "
         "Jullyana e Rayssa. Você NÃO executa tarefas: decide quem trabalha.\n"
         f"{linhas}"
         "- perguntas sobre o que os sócios escreveram nos documentos (Docs) vão "
@@ -172,7 +172,7 @@ def decidir(estado: Estado) -> Rota:
 def _prompt_redigir() -> str:
     """Prompt de sistema para redigir a resposta final ao chat."""
     return (
-        "Você é o Orquestrador do Orion HQ, respondendo a Dimi, Jullyana e Rayssa.\n"
+        "Você é o Orquestrador do Orion HQ, respondendo a Edmilson, Jullyana e Rayssa.\n"
         "Escreva a resposta final usando SOMENTE o conteúdo dos relatórios dos "
         "especialistas abaixo. Não invente informações. Quando um relatório "
         "citar uma fonte (PR, nota, decisão) e data, mantenha a citação.\n"
