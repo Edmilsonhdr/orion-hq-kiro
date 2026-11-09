@@ -4,7 +4,7 @@
 
 import MetricasPiloto from "../../../../../components/MetricasPiloto";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Modal from "../../../../../components/Modal";
 import MensagensModelo from "../../../../../components/MensagensModelo";
@@ -13,7 +13,7 @@ import ChecklistPiloto from "../../../../../components/ChecklistPiloto";
 import Anexos from "../../../../../components/Anexos";
 import TarefasRelacionadas from "../../../../../components/TarefasRelacionadas";
 import NegocioForm, { type DadosNegocio } from "../../../../../components/NegocioForm";
-import { ErroApi, atualizar, enviar, obter } from "../../../../../lib/api";
+import { ErroApi, atualizar, enviar, excluir as excluirApi, obter } from "../../../../../lib/api";
 import {
   ETAPAS,
   ROTULO_ETAPA,
@@ -30,6 +30,7 @@ import { formatarData } from "../../../../../lib/docs";
 
 export default function NegocioPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [n, setN] = useState<NegocioDetalhe | null>(null);
   const [naoEncontrado, setNaoEncontrado] = useState(false);
   const [usuario, setUsuario] = useState("");
@@ -120,6 +121,16 @@ export default function NegocioPage() {
       </div>
     );
 
+  async function excluirNegocio() {
+    if (!window.confirm("Excluir este negócio? Anotações, checklist e métricas dele também serão apagados.")) return;
+    try {
+      await excluirApi(`/comercial/negocios/${id}`);
+      router.push("/comercial");
+    } catch {
+      setErro("Não foi possível excluir o negócio.");
+    }
+  }
+
   const situacao = situacaoPasso(n.proximo_passo_em, hojeISO());
   const fechado = n.etapa === "ganho" || n.etapa === "perdido";
 
@@ -135,6 +146,9 @@ export default function NegocioPage() {
         <div className="com-acoes">
           <button type="button" className="botao" onClick={() => setEditando(true)}>
             Editar
+          </button>
+          <button type="button" className="botao com-excluir" onClick={excluirNegocio}>
+            Excluir negócio
           </button>
         </div>
       </div>

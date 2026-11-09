@@ -165,21 +165,21 @@ def receber(
     if texto.startswith(PREFIXO_NOTA):
         conteudo_nota = texto[len(PREFIXO_NOTA):].strip()
         # Salva a própria mensagem do usuário no chat (autor + horário).
-        db.salvar_mensagem(autor, texto, conversa_id=conversa_id)
+        db.salvar_mensagem(autor, texto, conversa_id=conversa_id, usuario=autor)
         if not conteudo_nota:
             resposta = "Nota vazia: escreva algo depois de /nota."
         else:
             _registrar_nota(conteudo_nota, autor)
             resposta = "Anotado no histórico do projeto."
-        db.salvar_mensagem(AUTOR_ORQ, resposta, conversa_id=conversa_id)
+        db.salvar_mensagem(AUTOR_ORQ, resposta, conversa_id=conversa_id, usuario=autor)
         return {"status": "nota", "resposta": resposta}, None
 
     # 2. Mensagem normal: salva, monta o histórico e roda o grafo.
     # O histórico inclui a mensagem atual (salva antes), atendendo ao contexto
     # das últimas 12 mensagens (Requirement 2.6).
-    db.salvar_mensagem(autor, texto, run_id=None, conversa_id=conversa_id)
+    db.salvar_mensagem(autor, texto, run_id=None, conversa_id=conversa_id, usuario=autor)
     run_id = _novo_run_id()
-    historico = db.historico_recente(12, conversa_id)
+    historico = db.historico_recente(12, conversa_id, autor)
 
     estado_inicial = {
         "run_id": run_id,

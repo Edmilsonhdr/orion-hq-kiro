@@ -94,24 +94,41 @@ def conversa_do_run(run_id: Optional[str]) -> Optional[int]:
     return linha["conversa_id"] if linha else None
 
 
+def usuario_do_run(run_id: Optional[str]) -> Optional[str]:
+    """Quem pediu o run (gravado na atividade `inicio`), ou `None` (run do sistema, como o Vigia)."""
+    if not run_id:
+        return None
+    linha = um(
+        "select dados->>'autor' as autor from atividades where run_id = %s and tipo = 'inicio' order by id limit 1",
+        (run_id,),
+    )
+    return linha["autor"] if linha else None
+
+
 def salvar_mensagem(
-    autor: str, texto: str, run_id: Optional[str] = None, conversa_id: Optional[int] = None
+    autor: str, texto: str, run_id: Optional[str] = None, conversa_id: Optional[int] = None,
+    usuario: Optional[str] = None,
 ) -> dict:
     """Insere uma mensagem no chat do grupo e devolve a linha inserida.
 
     Colunas conforme `db/schema.sql`: autor, texto, run_id, conversa_id. Sem `conversa_id`, vale a
     conversa em que o `run_id` começou (assim as respostas e as retomadas de aprovação caem no lugar
     certo); sem as duas coisas, a mensagem é da conversa "Geral".
+
+    `usuario` é o dono (privacidade do chat): sem ele, vale quem pediu o run; sem run, é aviso do sistema
+    (visível a todos na "Geral").
     """
     if conversa_id is None:
         conversa_id = conversa_do_run(run_id)
+    if usuario is None:
+        usuario = usuario_do_run(run_id)
     linha = um(
         """
-        insert into mensagens (autor, texto, run_id, conversa_id)
-        values (%s, %s, %s, %s)
+        insert into mensagens (autor, texto, run_id, conversa_id, usuario)
+        values (%s, %s, %s, %s, %s)
         returning id, autor, texto, run_id, criado_em
         """,
-        (autor, texto, run_id, conversa_id),
+        (autor, texto, run_id, conversa_id, usuario),
     )
     # `um` só retorna None quando não há linha; um INSERT ... RETURNING sempre
     # devolve uma. O assert deixa isso explícito para o verificador de tipos.
@@ -119,7 +136,7 @@ def salvar_mensagem(
     return linha
 
 
-def historico_recente(limite: int = 12, conversa_id: Optional[int] = None) -> str:
+def historico_recente(limite: int = 12, conversa_id: Optional[int] = None, usuario: Optional[str] = None) -> str:
     """Últimas N mensagens do grupo, formatadas "Autor: texto".
 
     Uma mensagem por linha, em ordem cronológica (mais antiga primeiro).
@@ -130,17 +147,17 @@ def historico_recente(limite: int = 12, conversa_id: Optional[int] = None) -> st
         """
         select autor, texto
         from mensagens
-        where conversa_id is not distinct from %s
+        where conversa_id is not distinct from %s and (%s::text is null or usuario is null or usuario = %s)
         order by id desc
         limit %s
         """,
-        (conversa_id, limite),
+        (conversa_id, usuario, usuario, limite),
     )
     linhas.reverse()  # volta para ordem cronológica (mais antiga primeiro)
     return "\n".join(f"{m['autor']}: {m['texto']}" for m in linhas)
 
 
-def listar_mensagens(desde: int = 0, conversa_id: Optional[int] = None) -> list[dict]:
+def listar_mensagens(desde: int = 0, conversa_id: Optional[int] = None, usuario: Optional[str] = None) -> list[dict]:
     """Mensagens do chat para o polling incremental do front (Requirement 2.3).
 
     Espelha `atividades.listar`:
@@ -156,20 +173,21 @@ def listar_mensagens(desde: int = 0, conversa_id: Optional[int] = None) -> list[
             select id, autor, texto, run_id, criado_em
             from mensagens
             where id > %s and conversa_id is not distinct from %s
+              and (%s::text is null or usuario is null or usuario = %s)
             order by id asc
             """,
-            (desde, conversa_id),
+            (desde, conversa_id, usuario, usuario),
         )
 
     recentes = consultar(
         """
         select id, autor, texto, run_id, criado_em
         from mensagens
-        where conversa_id is not distinct from %s
+        where conversa_id is not distinct from %s and (%s::text is null or usuario is null or usuario = %s)
         order by id desc
         limit 50
         """,
-        (conversa_id,),
+        (conversa_id, usuario, usuario),
     )
     recentes.reverse()
     return recentes

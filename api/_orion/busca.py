@@ -14,7 +14,7 @@ def _like(termo: str) -> str:
     return f"%{escapado}%"
 
 
-def conversas(termo: str) -> list[dict[str, Any]]:
+def conversas(termo: str, usuario: str) -> list[dict[str, Any]]:
     """Conversas cujo título ou alguma mensagem contém o termo (a "Geral" tem id nulo)."""
     termo = (termo or "").strip()
     if len(termo) < 2:
@@ -23,16 +23,17 @@ def conversas(termo: str) -> list[dict[str, Any]]:
     achadas = db.consultar(
         """
         select c.id, c.titulo, null::text as trecho from conversas c
-        where not c.arquivada and c.titulo ilike %s
+        where not c.arquivada and c.criado_por = %s and c.titulo ilike %s
         union all
         select * from (
           select m.conversa_id as id, c.titulo, left(m.texto, 120) as trecho
           from mensagens m left join conversas c on c.id = m.conversa_id
           where m.texto ilike %s and (c.id is null or not c.arquivada)
+            and (m.usuario is null or m.usuario = %s) and (c.id is null or c.criado_por = %s)
           order by m.id desc limit %s
         ) recentes
         """,
-        (padrao, padrao, LIMITE),
+        (usuario, padrao, padrao, usuario, usuario, LIMITE),
     )
     vistas: set[Any] = set()
     unicas: list[dict[str, Any]] = []

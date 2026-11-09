@@ -61,6 +61,17 @@ class MensagemChat(BaseModel):
     conversa_id: int | None = None
 
 
+class ReuniaoCorpo(BaseModel):
+    """Corpo do `POST /reunioes`: compromisso criado à mão no Calendário."""
+
+    titulo: str
+    data: str
+    hora_inicio: str
+    hora_fim: str
+    participantes: list[str] | str | None = None
+    pauta: list[str] | str | None = None
+
+
 class ConversaCorpo(BaseModel):
     titulo: str | None = None
 
@@ -350,13 +361,16 @@ def listar_mensagens(
     `id > desde` em ordem crescente. Se `desde=0`, as últimas 50 (também em
     ordem crescente). Exige sessão.
     """
-    return db.listar_mensagens(desde, conversa or None)
+    conversa_id = conversa or None
+    if conversa_id is not None and not conversas.e_dono(conversa_id, usuario):
+        raise HTTPException(status_code=404, detail="Conversa não encontrada.")
+    return db.listar_mensagens(desde, conversa_id, usuario)
 
 
 @app.get("/api/conversas")
 def listar_conversas(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
-    """Conversas ativas (a "Geral" é implícita e não aparece aqui)."""
-    return conversas.listar()
+    """Conversas ativas da própria pessoa (a "Geral" é implícita e não aparece aqui)."""
+    return conversas.listar(usuario)
 
 
 @app.post("/api/conversas", status_code=status.HTTP_201_CREATED)
@@ -372,7 +386,7 @@ def renomear_conversa(
     conversa_id: int, corpo: ConversaCorpo, usuario: str = Depends(auth.usuario_atual)
 ) -> dict:
     try:
-        linha = conversas.renomear(conversa_id, corpo.titulo)
+        linha = conversas.renomear(conversa_id, corpo.titulo, usuario)
     except ValueError as erro:
         raise _invalido(erro)
     if linha is None:
@@ -382,7 +396,7 @@ def renomear_conversa(
 
 @app.post("/api/conversas/{conversa_id}/arquivar")
 def arquivar_conversa(conversa_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
-    linha = conversas.arquivar(conversa_id)
+    linha = conversas.arquivar(conversa_id, usuario)
     if linha is None:
         raise HTTPException(status_code=404, detail="Conversa não encontrada.")
     return linha
@@ -406,7 +420,7 @@ def chat(
 
     conversa_id = mensagem.conversa_id or None
     if conversa_id is not None:
-        if not conversas.ativa(conversa_id):
+        if not conversas.ativa(conversa_id, usuario):
             raise HTTPException(status_code=404, detail="Conversa não encontrada.")
         conversas.titular_se_nova(conversa_id, mensagem.texto)
     resultado, estado_inicial = execucao.receber(usuario, mensagem.texto, conversa_id)
@@ -616,6 +630,23 @@ def calendario_feed_ics(token: str) -> Response:
 def calendario_agenda(usuario: str = Depends(auth.usuario_atual)) -> dict:
     """Atrasados, hoje e próximos 7 dias (cartão do Início)."""
     return calendario.agenda()
+
+
+@app.post("/api/reunioes", status_code=status.HTTP_201_CREATED)
+def criar_reuniao_manual(corpo: ReuniaoCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Cria um compromisso direto no Calendário, sem IA nem aprovação."""
+    try:
+        return calendario.criar_reuniao(corpo.titulo, corpo.data, corpo.hora_inicio, corpo.hora_fim,
+                                        corpo.participantes, corpo.pauta, usuario)
+    except ValueError as erro:
+        raise _invalido(erro)
+
+
+@app.delete("/api/reunioes/{reuniao_id}")
+def excluir_reuniao(reuniao_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    if not calendario.excluir_reuniao(reuniao_id):
+        raise HTTPException(status_code=404, detail="Reunião não encontrada.")
+    return {"ok": True}
 
 
 @app.post("/api/reunioes/{reuniao_id}/ata")
@@ -937,7 +968,7 @@ def busca_global(q: str = "", usuario: str = Depends(auth.usuario_atual)) -> dic
     if not q:
         return {"documentos": [], "negocios": [], "organizacoes": [], "conversas": []}
     return {
-        "conversas": busca.conversas(q),
+        "conversas": busca.conversas(q, usuario),
         "documentos": [
             {"id": d["id"], "titulo": d["titulo"], "pasta": d.get("pasta")}
             for d in documentos.buscar(q)[:5]
@@ -1015,6 +1046,13 @@ def editar_negocio_comercial(
     for fora in ("organizacao_id", "organizacao_nome", "organizacao_tipo", "etapa"):
         campos.pop(fora, None)
     return _comercial_404(_comercial(lambda: comercial.editar_negocio(negocio_id, campos, usuario)), "Negócio")
+
+
+@app.delete("/api/comercial/negocios/{negocio_id}")
+def excluir_negocio_comercial(negocio_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    if not comercial.excluir_negocio(negocio_id):
+        raise HTTPException(status_code=404, detail="Negócio não encontrado.")
+    return {"ok": True}
 
 
 @app.post("/api/comercial/negocios/{negocio_id}/etapa")

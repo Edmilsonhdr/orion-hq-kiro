@@ -123,10 +123,10 @@ def test_busca_global_inclui_conversas(cliente):
     documentos.criar("Roteiro de vendas", "fale com a Clínica Aurora", autor="dimi")
     n = _negocio("Aurora piloto")
     conv = conversas.criar("Plano Aurora", "dimi")
-    assert busca.conversas("a") == []
+    assert busca.conversas("a", "dimi") == []
     r = cliente.get("/api/busca?q=aurora").json()
     assert [d["titulo"] for d in r["documentos"]] == ["Roteiro de vendas"]
     assert [x["id"] for x in r["negocios"]] == [n["id"]]
     assert [c["id"] for c in r["conversas"]] == [conv["id"]]
-    assert busca.conversas("100%") == []  # % não vira curinga
+    assert busca.conversas("100%", "dimi") == []  # % não vira curinga
     assert cliente.get("/api/busca?q=").json()["conversas"] == []

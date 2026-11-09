@@ -515,6 +515,11 @@ def listar_interacoes(negocio_id: int) -> list[dict]:
     )
 
 
+def excluir_negocio(negocio_id: int) -> bool:
+    """Apaga o negócio (interações, checklist e métricas vão junto; tarefas ficam sem vínculo)."""
+    return db.executar("delete from negocios where id = %s", (negocio_id,)) > 0
+
+
 def excluir_interacao(interacao_id: int) -> str:
     """`ok`, `nao_encontrada` ou `do_sistema` (entradas de etapa não se excluem)."""
     linha = db.um("select tipo from interacoes where id = %s", (interacao_id,))

@@ -7,8 +7,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { enviar } from "../../../lib/api";
-import { obter } from "../../../lib/api";
+import { enviar, excluir, obter } from "../../../lib/api";
+import Modal from "../../../components/Modal";
 import { hojeISO } from "../../../lib/comercial";
 import {
   DIAS_SEMANA,
@@ -69,6 +69,11 @@ export default function CalendarioPage() {
   const [itens, setItens] = useState<ItemCal[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [diaAberto, setDiaAberto] = useState<string | null>(null);
+  const [novo, setNovo] = useState(false);
+  const [recarregar, setRecarregar] = useState(0);
+  const [form, setForm] = useState({ titulo: "", data: "", inicio: "09:00", fim: "10:00", participantes: "", pauta: "" });
+  const [salvando, setSalvando] = useState(false);
+  const [erroForm, setErroForm] = useState<string | null>(null);
 
   // Estado inicial a partir da URL (depois da montagem, para não divergir do HTML do servidor).
   useEffect(() => {
@@ -116,6 +121,46 @@ export default function CalendarioPage() {
     }
   }
 
+  function abrirNovo(data?: string) {
+    setForm({ titulo: "", data: data ?? diaAberto ?? hoje, inicio: "09:00", fim: "10:00", participantes: "", pauta: "" });
+    setErroForm(null);
+    setNovo(true);
+  }
+
+  async function salvarNovo(e: React.FormEvent) {
+    e.preventDefault();
+    if (salvando) return;
+    setSalvando(true);
+    setErroForm(null);
+    try {
+      await enviar("/reunioes", {
+        titulo: form.titulo,
+        data: form.data,
+        hora_inicio: form.inicio,
+        hora_fim: form.fim,
+        participantes: form.participantes,
+        pauta: form.pauta.split("\n"),
+      });
+      setNovo(false);
+      setRef(form.data);
+      setRecarregar((n) => n + 1);
+    } catch (err) {
+      setErroForm(err instanceof Error ? err.message : "Não foi possível salvar.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function excluirReuniao(id: number) {
+    if (!window.confirm("Excluir este compromisso?")) return;
+    try {
+      await excluir(`/reunioes/${id}`);
+      setRecarregar((n) => n + 1);
+    } catch {
+      setErro("Não foi possível excluir o compromisso.");
+    }
+  }
+
   const dias = useMemo(() => diasVisiveis(ref, visao), [ref, visao]);
 
   useEffect(() => {
@@ -131,7 +176,7 @@ export default function CalendarioPage() {
     return () => {
       ativo = false;
     };
-  }, [dias]);
+  }, [dias, recarregar]);
 
   const visiveis = useMemo(() => filtrar(itens ?? [], tipos, somenteMeus ? usuario : null), [itens, tipos, somenteMeus, usuario]);
   const porDia = useMemo(() => agruparPorDia(visiveis), [visiveis]);
@@ -151,7 +196,7 @@ export default function CalendarioPage() {
       <div className="com-topo">
         <h1 className="titulo-pixel com-titulo">Calendário</h1>
         <p className="texto-secundario" style={{ margin: "6px 0 0" }}>
-          Prazos de tarefas, próximos passos do Comercial e reuniões. Para mudar uma data, abra o item.
+          Prazos de tarefas, próximos passos do Comercial e reuniões. Crie compromissos aqui ou abra um item para mudar a data.
         </p>
       </div>
 
@@ -182,6 +227,9 @@ export default function CalendarioPage() {
               {ROTULO_TIPO[t]}
             </button>
           ))}
+          <button type="button" className="botao botao-destaque" onClick={() => abrirNovo()}>
+            + Novo compromisso
+          </button>
           <button type="button" className="cal-filtro" onClick={feed ? () => setFeed(null) : mostrarFeed} aria-expanded={feed !== null}>
             Assinar no Google Agenda
           </button>
@@ -257,6 +305,51 @@ export default function CalendarioPage() {
         </p>
       )}
 
+      <Modal titulo="Novo compromisso" aberto={novo} onFechar={() => setNovo(false)}>
+        <form className="com-form" onSubmit={salvarNovo}>
+          <div className="com-campo">
+            <label htmlFor="cn-titulo">Título</label>
+            <input id="cn-titulo" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} maxLength={120} required autoFocus />
+          </div>
+          <div className="com-linha">
+            <div className="com-campo">
+              <label htmlFor="cn-data">Data</label>
+              <input id="cn-data" type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} required />
+            </div>
+            <div className="com-campo">
+              <label htmlFor="cn-ini">Início</label>
+              <input id="cn-ini" type="time" value={form.inicio} onChange={(e) => setForm({ ...form, inicio: e.target.value })} required />
+            </div>
+            <div className="com-campo">
+              <label htmlFor="cn-fim">Fim</label>
+              <input id="cn-fim" type="time" value={form.fim} onChange={(e) => setForm({ ...form, fim: e.target.value })} required />
+            </div>
+          </div>
+          <div className="com-campo">
+            <label htmlFor="cn-part">Participantes (separe por vírgula)</label>
+            <input id="cn-part" value={form.participantes} onChange={(e) => setForm({ ...form, participantes: e.target.value })} />
+          </div>
+          <div className="com-campo">
+            <label htmlFor="cn-pauta">Pauta (um item por linha)</label>
+            <textarea id="cn-pauta" rows={3} value={form.pauta} onChange={(e) => setForm({ ...form, pauta: e.target.value })} />
+          </div>
+          {erroForm && (
+            <p role="alert" className="com-erro">
+              {erroForm}
+            </p>
+          )}
+          <div className="com-acoes">
+            <span style={{ flex: 1 }} />
+            <button type="button" className="botao" onClick={() => setNovo(false)}>
+              Cancelar
+            </button>
+            <button type="submit" className="botao botao-destaque" disabled={salvando || !form.titulo.trim()}>
+              {salvando ? "Salvando…" : "Salvar"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       {diaAberto && (
         <section className="painel cal-detalhe" aria-label={`Itens de ${diaPorExtenso(diaAberto)}`}>
           <h2 className="com-grupo-titulo">{diaPorExtenso(diaAberto)}</h2>
@@ -269,6 +362,11 @@ export default function CalendarioPage() {
               {doDiaAberto.map((i) => (
                 <li key={`${i.tipo}-${i.id}`}>
                   <Item item={i} hoje={hoje} />
+                  {i.tipo === "reuniao" && (
+                    <button type="button" className="botao" onClick={() => excluirReuniao(i.id)}>
+                      Excluir
+                    </button>
+                  )}
                   {i.tipo === "reuniao" && (
                     <button type="button" className="botao cal-ata" disabled={criandoAta === i.id} onClick={() => criarAta(i.id)}>
                       {criandoAta === i.id ? "Criando…" : "Criar ata"}

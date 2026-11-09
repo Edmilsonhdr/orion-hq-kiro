@@ -10,7 +10,7 @@ import ImportarPlanilha from "../../../components/ImportarPlanilha";
 import Funil from "../../../components/Funil";
 import Modal from "../../../components/Modal";
 import NegocioForm, { type DadosNegocio } from "../../../components/NegocioForm";
-import { enviar, obter } from "../../../lib/api";
+import { enviar, excluir, obter } from "../../../lib/api";
 import {
   ROTULO_AREA,
   ROTULO_ETAPA,
@@ -31,7 +31,7 @@ import {
 
 type Aba = "hoje" | "funil" | "pilotos" | "organizacoes";
 
-function LinhaNegocio({ n }: { n: Negocio }) {
+function LinhaNegocio({ n, onExcluir }: { n: Negocio; onExcluir?: (n: Negocio) => void }) {
   const situacao = situacaoPasso(n.proximo_passo_em, hojeISO());
   return (
     <li className="com-item">
@@ -47,18 +47,28 @@ function LinhaNegocio({ n }: { n: Negocio }) {
         {n.proximo_passo ?? "Definir próximo passo"}
         {n.proximo_passo_em && <span className="mono"> · {formatarDia(n.proximo_passo_em)}</span>}
       </div>
+      <div className="com-acoes">
+        <Link href={`/comercial/negocios/${n.id}`} className="botao">
+          Editar
+        </Link>
+        {onExcluir && (
+          <button type="button" className="botao com-excluir" onClick={() => onExcluir(n)}>
+            Excluir
+          </button>
+        )}
+      </div>
     </li>
   );
 }
 
-function Grupo({ titulo, itens, vazio }: { titulo: string; itens: Negocio[]; vazio?: string }) {
+function Grupo({ titulo, itens, vazio, onExcluir }: { titulo: string; itens: Negocio[]; vazio?: string; onExcluir?: (n: Negocio) => void }) {
   if (itens.length === 0 && !vazio) return null;
   return (
     <section className="painel com-grupo">
       <h3 className="com-grupo-titulo">
         {titulo} <span className="mono texto-secundario">{itens.length}</span>
       </h3>
-      {itens.length === 0 ? <p className="texto-secundario">{vazio}</p> : <ul className="com-lista">{itens.map((n) => <LinhaNegocio key={n.id} n={n} />)}</ul>}
+      {itens.length === 0 ? <p className="texto-secundario">{vazio}</p> : <ul className="com-lista">{itens.map((n) => <LinhaNegocio key={n.id} n={n} onExcluir={onExcluir} />)}</ul>}
     </section>
   );
 }
@@ -108,6 +118,16 @@ export default function ComercialPage() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  async function excluirNegocio(n: Negocio) {
+    if (!window.confirm(`Excluir o negócio "${n.titulo}"? Anotações, checklist e métricas dele também serão apagados.`)) return;
+    try {
+      await excluir(`/comercial/negocios/${n.id}`);
+      await carregar();
+    } catch {
+      setErro("Não foi possível excluir o negócio.");
+    }
+  }
 
   // /comercial?aba=pilotos abre direto na aba (usado pelo "Seu dia", no Início).
   useEffect(() => {
@@ -203,11 +223,11 @@ export default function ComercialPage() {
 
       {!carregando && aba === "hoje" && hoje && (
         <div className="com-grupos">
-          <Grupo titulo="Vencidos" itens={hoje.vencidos} />
-          <Grupo titulo="Hoje" itens={hoje.hoje} vazio="Nada marcado para hoje." />
-          <Grupo titulo="Próximos 7 dias" itens={hoje.proximos} vazio="Nada nos próximos 7 dias." />
-          <Grupo titulo="Parados há mais de 7 dias" itens={parados} />
-          <Grupo titulo="Sem próximo passo" itens={hoje.sem_passo} />
+          <Grupo titulo="Vencidos" itens={hoje.vencidos} onExcluir={excluirNegocio} />
+          <Grupo titulo="Hoje" itens={hoje.hoje} onExcluir={excluirNegocio} vazio="Nada marcado para hoje." />
+          <Grupo titulo="Próximos 7 dias" itens={hoje.proximos} onExcluir={excluirNegocio} vazio="Nada nos próximos 7 dias." />
+          <Grupo titulo="Parados há mais de 7 dias" itens={parados} onExcluir={excluirNegocio} />
+          <Grupo titulo="Sem próximo passo" itens={hoje.sem_passo} onExcluir={excluirNegocio} />
           {negocios.length === 0 && (
             <p className="texto-secundario">
               Ainda não há negócios. Comece com “Novo negócio” ou peça no chat para o Negócios propor um.

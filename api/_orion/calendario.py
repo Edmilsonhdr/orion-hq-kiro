@@ -86,6 +86,51 @@ def _reunioes(de: date, ate: date) -> list[dict]:
     return saida
 
 
+TITULO_MAX = 120
+
+
+def _lista(valor: Any) -> list[str]:
+    if valor is None:
+        return []
+    if isinstance(valor, str):
+        valor = valor.split(",")
+    return [" ".join(str(v).split()) for v in valor if str(v).strip()]
+
+
+def criar_reuniao(titulo: Any, data: Any, hora_inicio: Any, hora_fim: Any, participantes: Any,
+                  pauta: Any, usuario: str) -> dict:
+    """Cria um compromisso à mão (sem passar pela IA/aprovação). Horários no fuso de Brasília."""
+    if not isinstance(titulo, str) or not titulo.strip():
+        raise ValueError("Dê um título para o compromisso.")
+    titulo = " ".join(titulo.split())
+    if len(titulo) > TITULO_MAX:
+        raise ValueError(f"Título grande demais (máximo {TITULO_MAX} caracteres).")
+    try:
+        dia = date.fromisoformat(str(data))
+        h_ini = datetime.strptime(str(hora_inicio), "%H:%M").time()
+        h_fim = datetime.strptime(str(hora_fim), "%H:%M").time()
+    except ValueError:
+        raise ValueError("Informe a data (AAAA-MM-DD) e os horários de início e fim (HH:MM).") from None
+    inicio = datetime.combine(dia, h_ini, tzinfo=config.TZ)
+    fim = datetime.combine(dia, h_fim, tzinfo=config.TZ)
+    if fim <= inicio:
+        raise ValueError("O horário final precisa ser depois do inicial.")
+    linha = db.um(
+        """
+        insert into reunioes (titulo, inicio, fim, participantes, pauta, criado_por)
+        values (%s, %s, %s, %s, %s, %s)
+        returning id
+        """,
+        (titulo, inicio, fim, _lista(participantes), _lista(pauta), usuario),
+    )
+    assert linha is not None
+    return next(i for i in _reunioes(dia, dia) if i["id"] == linha["id"])
+
+
+def excluir_reuniao(reuniao_id: int) -> bool:
+    return db.executar("delete from reunioes where id = %s", (reuniao_id,)) > 0
+
+
 def _ordenar(itens: list[dict]) -> list[dict]:
     return sorted(itens, key=lambda i: (i["data"], i["hora"] or "99:99", i["tipo"], i["id"]))
 

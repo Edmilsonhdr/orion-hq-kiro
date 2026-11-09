@@ -27,18 +27,19 @@ def _titulo(valor: Any) -> str:
     return titulo
 
 
-def listar() -> list[dict]:
-    """Conversas ativas, a mais recente primeiro (pela última mensagem ou pela criação)."""
+def listar(usuario: str) -> list[dict]:
+    """Conversas ativas da pessoa, a mais recente primeiro (pela última mensagem ou pela criação)."""
     return db.consultar(
         """
         select c.id, c.titulo, c.criado_por, c.criado_em,
                coalesce(max(m.criado_em), c.criado_em) as ultima_em,
                count(m.id)::int as mensagens
         from conversas c left join mensagens m on m.conversa_id = c.id
-        where not c.arquivada
+        where not c.arquivada and c.criado_por = %s
         group by c.id
         order by ultima_em desc, c.id desc
-        """
+        """,
+        (usuario,),
     )
 
 
@@ -46,8 +47,16 @@ def obter(conversa_id: int) -> Optional[dict]:
     return db.um("select * from conversas where id = %s", (conversa_id,))
 
 
-def ativa(conversa_id: int) -> bool:
-    linha = db.um("select 1 as ok from conversas where id = %s and not arquivada", (conversa_id,))
+def ativa(conversa_id: int, usuario: str) -> bool:
+    """A conversa existe, não está arquivada e é da pessoa (as dos outros contam como inexistentes)."""
+    linha = db.um(
+        "select 1 as ok from conversas where id = %s and not arquivada and criado_por = %s", (conversa_id, usuario)
+    )
+    return linha is not None
+
+
+def e_dono(conversa_id: int, usuario: str) -> bool:
+    linha = db.um("select 1 as ok from conversas where id = %s and criado_por = %s", (conversa_id, usuario))
     return linha is not None
 
 
@@ -74,14 +83,17 @@ def criar(titulo: Any, usuario: str) -> dict:
     return linha
 
 
-def renomear(conversa_id: int, titulo: Any) -> Optional[dict]:
+def renomear(conversa_id: int, titulo: Any, usuario: str) -> Optional[dict]:
     return db.um(
-        "update conversas set titulo = %s where id = %s returning *", (_titulo(titulo), conversa_id)
+        "update conversas set titulo = %s where id = %s and criado_por = %s returning *",
+        (_titulo(titulo), conversa_id, usuario),
     )
 
 
-def arquivar(conversa_id: int) -> Optional[dict]:
-    return db.um("update conversas set arquivada = true where id = %s returning *", (conversa_id,))
+def arquivar(conversa_id: int, usuario: str) -> Optional[dict]:
+    return db.um(
+        "update conversas set arquivada = true where id = %s and criado_por = %s returning *", (conversa_id, usuario)
+    )
 
 
 def _provisorio(texto: str) -> str:

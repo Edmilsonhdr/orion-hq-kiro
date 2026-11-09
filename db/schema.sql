@@ -237,6 +237,16 @@ create table if not exists conversas (
 alter table mensagens add column if not exists conversa_id bigint references conversas(id) on delete set null;
 create index if not exists mensagens_conversa_idx on mensagens (conversa_id, id);
 
+-- Chat privado: `usuario` é o dono da mensagem (quem escreveu, ou quem pediu a resposta do Orquestrador).
+-- Nulo = aviso automático do sistema (Vigia, GitHub, resumos), visível a todos na "Geral".
+alter table mensagens add column if not exists usuario text;
+update mensagens set usuario = autor where usuario is null and autor <> 'Orquestrador';
+update mensagens m set usuario = a.dados->>'autor'
+  from atividades a
+  where m.usuario is null and m.run_id is not null and a.run_id = m.run_id and a.tipo = 'inicio'
+    and a.dados->>'autor' is not null;
+create index if not exists mensagens_usuario_idx on mensagens (usuario, conversa_id, id);
+
 -- Comercial: checklist do piloto (itens por negócio) e anexos (arquivos guardados no próprio banco).
 create table if not exists piloto_itens (
   id bigserial primary key,

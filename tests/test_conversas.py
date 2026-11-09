@@ -81,7 +81,7 @@ def test_titulo_da_ia_substitui_o_provisorio(banco):
 
 def test_titulo_da_ia_respeita_renomeacao_e_falhas(banco):
     cid = _com_resposta()
-    conversas.renomear(cid, "Meu título")
+    conversas.renomear(cid, "Meu título", "dimi")
     assert conversas.titular_com_ia(cid, lambda p, r: "Outro") is None
     assert conversas.obter(cid)["titulo"] == "Meu título"
 
@@ -93,3 +93,56 @@ def test_titulo_da_ia_respeita_renomeacao_e_falhas(banco):
     assert conversas.titular_com_ia(cid2, quebra) is None
     assert conversas.obter(cid2)["titulo"] == "outra pergunta qualquer"
     assert conversas.titular_com_ia(None) is None
+
+
+def test_chat_e_privado_por_usuario(monkeypatch, banco):
+    monkeypatch.setenv("ORION_SESSION_SECRET", "segredo-de-teste-bem-longo-para-hmac")
+    monkeypatch.setenv("ORION_USERS", "dimi:senha-dimi,ana:senha-ana")
+    import index
+
+    importlib.reload(index)
+    d = TestClient(index.app, base_url="http://localhost")
+    a = TestClient(index.app, base_url="http://localhost")
+    d.post("/api/login", json={"usuario": "dimi", "senha": "senha-dimi"})
+    a.post("/api/login", json={"usuario": "ana", "senha": "senha-ana"})
+    c = d.post("/api/conversas", json={"titulo": "Segredo"}).json()
+    d.post("/api/chat", json={"texto": "/nota privado", "conversa_id": c["id"]})
+    d.post("/api/chat", json={"texto": "/nota geral do dimi"})
+    assert a.get("/api/conversas").json() == []
+    assert a.get(f"/api/mensagens?conversa={c['id']}").status_code == 404
+    assert a.post("/api/chat", json={"texto": "oi", "conversa_id": c["id"]}).status_code == 404
+    assert a.put(f"/api/conversas/{c['id']}", json={"titulo": "x"}).status_code == 404
+    assert a.post(f"/api/conversas/{c['id']}/arquivar").status_code == 404
+    assert a.get("/api/mensagens").json() == []
+    assert len(d.get("/api/mensagens").json()) == 2
+    db.salvar_mensagem("Orquestrador", "aviso do sistema")
+    assert [m["texto"] for m in a.get("/api/mensagens").json()] == ["aviso do sistema"]
+
+
+def test_criar_reuniao_manual(monkeypatch, banco):
+    monkeypatch.setenv("ORION_SESSION_SECRET", "segredo-de-teste-bem-longo-para-hmac")
+    monkeypatch.setenv("ORION_USERS", "dimi:senha-dimi")
+    import index
+
+    importlib.reload(index)
+    c = TestClient(index.app, base_url="http://localhost")
+    c.post("/api/login", json={"usuario": "dimi", "senha": "senha-dimi"})
+    corpo = {"titulo": "Alinhamento", "data": "2026-11-20", "hora_inicio": "14:00", "hora_fim": "15:00",
+             "participantes": "dimi, ana", "pauta": ["a", ""]}
+    r = c.post("/api/reunioes", json=corpo)
+    assert r.status_code == 201 and r.json()["hora"] == "14:00–15:00" and r.json()["data"] == "2026-11-20"
+    assert [i["titulo"] for i in c.get("/api/calendario?de=2026-11-01&ate=2026-11-30").json()] == ["Alinhamento"]
+    assert c.post("/api/reunioes", json={**corpo, "hora_fim": "13:00"}).status_code == 422
+    assert c.delete(f"/api/reunioes/{r.json()['id']}").status_code == 200
+    assert c.delete(f"/api/reunioes/{r.json()['id']}").status_code == 404
+
+
+def test_excluir_negocio(monkeypatch, banco):
+    monkeypatch.setenv("ORION_SESSION_SECRET", "segredo-de-teste-bem-longo-para-hmac")
+    monkeypatch.setenv("ORION_USERS", "dimi:senha-dimi")
+    import index
+
+    importlib.reload(index)
+    c = TestClient(index.app, base_url="http://localhost")
+    c.post("/api/login", json={"usuario": "dimi", "senha": "senha-dimi"})
+    assert c.delete("/api/comercial/negocios/99999").status_code == 404
