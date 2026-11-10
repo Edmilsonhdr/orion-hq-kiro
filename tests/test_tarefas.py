@@ -106,44 +106,44 @@ def test_rotas_exigem_sessao_e_backup_inclui_tarefas(cliente):
 
 
 def test_colunas_padrao_criar_renomear_e_ordenar(banco):
-    assert [c["chave"] for c in tarefas.colunas()] == ["a_fazer", "fazendo", "bloqueada", "feito"]
-    revisao = tarefas.criar_coluna("Em revisão")
+    assert [c["chave"] for c in tarefas.colunas("dimi")] == ["a_fazer", "fazendo", "bloqueada", "feito"]
+    revisao = tarefas.criar_coluna("dimi", "Em revisão")
     assert revisao["chave"] == "em_revisao" and revisao["ordem"] == 4 and revisao["concluida"] is False
     with pytest.raises(ValueError):
-        tarefas.criar_coluna("em REVISÃO")  # nome repetido (sem diferenciar caixa)
+        tarefas.criar_coluna("dimi", "em REVISÃO")  # nome repetido (sem diferenciar caixa)
     for ruim in ("", "  ", "x" * 31):
         with pytest.raises(ValueError):
-            tarefas.criar_coluna(ruim)
-    assert tarefas.editar_coluna("em_revisao", nome="Aguardando cliente")["nome"] == "Aguardando cliente"
-    assert tarefas.editar_coluna("nao_existe", nome="x") is None
-    ordem = tarefas.mover_coluna("em_revisao", 1)
+            tarefas.criar_coluna("dimi", ruim)
+    assert tarefas.editar_coluna("dimi", "em_revisao", nome="Aguardando cliente")["nome"] == "Aguardando cliente"
+    assert tarefas.editar_coluna("dimi", "nao_existe", nome="x") is None
+    ordem = tarefas.mover_coluna("dimi", "em_revisao", 1)
     assert [c["chave"] for c in ordem] == ["a_fazer", "em_revisao", "fazendo", "bloqueada", "feito"]
     t = tarefas.criar({"titulo": "Cliente respondeu?"}, "dimi")
     assert tarefas.mover(t["id"], "em_revisao")["status"] == "em_revisao"
-    tarefas.criar_coluna("Publicado", concluida=True)
+    tarefas.criar_coluna("dimi", "Publicado", concluida=True)
     assert tarefas.mover(t["id"], "publicado")["concluida_em"] is not None
 
 
 def test_excluir_coluna_move_as_tarefas(banco):
-    extra = tarefas.criar_coluna("Ideias")
+    extra = tarefas.criar_coluna("dimi", "Ideias")
     t = tarefas.criar({"titulo": "Pensar nisso"}, "dimi")
     tarefas.mover(t["id"], extra["chave"])
     with pytest.raises(ValueError):
-        tarefas.excluir_coluna("ideias")  # tem tarefa e não disse para onde vão
-    assert tarefas.excluir_coluna("ideias", mover_para="a_fazer") is True
+        tarefas.excluir_coluna("dimi", "ideias")  # tem tarefa e não disse para onde vão
+    assert tarefas.excluir_coluna("dimi", "ideias", mover_para="a_fazer") is True
     assert tarefas.obter(t["id"])["status"] == "a_fazer"
-    assert tarefas.excluir_coluna("ideias") is False
+    assert tarefas.excluir_coluna("dimi", "ideias") is False
     for chave in ("fazendo", "bloqueada", "feito"):
-        tarefas.excluir_coluna(chave)
+        tarefas.excluir_coluna("dimi", chave)
     with pytest.raises(ValueError):
-        tarefas.excluir_coluna("a_fazer")  # a última coluna fica
+        tarefas.excluir_coluna("dimi", "a_fazer")  # a última coluna fica
 
 
 def test_limite_de_colunas(banco):
     for i in range(tarefas.COLUNAS_MAX - 4):
-        tarefas.criar_coluna(f"Extra {i}")
+        tarefas.criar_coluna("dimi", f"Extra {i}")
     with pytest.raises(ValueError):
-        tarefas.criar_coluna("Demais")
+        tarefas.criar_coluna("dimi", "Demais")
 
 
 def test_tarefa_vinculada_a_documento_e_negocio(banco):
@@ -191,3 +191,18 @@ def test_rotas_de_colunas(cliente):
     assert c.delete("/api/tarefas/colunas/em_revisao?mover_para=fazendo").status_code == 200
     assert c.get("/api/tarefas?responsavel=dimi").json()[0]["status"] == "fazendo"
     assert c.delete("/api/tarefas/colunas/em_revisao").status_code == 404
+
+
+def test_colunas_sao_de_cada_pessoa(cliente):
+    tarefas.criar_coluna("dimi", "Só minha")
+    assert "so_minha" in [c["chave"] for c in tarefas.colunas("dimi")]
+    assert [c["chave"] for c in tarefas.colunas("jullyana")] == ["a_fazer", "fazendo", "bloqueada", "feito"]
+    d, j = cliente(), cliente("jullyana", "senha-ju")
+    assert d.post("/api/tarefas/colunas", json={"nome": "Outra"}).status_code == 201
+    assert "outra" not in [c["chave"] for c in j.get("/api/tarefas/colunas").json()]
+    assert "outra" in [c["chave"] for c in j.get("/api/tarefas/colunas?dono=dimi").json()]
+    assert d.get("/api/tarefas/colunas?dono=fulano").status_code == 422
+    # passar a tarefa para outra pessoa cai na coluna de mesma chave (ou na primeira dela)
+    t = tarefas.criar({"titulo": "Troca"}, "dimi")
+    tarefas.mover(t["id"], "so_minha")
+    assert tarefas.editar(t["id"], {"responsavel": "jullyana"})["status"] == "a_fazer"

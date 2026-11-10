@@ -27,6 +27,7 @@ import {
   type Versao,
   type VersaoResumo,
 } from "../../../../lib/docs";
+import { nomeUsuario } from "../../../../lib/exibicao";
 
 export default function DocumentoPage() {
   const params = useParams<{ id: string }>();
@@ -276,7 +277,7 @@ export default function DocumentoPage() {
               </span>
             ))}
             <span title={`Criado em ${formatarData(doc.criado_em)}`}>
-              {doc.autor} · atualizado {tempoRelativo(doc.atualizado_em)}
+              {nomeUsuario(doc.autor)} · atualizado {tempoRelativo(doc.atualizado_em)}
             </span>
             <span className="mono" title="Data da última atualização">
               {formatarData(doc.atualizado_em)}
@@ -305,7 +306,7 @@ export default function DocumentoPage() {
                   <li key={v.id} className="doc-versao">
                     <span style={{ flex: "1 1 260px", minWidth: 0 }}>
                       <strong style={{ fontWeight: 600 }}>{formatarData(v.criado_em)}</strong>
-                      <span className="texto-secundario"> · editado por {v.editado_por}</span>
+                      <span className="texto-secundario"> · editado por {nomeUsuario(v.editado_por)}</span>
                       <br />
                       <span className="texto-secundario" style={{ fontSize: 13 }}>
                         “{v.titulo}”

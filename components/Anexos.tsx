@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { excluir, obter } from "../lib/api";
 import { formatarTamanho, type Anexo } from "../lib/comercial";
 import { formatarData } from "../lib/docs";
+import { nomeUsuario } from "../lib/exibicao";
 
 const MAX = 8 * 1024 * 1024;
 
@@ -120,7 +121,7 @@ export default function Anexos({ entidade, id }: { entidade: "documento" | "nego
               </a>
               <span className="texto-secundario mono">
                 {" "}
-                · {formatarTamanho(a.tamanho)} · {a.autor} · {formatarData(a.criado_em)}
+                · {formatarTamanho(a.tamanho)} · {nomeUsuario(a.autor)} · {formatarData(a.criado_em)}
               </span>
             </span>
             <button type="button" className="botao com-excluir" aria-label={`Excluir ${a.nome}`} onClick={() => remover(a)}>

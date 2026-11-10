@@ -11,6 +11,7 @@ import { obter } from "../lib/api";
 import { diffLinhas, resumoDiff, type LinhaDiff } from "../lib/diff";
 import { agentePorId } from "../lib/agents";
 import { nomeEm } from "../lib/exibicao";
+import { nomeUsuario } from "../lib/exibicao";
 
 export type Aprovacao = {
   id: number;
@@ -91,7 +92,7 @@ function dataHora(iso: string | null | undefined): string {
 // `pedido_por` pode ser um id de agente ("agenda"): mostra "Lia (Agenda)".
 function quemPediu(pedidoPor: string, criadoEm: string): string {
   const agente = agentePorId(pedidoPor);
-  if (!agente) return pedidoPor;
+  if (!agente) return nomeUsuario(pedidoPor);
   return `${nomeEm(agente.id, criadoEm, [])} (${agente.papel})`;
 }
 
@@ -338,7 +339,7 @@ export default function ApprovalCard({
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <div style={{ fontSize: "13px", color: "var(--espera)" }}>
             {aprovacao.aprovado ? "Aprovada" : "Recusada"}
-            {aprovacao.decidido_por ? ` por ${aprovacao.decidido_por}` : ""}, mas
+            {aprovacao.decidido_por ? ` por ${nomeUsuario(aprovacao.decidido_por)}` : ""}, mas
             a ação não foi concluída.
           </div>
           {onRetomar && (
@@ -361,7 +362,7 @@ export default function ApprovalCard({
             : aprovacao.status === "obsoleta"
               ? "Aprovada, mas não aplicada: o item mudou desde a proposta"
               : "Recusada"}
-          {aprovacao.decidido_por ? ` por ${aprovacao.decidido_por}` : ""}
+          {aprovacao.decidido_por ? ` por ${nomeUsuario(aprovacao.decidido_por)}` : ""}
           {aprovacao.decidido_em ? ` · ${dataHora(aprovacao.decidido_em)}` : ""}
         </div>
       ) : null}

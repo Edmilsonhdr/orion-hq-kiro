@@ -12,6 +12,7 @@ import { agentePorId } from "../../../lib/agents";
 import { diaPorExtenso, type AgendaResumo } from "../../../lib/calendario";
 import { resumoDoDia } from "../../../lib/resumoDia";
 import { situacaoPrazo, type Tarefa } from "../../../lib/tarefas";
+import { nomeUsuario } from "../../../lib/exibicao";
 
 type AprovacaoItem = { id: number; tipo: string; proposta: Record<string, unknown>; pedido_por: string | null };
 type Mencao = { id: number; documento_id: number; documento_titulo: string; autor: string; texto: string };
@@ -77,7 +78,7 @@ export default function InicioPage() {
     };
   }, []);
 
-  const nome = usuario ? usuario[0].toUpperCase() + usuario.slice(1) : "";
+  const nome = nomeUsuario(usuario);
   const passos = hoje ? [...hoje.vencidos, ...hoje.hoje] : [];
   const seuDia = resumoDoDia({
     aprovacoes: aprovacoes.length,
@@ -152,7 +153,7 @@ export default function InicioPage() {
               {aprovacoes.slice(0, 5).map((a) => (
                 <li key={a.id}>
                   <Link href="/aprovacoes">{tituloAprovacao(a)}</Link>
-                  {a.pedido_por && <span className="texto-secundario"> · pedido por {a.pedido_por}</span>}
+                  {a.pedido_por && <span className="texto-secundario"> · pedido por {nomeUsuario(a.pedido_por)}</span>}
                 </li>
               ))}
             </ul>
@@ -168,7 +169,7 @@ export default function InicioPage() {
                   <Link href={`/docs/${m.documento_id}`}>{m.documento_titulo}</Link>
                   <span className="texto-secundario">
                     {" "}
-                    · {m.autor}: {m.texto.length > 90 ? `${m.texto.slice(0, 90)}…` : m.texto}
+                    · {nomeUsuario(m.autor)}: {m.texto.length > 90 ? `${m.texto.slice(0, 90)}…` : m.texto}
                   </span>
                 </li>
               ))}

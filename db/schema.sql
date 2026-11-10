@@ -290,17 +290,29 @@ create table if not exists tarefas (
 );
 create index if not exists tarefas_quadro_idx on tarefas (responsavel, status, ordem);
 
--- Tarefas: colunas do quadro (compartilhadas por todos) e vínculos com Docs e Comercial.
+-- Tarefas: colunas do quadro, uma lista por pessoa (`usuario`). Linhas com usuario = '' são o modelo antigo
+-- (compartilhado): servem só para recuperar colunas personalizadas que ainda tenham tarefas.
 create table if not exists tarefa_colunas (
-  chave text primary key,
+  chave text not null,
   nome text not null,
   ordem integer not null default 0,
   concluida boolean not null default false   -- coluna de "feito": marca a conclusão e some do quadro após 14 dias
 );
-insert into tarefa_colunas (chave, nome, ordem, concluida) values
-  ('a_fazer', 'A fazer', 0, false), ('fazendo', 'Fazendo', 1, false),
-  ('bloqueada', 'Bloqueada', 2, false), ('feito', 'Feito', 3, true)
-on conflict (chave) do nothing;
+alter table tarefa_colunas add column if not exists usuario text not null default '';
+do $$
+begin
+  if exists (select 1 from pg_constraint where conrelid = 'tarefa_colunas'::regclass and contype = 'p'
+             and array_length(conkey, 1) = 1) then
+    alter table tarefa_colunas drop constraint tarefa_colunas_pkey;
+  end if;
+  if not exists (select 1 from pg_constraint where conrelid = 'tarefa_colunas'::regclass and contype = 'p') then
+    alter table tarefa_colunas add primary key (usuario, chave);
+  end if;
+end $$;
+insert into tarefa_colunas (usuario, chave, nome, ordem, concluida) values
+  ('', 'a_fazer', 'A fazer', 0, false), ('', 'fazendo', 'Fazendo', 1, false),
+  ('', 'bloqueada', 'Bloqueada', 2, false), ('', 'feito', 'Feito', 3, true)
+on conflict do nothing;
 alter table tarefas add column if not exists documento_id bigint references documentos(id) on delete set null;
 alter table tarefas add column if not exists negocio_id bigint references negocios(id) on delete set null;
 create index if not exists tarefas_negocio_idx on tarefas (negocio_id);

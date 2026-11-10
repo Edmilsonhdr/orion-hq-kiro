@@ -6,6 +6,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { enviar, obter } from "../../../lib/api";
 import { tempoRelativo } from "../../../lib/docs";
+import { nomeUsuario } from "../../../lib/exibicao";
 
 type Estado = "sem" | "pendente" | "ativo";
 type Linha = { id: number; usuario: string | null; metodo: string; caminho: string; status: number; criado_em: string };
@@ -214,7 +215,7 @@ export default function SegurancaPage() {
                   {linhas.map((l) => (
                     <tr key={l.id} data-falha={l.status >= 400}>
                       <td className="mono">{tempoRelativo(l.criado_em)}</td>
-                      <td>{l.usuario ?? "—"}</td>
+                      <td>{l.usuario ? nomeUsuario(l.usuario) : "—"}</td>
                       <td className="mono">
                         {l.metodo} {l.caminho.replace(/^\/api/, "")}
                       </td>

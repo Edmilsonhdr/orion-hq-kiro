@@ -15,6 +15,7 @@ import type { Documento } from "../lib/docs";
 import Markdown from "./Markdown";
 import { linkarDocs } from "../lib/markdown";
 import { FiguraMini } from "./Personagem";
+import { nomeUsuario } from "../lib/exibicao";
 
 export type Mensagem = {
   id: number;
@@ -132,7 +133,7 @@ export default function ChatMessage({
   const doOrquestrador = mensagem.autor === AUTOR_ORQ;
   const corOrq = assinatura?.corChat ?? "var(--destaque)";
 
-  const nome = doOrquestrador ? (assinatura?.nome ?? "Orquestrador") : mensagem.autor;
+  const nome = doOrquestrador ? (assinatura?.nome ?? "Orquestrador") : nomeUsuario(mensagem.autor);
   const corAcento = doOrquestrador ? corOrq : "var(--borda-forte)";
 
   return (

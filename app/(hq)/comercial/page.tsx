@@ -28,6 +28,7 @@ import {
   type PilotoResumo,
   type ResumoFunil,
 } from "../../../lib/comercial";
+import { nomeUsuario } from "../../../lib/exibicao";
 
 type Aba = "hoje" | "funil" | "pilotos" | "organizacoes";
 
@@ -40,7 +41,7 @@ function LinhaNegocio({ n, onExcluir }: { n: Negocio; onExcluir?: (n: Negocio) =
           {n.titulo}
         </Link>
         <div className="texto-secundario">
-          {n.organizacao_nome} · {ROTULO_ETAPA[n.etapa]} · {n.responsavel}
+          {n.organizacao_nome} · {ROTULO_ETAPA[n.etapa]} · {nomeUsuario(n.responsavel)}
         </div>
       </div>
       <div className={`com-item-passo passo-${situacao}`}>

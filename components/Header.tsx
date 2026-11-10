@@ -12,6 +12,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { obter, enviar } from "../lib/api";
 import Paleta from "./Paleta";
+import { nomeUsuario } from "../lib/exibicao";
 
 type Me = { usuario: string; aprovador: boolean };
 type Aprovacao = { id: number };
@@ -336,11 +337,11 @@ export default function Header() {
 
         <div className="hq-rodape">
           {usuario && (
-            <div className="hq-usuario" title={usuario}>
+            <div className="hq-usuario" title={nomeUsuario(usuario)}>
               <span className="hq-avatar" aria-hidden="true">
                 {usuario.slice(0, 1).toUpperCase()}
               </span>
-              <span className="hq-rotulo">{usuario}</span>
+              <span className="hq-rotulo">{nomeUsuario(usuario)}</span>
             </div>
           )}
           <div className="hq-rodape-acoes">

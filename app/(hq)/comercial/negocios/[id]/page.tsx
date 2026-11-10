@@ -27,6 +27,7 @@ import {
   type NegocioDetalhe,
 } from "../../../../../lib/comercial";
 import { formatarData } from "../../../../../lib/docs";
+import { nomeUsuario } from "../../../../../lib/exibicao";
 
 export default function NegocioPage() {
   const { id } = useParams<{ id: string }>();
@@ -174,7 +175,7 @@ export default function NegocioPage() {
             <dt>Pacote</dt><dd>{n.plano_interesse ? (n.plano_interesse === "essencial" ? "Essencial" : "Completo") : "—"}</dd>
             <dt>Usa hoje</dt><dd>{n.usa_hoje ?? "—"}</dd>
             <dt>Origem</dt><dd>{n.origem ?? "—"}</dd>
-            <dt>Responsável</dt><dd>{n.responsavel}</dd>
+            <dt>Responsável</dt><dd>{nomeUsuario(n.responsavel)}</dd>
           </dl>
           {!fechado && (
             <div className={`com-passo passo-${situacao}`}>
@@ -249,7 +250,7 @@ export default function NegocioPage() {
                 <div className="com-evento-topo">
                   <strong>{ROTULO_INTERACAO[i.tipo] ?? i.tipo}</strong>
                   <span className="mono texto-secundario">
-                    {formatarData(i.ocorrida_em)} · {i.autor}
+                    {formatarData(i.ocorrida_em)} · {nomeUsuario(i.autor)}
                   </span>
                   {i.tipo !== "etapa" && i.tipo !== "alteracao" && (
                     <button type="button" className="botao com-excluir" onClick={() => excluir(i.id)} aria-label="Excluir anotação">

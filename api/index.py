@@ -1671,29 +1671,40 @@ def listar_tarefas(
     return tarefas.listar(responsavel, negocio_id, documento_id)
 
 
+def _dono_quadro(dono: str | None, usuario: str) -> str:
+    """Quadro de quem: o `dono` pedido (uma das pessoas do HQ) ou o da própria pessoa logada."""
+    dono = dono or usuario
+    if dono not in config.usuarios():
+        raise HTTPException(status_code=422, detail="Quadro inválido.")
+    return dono
+
+
 @app.get("/api/tarefas/colunas")
-def listar_colunas_tarefas(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
-    return tarefas.colunas()
+def listar_colunas_tarefas(dono: str | None = None, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return tarefas.colunas(_dono_quadro(dono, usuario))
 
 
 @app.post("/api/tarefas/colunas", status_code=status.HTTP_201_CREATED)
-def criar_coluna_tarefas(corpo: ColunaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
-    return _comercial(lambda: tarefas.criar_coluna(corpo.nome, bool(corpo.concluida)))
+def criar_coluna_tarefas(corpo: ColunaCorpo, dono: str | None = None, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    d = _dono_quadro(dono, usuario)
+    return _comercial(lambda: tarefas.criar_coluna(d, corpo.nome, bool(corpo.concluida)))
 
 
 @app.put("/api/tarefas/colunas/{chave}")
-def editar_coluna_tarefas(chave: str, corpo: ColunaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
-    return _comercial_404(_comercial(lambda: tarefas.editar_coluna(chave, corpo.nome, corpo.concluida)), "Coluna")
+def editar_coluna_tarefas(chave: str, corpo: ColunaCorpo, dono: str | None = None, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    d = _dono_quadro(dono, usuario)
+    return _comercial_404(_comercial(lambda: tarefas.editar_coluna(d, chave, corpo.nome, corpo.concluida)), "Coluna")
 
 
 @app.post("/api/tarefas/colunas/{chave}/mover")
-def mover_coluna_tarefas(chave: str, corpo: MoverColunaCorpo, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
-    return _comercial_404(tarefas.mover_coluna(chave, corpo.posicao), "Coluna")
+def mover_coluna_tarefas(chave: str, corpo: MoverColunaCorpo, dono: str | None = None, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return _comercial_404(tarefas.mover_coluna(_dono_quadro(dono, usuario), chave, corpo.posicao), "Coluna")
 
 
 @app.delete("/api/tarefas/colunas/{chave}")
-def excluir_coluna_tarefas(chave: str, mover_para: str | None = None, usuario: str = Depends(auth.usuario_atual)) -> dict:
-    achou = _comercial(lambda: tarefas.excluir_coluna(chave, mover_para))
+def excluir_coluna_tarefas(chave: str, mover_para: str | None = None, dono: str | None = None, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    d = _dono_quadro(dono, usuario)
+    achou = _comercial(lambda: tarefas.excluir_coluna(d, chave, mover_para))
     _comercial_404(True if achou else None, "Coluna")
     return {"ok": True}
 

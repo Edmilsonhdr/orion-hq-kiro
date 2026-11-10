@@ -21,3 +21,8 @@ export function pessoaEm(
 export function nomeEm(idAgente: string, criadoEm: string, atividades: readonly AtividadeRotina[]): string {
   return pessoaEm(idAgente, criadoEm, atividades)?.nome ?? idAgente;
 }
+
+// Nome de uma pessoa do HQ para exibir: o login é guardado em minúsculas ("edmilson"), a tela mostra "Edmilson".
+export function nomeUsuario(usuario: string | null | undefined): string {
+  return usuario ? usuario[0].toUpperCase() + usuario.slice(1) : "";
+}

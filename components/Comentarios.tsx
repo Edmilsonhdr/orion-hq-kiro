@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ErroApi, enviar, excluir, obter } from "../lib/api";
 import { tempoRelativo } from "../lib/docs";
 import Markdown from "./Markdown";
+import { nomeUsuario } from "../lib/exibicao";
 
 type Comentario = { id: number; autor: string; texto: string; criado_em: string };
 
@@ -64,7 +65,7 @@ export default function Comentarios({ documentoId }: { documentoId: number }) {
         {lista.map((c) => (
           <li key={c.id}>
             <div className="doc-comentario-topo">
-              <strong>{c.autor}</strong>
+              <strong>{nomeUsuario(c.autor)}</strong>
               <span className="texto-secundario">{tempoRelativo(c.criado_em)}</span>
               {c.autor === eu && (
                 <button type="button" className="chat-salvar" onClick={() => apagar(c.id)}>

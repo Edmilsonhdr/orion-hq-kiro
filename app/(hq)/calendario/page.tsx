@@ -25,6 +25,7 @@ import {
   type TipoItem,
   type Visao,
 } from "../../../lib/calendario";
+import { nomeUsuario } from "../../../lib/exibicao";
 
 const TIPOS: TipoItem[] = ["tarefa", "negocio", "reuniao"];
 const MAX_POR_CELULA = 3;
@@ -373,7 +374,7 @@ export default function CalendarioPage() {
                     </button>
                   )}
                   {(i.detalhe || i.responsavel) && (
-                    <span className="texto-secundario cal-sub">{[i.responsavel, i.detalhe].filter(Boolean).join(" · ")}</span>
+                    <span className="texto-secundario cal-sub">{[nomeUsuario(i.responsavel), i.detalhe].filter(Boolean).join(" · ")}</span>
                   )}
                 </li>
               ))}

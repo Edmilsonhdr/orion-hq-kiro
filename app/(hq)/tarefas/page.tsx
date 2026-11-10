@@ -41,12 +41,13 @@ export default function TarefasPage() {
   const [gerindo, setGerindo] = useState(false);
   const [arrastando, setArrastando] = useState<number | null>(null);
   const [sobre, setSobre] = useState<string | null>(null);
+  const donoRef = useRef(""); // de quem são as colunas exibidas (a aba aberta; em "Todos", as minhas)
   const ocupado = useRef(false); // arrastando ou editando: não sobrescrever o estado local
 
   const carregar = useCallback(async () => {
     try {
       const [c, l, r] = await Promise.all([
-        obter<ColunaTarefa[]>("/tarefas/colunas"),
+        obter<ColunaTarefa[]>(`/tarefas/colunas${donoRef.current ? `?dono=${encodeURIComponent(donoRef.current)}` : ""}`),
         obter<Tarefa[]>("/tarefas"),
         obter<Record<string, ResumoPessoa>>("/tarefas/resumo"),
       ]);
@@ -60,6 +61,12 @@ export default function TarefasPage() {
       setCarregando(false);
     }
   }, []);
+
+  const dono = vista && vista !== "todos" ? vista : eu;
+  useEffect(() => {
+    donoRef.current = dono;
+    if (dono) carregar();
+  }, [dono, carregar]);
 
   useEffect(() => {
     ocupado.current = arrastando !== null || editando !== null;
@@ -89,7 +96,7 @@ export default function TarefasPage() {
 
   const visiveis = useMemo(() => (vista === "todos" ? tarefas : tarefas.filter((t) => t.responsavel === vista)), [tarefas, vista]);
   const porCol = useMemo(() => porColuna(visiveis, colunas), [visiveis, colunas]);
-  const contagem = useMemo(() => Object.fromEntries(Object.entries(porColuna(tarefas, colunas)).map(([k, v]) => [k, v.length])), [tarefas, colunas]);
+  const contagem = useMemo(() => Object.fromEntries(Object.entries(porColuna(tarefas.filter((t) => t.responsavel === dono), colunas)).map(([k, v]) => [k, v.length])), [tarefas, colunas, dono]);
   const hoje = hojeISO();
 
   async function mover(id: number, coluna: ColunaTarefa, posicao?: number) {
@@ -325,7 +332,7 @@ export default function TarefasPage() {
       </Modal>
 
       <Modal titulo="Colunas do quadro" aberto={gerindo} onFechar={() => setGerindo(false)}>
-        {gerindo && <ColunasTarefas colunas={colunas} contagem={contagem} onMudou={carregar} />}
+        {gerindo && <ColunasTarefas dono={dono} colunas={colunas} contagem={contagem} onMudou={carregar} />}
       </Modal>
     </div>
   );

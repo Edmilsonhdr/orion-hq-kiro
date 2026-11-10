@@ -17,6 +17,7 @@ import {
   type NoArvore,
 } from "../../../lib/docs";
 import { textoPuro } from "../../../lib/markdown";
+import { nomeUsuario } from "../../../lib/exibicao";
 
 const DEBOUNCE_MS = 300;
 const FILTROS_VAZIOS: Filtros = {
@@ -394,7 +395,7 @@ export default function DocsPage() {
                         </span>
                       ))}
                       <span style={{ marginLeft: "auto" }} title={formatarData(d.atualizado_em)}>
-                        {d.autor} · {tempoRelativo(d.atualizado_em)}
+                        {nomeUsuario(d.autor)} · {tempoRelativo(d.atualizado_em)}
                       </span>
                     </div>
                   </Link>

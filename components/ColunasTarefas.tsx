@@ -1,19 +1,21 @@
 "use client";
 
 // Gerenciar as colunas do quadro de tarefas: renomear, reordenar, marcar como "de concluídas", criar e excluir.
-// As colunas são as mesmas para todas as pessoas. Cada ação grava na hora e pede ao quadro para recarregar.
+// Cada pessoa tem as suas colunas. Cada ação grava na hora e pede ao quadro para recarregar.
 
 import { useState, type FormEvent } from "react";
 import { atualizar, enviar, excluir } from "../lib/api";
 import type { ColunaTarefa } from "../lib/tarefas";
 
 type Props = {
+  dono: string; // de quem é o quadro
   colunas: ColunaTarefa[];
   contagem: Record<string, number>; // tarefas por coluna (para avisar ao excluir)
   onMudou: () => Promise<void>;
 };
 
-export default function ColunasTarefas({ colunas, contagem, onMudou }: Props) {
+export default function ColunasTarefas({ dono, colunas, contagem, onMudou }: Props) {
+  const q = `?dono=${encodeURIComponent(dono)}`;
   const [novo, setNovo] = useState("");
   const [nomes, setNomes] = useState<Record<string, string>>({});
   const [erro, setErro] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export default function ColunasTarefas({ colunas, contagem, onMudou }: Props) {
   async function renomear(c: ColunaTarefa) {
     const nome = (nomes[c.chave] ?? c.nome).trim();
     if (nome === c.nome) return;
-    await rodar(() => atualizar(`/tarefas/colunas/${c.chave}`, { nome }));
+    await rodar(() => atualizar(`/tarefas/colunas/${c.chave}${q}`, { nome }));
     setNomes((n) => {
       const { [c.chave]: _, ...resto } = n;
       return resto;
@@ -58,13 +60,13 @@ export default function ColunasTarefas({ colunas, contagem, onMudou }: Props) {
     } else if (!window.confirm(`Excluir a coluna “${c.nome}”?`)) {
       return;
     }
-    await rodar(() => excluir(`/tarefas/colunas/${c.chave}${destino}`));
+    await rodar(() => excluir(`/tarefas/colunas/${c.chave}${destino}${destino ? `&dono=${encodeURIComponent(dono)}` : q}`));
   }
 
   async function criar(e: FormEvent) {
     e.preventDefault();
     if (!novo.trim()) return;
-    await rodar(() => enviar("/tarefas/colunas", { nome: novo.trim() }));
+    await rodar(() => enviar(`/tarefas/colunas${q}`, { nome: novo.trim() }));
     setNovo("");
   }
 
@@ -89,15 +91,15 @@ export default function ColunasTarefas({ colunas, contagem, onMudou }: Props) {
               <input
                 type="checkbox"
                 checked={c.concluida}
-                onChange={(e) => rodar(() => atualizar(`/tarefas/colunas/${c.chave}`, { concluida: e.target.checked }))}
+                onChange={(e) => rodar(() => atualizar(`/tarefas/colunas/${c.chave}${q}`, { concluida: e.target.checked }))}
               />
               concluída
             </label>
             <span className="mono texto-secundario tar-colunas-n">{contagem[c.chave] ?? 0}</span>
-            <button type="button" className="botao" disabled={i === 0 || ocupado} aria-label={`Mover ${c.nome} para a esquerda`} onClick={() => rodar(() => enviar(`/tarefas/colunas/${c.chave}/mover`, { posicao: i - 1 }))}>
+            <button type="button" className="botao" disabled={i === 0 || ocupado} aria-label={`Mover ${c.nome} para a esquerda`} onClick={() => rodar(() => enviar(`/tarefas/colunas/${c.chave}/mover${q}`, { posicao: i - 1 }))}>
               ←
             </button>
-            <button type="button" className="botao" disabled={i === colunas.length - 1 || ocupado} aria-label={`Mover ${c.nome} para a direita`} onClick={() => rodar(() => enviar(`/tarefas/colunas/${c.chave}/mover`, { posicao: i + 1 }))}>
+            <button type="button" className="botao" disabled={i === colunas.length - 1 || ocupado} aria-label={`Mover ${c.nome} para a direita`} onClick={() => rodar(() => enviar(`/tarefas/colunas/${c.chave}/mover${q}`, { posicao: i + 1 }))}>
               →
             </button>
             <button type="button" className="botao com-excluir" disabled={colunas.length <= 1 || ocupado} aria-label={`Excluir ${c.nome}`} onClick={() => apagar(c)}>

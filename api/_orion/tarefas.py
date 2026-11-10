@@ -1,7 +1,7 @@
 """Tarefas: quadro Kanban por pessoa, com colunas personalizáveis e vínculo com Docs e Comercial.
 
-Cada sócia tem o seu quadro; qualquer uma pode ver e mexer no das outras. As colunas são as mesmas para
-todas (a primeira recebe as tarefas novas; as marcadas como "concluída" registram a conclusão). Validação
+Cada sócia tem o seu quadro, com as suas próprias colunas; qualquer uma pode ver e mexer no das outras
+(a primeira recebe as tarefas novas; as marcadas como "concluída" registram a conclusão). Validação
 por `ValueError` (rotas → 422). `ordem` é a posição dentro da coluna (responsável + status).
 """
 
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 from . import config, db
@@ -32,32 +32,54 @@ _SELECT = """
   select t.*, d.titulo as documento_titulo, n.titulo as negocio_titulo, o.nome as organizacao_nome,
     coalesce(c.concluida, false) as coluna_concluida
   from tarefas t
-  left join tarefa_colunas c on c.chave = t.status
+  left join tarefa_colunas c on c.chave = t.status and c.usuario = t.responsavel
   left join documentos d on d.id = t.documento_id
   left join negocios n on n.id = t.negocio_id
   left join organizacoes o on o.id = n.organizacao_id
 """
 
 
-# --- colunas ---
+# --- colunas (cada pessoa tem as suas) ---
 
 
-def colunas() -> list[dict]:
-    """Colunas do quadro, em ordem. Recria as padrão se a tabela estiver vazia."""
-    linhas = db.consultar("select * from tarefa_colunas order by ordem, chave")
-    if not linhas:
-        for ordem, (chave, nome, concluida) in enumerate(COLUNAS_PADRAO):
-            db.executar(
-                "insert into tarefa_colunas (chave, nome, ordem, concluida) values (%s, %s, %s, %s) "
-                "on conflict (chave) do nothing",
-                (chave, nome, ordem, concluida),
-            )
-        linhas = db.consultar("select * from tarefa_colunas order by ordem, chave")
-    return linhas
+def colunas(dono: str) -> list[dict]:
+    """Colunas do quadro de `dono`, em ordem. Na primeira vez cria as padrão (e recupera colunas
+    personalizadas antigas que ainda tenham tarefas dessa pessoa)."""
+    linhas = db.consultar("select * from tarefa_colunas where usuario = %s order by ordem, chave", (dono,))
+    if linhas:
+        return linhas
+    for ordem, (chave, nome, concluida) in enumerate(COLUNAS_PADRAO):
+        db.executar(
+            "insert into tarefa_colunas (usuario, chave, nome, ordem, concluida) values (%s, %s, %s, %s, %s) "
+            "on conflict do nothing",
+            (dono, chave, nome, ordem, concluida),
+        )
+    db.executar(
+        """
+        insert into tarefa_colunas (usuario, chave, nome, ordem, concluida)
+        select %s, m.chave, m.nome, 100 + m.ordem, m.concluida
+        from tarefa_colunas m
+        where m.usuario = '' and m.chave in (select status from tarefas where responsavel = %s)
+        on conflict do nothing
+        """,
+        (dono, dono),
+    )
+    _reordenar(dono)
+    return db.consultar("select * from tarefa_colunas where usuario = %s order by ordem, chave", (dono,))
 
 
-def _coluna(chave: Any) -> dict:
-    achada = next((c for c in colunas() if c["chave"] == chave), None)
+def _reordenar(dono: str) -> None:
+    for ordem, c in enumerate(db.consultar("select chave from tarefa_colunas where usuario = %s order by ordem, chave", (dono,))):
+        db.executar("update tarefa_colunas set ordem = %s where usuario = %s and chave = %s", (ordem, dono, c["chave"]))
+
+
+def _garantir_todas() -> None:
+    for u in config.usuarios():
+        colunas(u)
+
+
+def _coluna(dono: str, chave: Any) -> dict:
+    achada = next((c for c in colunas(dono) if c["chave"] == chave), None)
     if achada is None:
         raise ValueError("Coluna inexistente.")
     return achada
@@ -81,81 +103,83 @@ def _chave(nome: str, existentes: set[str]) -> str:
     return chave
 
 
-def criar_coluna(nome: Any, concluida: bool = False) -> dict:
+def criar_coluna(dono: str, nome: Any, concluida: bool = False) -> dict:
     nome = _nome_coluna(nome)
-    atuais = colunas()
+    atuais = colunas(dono)
     if len(atuais) >= COLUNAS_MAX:
         raise ValueError(f"O quadro pode ter no máximo {COLUNAS_MAX} colunas.")
     if any(c["nome"].lower() == nome.lower() for c in atuais):
         raise ValueError("Já existe uma coluna com esse nome.")
     chave = _chave(nome, {c["chave"] for c in atuais})
     nova = db.um(
-        "insert into tarefa_colunas (chave, nome, ordem, concluida) values (%s, %s, %s, %s) returning *",
-        (chave, nome, max(c["ordem"] for c in atuais) + 1, bool(concluida)),
+        "insert into tarefa_colunas (usuario, chave, nome, ordem, concluida) values (%s, %s, %s, %s, %s) returning *",
+        (dono, chave, nome, max(c["ordem"] for c in atuais) + 1, bool(concluida)),
     )
     assert nova is not None
     return nova
 
 
-def editar_coluna(chave: str, nome: Any = None, concluida: Optional[bool] = None) -> Optional[dict]:
-    atual = next((c for c in colunas() if c["chave"] == chave), None)
+def editar_coluna(dono: str, chave: str, nome: Any = None, concluida: Optional[bool] = None) -> Optional[dict]:
+    atual = next((c for c in colunas(dono) if c["chave"] == chave), None)
     if atual is None:
         return None
     novo_nome = _nome_coluna(nome) if nome is not None else atual["nome"]
-    if any(c["chave"] != chave and c["nome"].lower() == novo_nome.lower() for c in colunas()):
+    if any(c["chave"] != chave and c["nome"].lower() == novo_nome.lower() for c in colunas(dono)):
         raise ValueError("Já existe uma coluna com esse nome.")
     nova_flag = atual["concluida"] if concluida is None else bool(concluida)
-    db.executar("update tarefa_colunas set nome = %s, concluida = %s where chave = %s", (novo_nome, nova_flag, chave))
+    db.executar(
+        "update tarefa_colunas set nome = %s, concluida = %s where usuario = %s and chave = %s",
+        (novo_nome, nova_flag, dono, chave),
+    )
     if nova_flag != atual["concluida"]:  # mudou o sentido da coluna: ajusta a data de conclusão das tarefas dela
         db.executar(
-            "update tarefas set concluida_em = case when %s then coalesce(concluida_em, now()) else null end where status = %s",
-            (nova_flag, chave),
+            "update tarefas set concluida_em = case when %s then coalesce(concluida_em, now()) else null end "
+            "where status = %s and responsavel = %s",
+            (nova_flag, chave, dono),
         )
-    return _coluna(chave)
+    return _coluna(dono, chave)
 
 
-def mover_coluna(chave: str, posicao: int) -> Optional[list[dict]]:
+def mover_coluna(dono: str, chave: str, posicao: int) -> Optional[list[dict]]:
     """Coloca a coluna na posição `posicao` (0 = primeira). Devolve as colunas na nova ordem."""
-    atuais = colunas()
+    atuais = colunas(dono)
     if not any(c["chave"] == chave for c in atuais):
         return None
     chaves = [c["chave"] for c in atuais if c["chave"] != chave]
     chaves.insert(max(0, min(int(posicao), len(chaves))), chave)
     for ordem, c in enumerate(chaves):
-        db.executar("update tarefa_colunas set ordem = %s where chave = %s", (ordem, c))
-    return colunas()
+        db.executar("update tarefa_colunas set ordem = %s where usuario = %s and chave = %s", (ordem, dono, c))
+    return colunas(dono)
 
 
-def excluir_coluna(chave: str, mover_para: Optional[str] = None) -> bool:
+def excluir_coluna(dono: str, chave: str, mover_para: Optional[str] = None) -> bool:
     """Exclui a coluna; se tiver tarefas, elas vão para `mover_para` (obrigatório nesse caso)."""
-    atuais = colunas()
+    atuais = colunas(dono)
     if not any(c["chave"] == chave for c in atuais):
         return False
     if len(atuais) <= 1:
         raise ValueError("O quadro precisa ter pelo menos uma coluna.")
-    quantas = db.um("select count(*)::int as n from tarefas where status = %s", (chave,))["n"]
+    quantas = db.um("select count(*)::int as n from tarefas where status = %s and responsavel = %s", (chave, dono))["n"]
     if quantas:
         if not mover_para or mover_para == chave:
             raise ValueError("Esta coluna tem tarefas: escolha para qual coluna elas vão.")
-        destino = _coluna(mover_para)
+        destino = _coluna(dono, mover_para)
         db.executar(
             """
             update tarefas set status = %s, atualizado_em = now(),
               concluida_em = case when %s then coalesce(concluida_em, now()) else null end
-            where status = %s
+            where status = %s and responsavel = %s
             """,
-            (destino["chave"], destino["concluida"], chave),
+            (destino["chave"], destino["concluida"], chave, dono),
         )
-        _renumerar(destino["chave"])
-    db.executar("delete from tarefa_colunas where chave = %s", (chave,))
+        _renumerar(dono, destino["chave"])
+    db.executar("delete from tarefa_colunas where usuario = %s and chave = %s", (dono, chave))
     return True
 
 
-def _renumerar(status: str) -> None:
+def _renumerar(dono: str, status: str) -> None:
     for ordem, linha in enumerate(
-        db.consultar(
-            "select id from tarefas where status = %s order by responsavel, ordem, id", (status,)
-        )
+        db.consultar("select id from tarefas where status = %s and responsavel = %s order by ordem, id", (status, dono))
     ):
         db.executar("update tarefas set ordem = %s where id = %s", (ordem, linha["id"]))
 
@@ -239,7 +263,7 @@ def listar(
 ) -> list[dict]:
     """Tarefas do quadro: abertas e as concluídas nos últimos dias. Filtrando por negócio ou documento,
     vêm todas (é a lista de tarefas relacionadas)."""
-    colunas()  # garante as colunas padrão
+    _garantir_todas()
     condicoes: list[str] = []
     params: list[Any] = []
     if negocio_id is None and documento_id is None:
@@ -263,7 +287,7 @@ def criar(campos: dict[str, Any], autor: str) -> dict:
     dados = validar({"responsavel": autor, "prioridade": "normal", **campos})
     if "titulo" not in dados:
         raise ValueError("Título é obrigatório.")
-    primeira = colunas()[0]["chave"]
+    primeira = colunas(dados["responsavel"])[0]["chave"]
     nova = db.um(
         """
         insert into tarefas (titulo, descricao, prioridade, responsavel, criado_por, prazo, status,
@@ -289,10 +313,14 @@ def editar(tarefa_id: int, campos: dict[str, Any]) -> Optional[dict]:
         return None
     if dados:
         if "responsavel" in dados and dados["responsavel"] != atual["responsavel"]:
-            # Vai para o fim da mesma coluna na fila da outra pessoa.
+            # Vai para o fim da coluna de mesma chave no quadro da outra pessoa (ou para a primeira dela).
+            destino = colunas(dados["responsavel"])
+            coluna = next((c for c in destino if c["chave"] == atual["status"]), destino[0])
+            dados["status"] = coluna["chave"]
+            dados["concluida_em"] = (atual["concluida_em"] or datetime.now(timezone.utc)) if coluna["concluida"] else None
             dados["ordem"] = db.um(
                 "select coalesce(max(ordem), -1) + 1 as n from tarefas where responsavel = %s and status = %s",
-                (dados["responsavel"], atual["status"]),
+                (dados["responsavel"], coluna["chave"]),
             )["n"]
         sets = ", ".join(f"{c} = %s" for c in dados)
         db.executar(
@@ -304,10 +332,10 @@ def editar(tarefa_id: int, campos: dict[str, Any]) -> Optional[dict]:
 
 def mover(tarefa_id: int, status: str, posicao: Optional[int] = None) -> Optional[dict]:
     """Muda a coluna (e a posição nela; sem `posicao`, vai para o fim). Coluna "concluída" grava a conclusão."""
-    coluna = _coluna(status)
     atual = obter(tarefa_id)
     if atual is None:
         return None
+    coluna = _coluna(atual["responsavel"], status)
     irmas = db.consultar(
         "select id from tarefas where responsavel = %s and status = %s and id <> %s order by ordem, id",
         (atual["responsavel"], status, tarefa_id),
@@ -333,14 +361,14 @@ def excluir(tarefa_id: int) -> bool:
 
 def resumo_por_pessoa() -> dict[str, dict[str, int]]:
     """Por pessoa: tarefas abertas (fora das colunas "concluída") e vencidas, para as abas do quadro."""
-    colunas()
+    _garantir_todas()
     linhas = db.consultar(
         """
         select t.responsavel,
           count(*)::int as abertas,
           count(*) filter (where t.prazo < (now() at time zone 'America/Sao_Paulo')::date)::int as vencidas
         from tarefas t
-        where not coalesce((select c.concluida from tarefa_colunas c where c.chave = t.status), false)
+        where not coalesce((select c.concluida from tarefa_colunas c where c.chave = t.status and c.usuario = t.responsavel), false)
         group by t.responsavel
         """
     )
