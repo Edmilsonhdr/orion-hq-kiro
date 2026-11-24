@@ -318,6 +318,73 @@ alter table tarefas add column if not exists negocio_id bigint references negoci
 create index if not exists tarefas_negocio_idx on tarefas (negocio_id);
 create index if not exists tarefas_documento_idx on tarefas (documento_id);
 
+-- Tarefas no estilo Jira: tipo, etiquetas, pontos, subtarefas (pai_id), épicos (tarefa do tipo 'epico',
+-- ligada por epico_id), sprints, comentários, histórico de mudanças, vínculos entre tarefas e filtros salvos.
+create table if not exists tarefa_sprints (
+  id bigserial primary key,
+  nome text not null,
+  objetivo text,
+  inicio date,
+  fim date,
+  estado text not null default 'planejada',   -- planejada | ativa | encerrada
+  criado_por text not null,
+  criado_em timestamptz not null default now(),
+  iniciada_em timestamptz,
+  encerrada_em timestamptz
+);
+create unique index if not exists tarefa_sprints_uma_ativa on tarefa_sprints ((estado)) where estado = 'ativa';
+
+alter table tarefas add column if not exists tipo text not null default 'tarefa';  -- tarefa | bug | melhoria | historia | epico
+alter table tarefas add column if not exists etiquetas text[] not null default '{}';
+alter table tarefas add column if not exists pontos integer;
+alter table tarefas add column if not exists pai_id bigint references tarefas(id) on delete cascade;
+alter table tarefas add column if not exists epico_id bigint references tarefas(id) on delete set null;
+alter table tarefas add column if not exists sprint_id bigint references tarefa_sprints(id) on delete set null;
+alter table tarefas add column if not exists ordem_backlog integer not null default 0;
+create index if not exists tarefas_pai_idx on tarefas (pai_id);
+create index if not exists tarefas_epico_idx on tarefas (epico_id);
+create index if not exists tarefas_sprint_idx on tarefas (sprint_id);
+
+create table if not exists tarefa_comentarios (
+  id bigserial primary key,
+  tarefa_id bigint not null references tarefas(id) on delete cascade,
+  autor text not null,
+  texto text not null,
+  criado_em timestamptz not null default now(),
+  editado_em timestamptz
+);
+create index if not exists tarefa_comentarios_idx on tarefa_comentarios (tarefa_id, id);
+
+create table if not exists tarefa_historico (
+  id bigserial primary key,
+  tarefa_id bigint not null references tarefas(id) on delete cascade,
+  autor text not null,
+  campo text not null,
+  de text,
+  para text,
+  criado_em timestamptz not null default now()
+);
+create index if not exists tarefa_historico_idx on tarefa_historico (tarefa_id, id);
+
+create table if not exists tarefa_vinculos (
+  id bigserial primary key,
+  origem_id bigint not null references tarefas(id) on delete cascade,
+  destino_id bigint not null references tarefas(id) on delete cascade,
+  tipo text not null,                          -- bloqueia | relacionada | duplica
+  criado_por text not null,
+  criado_em timestamptz not null default now(),
+  unique (origem_id, destino_id, tipo)
+);
+
+create table if not exists tarefa_filtros (
+  id bigserial primary key,
+  usuario text not null,
+  nome text not null,
+  filtros jsonb not null default '{}',
+  criado_em timestamptz not null default now()
+);
+create index if not exists tarefa_filtros_usuario_idx on tarefa_filtros (usuario, id);
+
 -- Agentes: cadastro editável na tela Agentes. Os nativos (sistema = true) têm código próprio; só nome,
 -- cor, sala, descrição (roteamento), instruções adicionais, posição e ativo são editáveis. Os criados
 -- na tela rodam pelo especialista genérico, com as ferramentas do catálogo (api/_orion/agentes.py).
@@ -386,4 +453,24 @@ create table if not exists totp (
   ativo boolean not null default false,
   ultimo_passo bigint not null default 0,
   criado_em timestamptz not null default now()
+);
+
+-- Notificações das tarefas (sino): menção, atribuição, comentário e atualização em tarefa sua.
+create table if not exists notificacoes (
+  id bigserial primary key,
+  usuario text not null,
+  tipo text not null check (tipo in ('mencao', 'atribuicao', 'comentario', 'atualizacao')),
+  autor text not null,
+  tarefa_id bigint not null references tarefas(id) on delete cascade,
+  detalhe text,
+  lida boolean not null default false,
+  criado_em timestamptz not null default now()
+);
+create index if not exists notificacoes_usuario_idx on notificacoes (usuario, lida, criado_em desc);
+
+-- Nome de exibição de cada pessoa do HQ (o login continua vindo de ORION_USERS).
+create table if not exists perfis (
+  usuario text primary key,
+  nome text not null,
+  atualizado_em timestamptz not null default now()
 );

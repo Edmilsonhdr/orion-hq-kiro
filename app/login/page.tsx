@@ -49,10 +49,15 @@ export default function LoginPage() {
   return (
     <main className="login-pagina">
       <section className="login-lado" aria-hidden="true">
-        <div className="login-marca titulo-pixel">
-          <span className="hq-marca-ponto" /> Orion HQ
+        <div className="login-marca">
+          <span className="login-logo">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z" fill="currentColor" />
+            </svg>
+          </span>
+          Orion HQ
         </div>
-        <p className="login-frase">O escritório dos agentes de IA do orion</p>
+        <p className="login-frase">O escritório dos agentes de IA do Orion</p>
         <ul className="login-pontos">
           <li>Chat com o Orquestrador e os especialistas</li>
           <li>Docs, Comercial e aprovações num lugar só</li>

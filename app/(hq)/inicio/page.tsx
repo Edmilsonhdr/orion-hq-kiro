@@ -1,21 +1,23 @@
 "use client";
 
-// Início: resumo do dia (aprovações, Comercial, incidentes, atividade dos agentes e documentos recentes).
+// Início: painel do dia. No topo, o cartão "Seu dia" (o que precisa de você, com atalhos) e os números; embaixo,
+// a semana (tarefas, Comercial e reuniões), o que espera aprovação, a atividade dos agentes e os docs recentes.
 // Só lê endpoints que as outras telas já usam; nada é alterado aqui.
 
+import { semImagens } from "../../../components/TextoComImagens";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { obter } from "../../../lib/api";
-import { formatarDia, hojeISO, type Hoje, type Negocio, type ResumoFunil } from "../../../lib/comercial";
+import { formatarDia, formatarReais, hojeISO, type Hoje, type Negocio, type ResumoFunil } from "../../../lib/comercial";
 import { tempoRelativo, type DocumentoResumo } from "../../../lib/docs";
 import { agentePorId } from "../../../lib/agents";
-import { diaPorExtenso, type AgendaResumo } from "../../../lib/calendario";
+import { diaPorExtenso, type AgendaResumo, type ItemCal } from "../../../lib/calendario";
 import { resumoDoDia } from "../../../lib/resumoDia";
 import { situacaoPrazo, type Tarefa } from "../../../lib/tarefas";
 import { nomeUsuario } from "../../../lib/exibicao";
 
 type AprovacaoItem = { id: number; tipo: string; proposta: Record<string, unknown>; pedido_por: string | null };
-type Mencao = { id: number; documento_id: number; documento_titulo: string; autor: string; texto: string };
+type Mencao = { id: number | string; documento_id: number | null; documento_titulo: string | null; tarefa_id?: number | null; tarefa_titulo?: string | null; autor: string; texto: string };
 type AtividadeItem = { id: number; agente: string; tipo: string; detalhe: string | null; criado_em: string };
 
 const ROTULO_TIPO: Record<string, string> = {
@@ -32,6 +34,37 @@ function saudacao(): string {
   );
   return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
 }
+
+const ROTULO_ITEM: Record<ItemCal["tipo"], string> = { tarefa: "Tarefa", negocio: "Comercial", reuniao: "Reunião" };
+
+// Dia da semana em palavras para a lista da semana: "Hoje", "Amanhã" ou "Quarta, 25".
+function rotuloDia(data: string, hoje: string): string {
+  const n = Math.round((Date.parse(`${data}T00:00:00Z`) - Date.parse(`${hoje}T00:00:00Z`)) / 86_400_000);
+  if (n === 0) return "Hoje";
+  if (n === 1) return "Amanhã";
+  const nome = diaPorExtenso(data).split(",")[0];
+  return `${nome.charAt(0).toUpperCase()}${nome.slice(1)}, ${Number(data.slice(8))}`;
+}
+
+function dataDeHoje(): string {
+  const t = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function Icone({ d }: { d: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
+    </svg>
+  );
+}
+
+const ATALHOS = [
+  { href: "/tarefas", rotulo: "Tarefa", d: "M12 5v14M5 12h14" },
+  { href: "/chat", rotulo: "Perguntar", d: "M4 5h16v10H9l-5 4V5z" },
+  { href: "/calendario", rotulo: "Agenda", d: "M3.5 5h17v15h-17zM3.5 10h17M8 3v4M16 3v4" },
+  { href: "/comercial", rotulo: "Negócio", d: "M3 8h18v11H3zM9 8V5h6v3M3 13h18" },
+];
 
 function tituloAprovacao(a: AprovacaoItem): string {
   const p = a.proposta as Record<string, unknown> & { campos?: Record<string, unknown> };
@@ -92,185 +125,257 @@ export default function InicioPage() {
     tarefasHoje: minhasTarefas.filter((t) => situacaoPrazo(t, hojeISO()) === "hoje").map((t) => t.titulo),
   });
 
+  const hojeData = hojeISO();
+  const tarefasAbertas = minhasTarefas.filter((t) => !t.coluna_concluida);
+  const tarefasVencidas = tarefasAbertas.filter((t) => situacaoPrazo(t, hojeData) === "vencida").length;
+  const semana = agenda ? [...agenda.atrasados.filter((i) => !i.feito), ...agenda.de_hoje, ...agenda.proximos] : [];
+  const porDia = semana.reduce<Record<string, ItemCal[]>>((acc, i) => {
+    const chave = i.data < hojeData ? "atrasados" : i.data;
+    (acc[chave] ??= []).push(i);
+    return acc;
+  }, {});
+  const dias = Object.keys(porDia).sort((x, y) => (x === "atrasados" ? -1 : y === "atrasados" ? 1 : x.localeCompare(y)));
+
+  const numeros = [
+    { href: "/aprovacoes", rotulo: "Para aprovar", valor: String(aprovacoes.length), nota: aprovacoes.length ? "esperando decisão" : "nada pendente", tom: aprovacoes.length ? "alerta" : "" },
+    { href: "/tarefas", rotulo: "Suas tarefas abertas", valor: String(tarefasAbertas.length), nota: tarefasVencidas ? `${tarefasVencidas} vencida${tarefasVencidas > 1 ? "s" : ""}` : "nenhuma vencida", tom: tarefasVencidas ? "perigo" : "" },
+    { href: "/comercial", rotulo: "Negócios em aberto", valor: resumo ? String(resumo.abertos) : "—", nota: resumo ? `${formatarReais(resumo.valor_mensal_potencial)}/mês em potencial` : "", tom: "" },
+    { href: "/incidentes", rotulo: "Incidentes abertos", valor: String(incidentes), nota: incidentes ? "o Vigia achou falhas" : "tudo funcionando", tom: incidentes ? "perigo" : "sucesso" },
+  ];
+
   return (
-    <div className="docs-pagina">
+    <div className="docs-pagina ini-pagina">
       <div className="com-topo">
         <div>
+          <p className="ini-data">{dataDeHoje()}</p>
           <h1 className="titulo-pixel com-titulo">
             {saudacao()}
             {nome ? `, ${nome}` : ""}
           </h1>
-          <p className="texto-secundario" style={{ margin: "6px 0 0" }}>
-            O que precisa de você hoje.
-          </p>
+        </div>
+        <div className="com-acoes">
+          <Link href="/calendario" className="botao">
+            Abrir agenda
+          </Link>
+          <Link href="/chat" className="botao botao-destaque">
+            Perguntar ao Orquestrador
+          </Link>
         </div>
       </div>
 
-      <section className="painel ini-dia" aria-label="Seu dia">
-        <h2 className="com-grupo-titulo">Seu dia</h2>
-        {seuDia.length === 0 ? (
-          <p className="texto-secundario" style={{ margin: 0 }}>
-            Tudo em dia: nada vencido, parado ou esperando você.
-          </p>
-        ) : (
-          <ul className="ini-dia-lista">
-            {seuDia.map((i) => (
-              <li key={i.chave} className={i.alerta ? "alerta" : undefined}>
-                <Link href={i.href}>{i.texto}</Link>
-                {i.detalhes.length > 0 && <span className="texto-secundario"> · {i.detalhes.join(", ")}</span>}
-              </li>
+      <div className="ini-topo">
+        <section className="ini-heroi" aria-label="Seu dia">
+          <div className="ini-heroi-cabeca">
+            <span className="ini-heroi-rotulo">Seu dia</span>
+            <span className="ini-heroi-numero">{seuDia.length === 0 ? "Tudo em dia" : `${seuDia.length} ${seuDia.length === 1 ? "coisa precisa" : "coisas precisam"} de você`}</span>
+          </div>
+          {seuDia.length === 0 ? (
+            <p className="ini-heroi-vazio">Nada vencido, parado ou esperando você.</p>
+          ) : (
+            <ul className="ini-heroi-lista">
+              {seuDia.slice(0, 4).map((i) => (
+                <li key={i.chave}>
+                  <Link href={i.href} className={i.alerta ? "alerta" : undefined}>
+                    <span className="ini-heroi-ponto" aria-hidden="true" />
+                    <span>
+                      <strong>{i.texto}</strong>
+                      {i.detalhes.length > 0 && <span> · {i.detalhes.join(", ")}</span>}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          <nav className="ini-atalhos" aria-label="Atalhos">
+            {ATALHOS.map((a) => (
+              <Link key={a.href} href={a.href} className="ini-atalho">
+                <Icone d={a.d} />
+                {a.rotulo}
+              </Link>
             ))}
-          </ul>
-        )}
-      </section>
+          </nav>
+        </section>
 
-      <div className="com-indicadores">
-        <Link href="/aprovacoes" className={`painel com-indicador esc-link${aprovacoes.length ? " alerta" : ""}`}>
-          <div className="com-indicador-valor mono">{aprovacoes.length}</div>
-          <div className="texto-secundario">Aprovações pendentes</div>
-        </Link>
-        <Link href="/comercial" className={`painel com-indicador esc-link${hoje?.vencidos.length ? " alerta" : ""}`}>
-          <div className="com-indicador-valor mono">{passos.length}</div>
-          <div className="texto-secundario">Passos do Comercial para hoje</div>
-        </Link>
-        <Link href="/comercial" className="painel com-indicador esc-link">
-          <div className="com-indicador-valor mono">{resumo?.abertos ?? "—"}</div>
-          <div className="texto-secundario">Negócios em aberto</div>
-        </Link>
-        <Link href="/incidentes" className={`painel com-indicador esc-link${incidentes ? " alerta" : ""}`}>
-          <div className="com-indicador-valor mono">{incidentes}</div>
-          <div className="texto-secundario">Incidentes abertos</div>
-        </Link>
+        <div className="ini-numeros">
+          {numeros.map((n) => (
+            <Link key={n.rotulo} href={n.href} className={`ini-numero${n.tom ? ` tom-${n.tom}` : ""}`}>
+              <span className="ini-numero-rotulo">{n.rotulo}</span>
+              <span className="ini-numero-valor">{n.valor}</span>
+              <span className="ini-numero-nota">{n.nota}</span>
+            </Link>
+          ))}
+        </div>
       </div>
 
-      <div className="ini-grade">
-        <section className="painel ini-bloco" aria-label="Aprovações pendentes">
-          <h2 className="com-grupo-titulo">Para aprovar</h2>
-          {aprovacoes.length === 0 ? (
-            <p className="texto-secundario">Nada pendente. Os agentes aguardam novos pedidos.</p>
+      <div className="ini-colunas">
+        <section className="painel ini-cartao ini-semana" aria-label="Próximos 7 dias">
+          <header className="ini-cartao-topo">
+            <div>
+              <h2 className="com-grupo-titulo">Próximos 7 dias</h2>
+              <p className="ini-cartao-sub">Tarefas com prazo, passos do Comercial e reuniões</p>
+            </div>
+            <Link href="/calendario" className="ini-ver">
+              Calendário
+            </Link>
+          </header>
+          {dias.length === 0 ? (
+            <p className="ini-vazio">Nada marcado para esta semana.</p>
           ) : (
-            <ul className="ini-lista">
-              {aprovacoes.slice(0, 5).map((a) => (
-                <li key={a.id}>
-                  <Link href="/aprovacoes">{tituloAprovacao(a)}</Link>
-                  {a.pedido_por && <span className="texto-secundario"> · pedido por {nomeUsuario(a.pedido_por)}</span>}
-                </li>
-              ))}
-            </ul>
+            dias.map((dia) => (
+              <div key={dia} className="ini-dia-grupo">
+                <h3 className={`ini-dia-rotulo${dia === "atrasados" ? " perigo" : ""}`}>{dia === "atrasados" ? "Atrasados" : rotuloDia(dia, hojeData)}</h3>
+                <ul className="ini-itens">
+                  {porDia[dia].map((i) => {
+                    const conteudo = (
+                      <>
+                        <span className={`ini-tipo tipo-${i.tipo}`}>{ROTULO_ITEM[i.tipo]}</span>
+                        <span className="ini-item-titulo">{i.titulo}</span>
+                        <span className="ini-item-meta">
+                          {i.hora ? i.hora.slice(0, 5) : ""}
+                          {i.responsavel ? `${i.hora ? " · " : ""}${nomeUsuario(i.responsavel)}` : ""}
+                        </span>
+                      </>
+                    );
+                    return (
+                      <li key={`${i.tipo}-${i.id}`}>
+                        {i.href ? (
+                          <Link href={i.href} className="ini-item">
+                            {conteudo}
+                          </Link>
+                        ) : (
+                          <span className="ini-item">{conteudo}</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))
           )}
         </section>
 
-        {mencoes.length > 0 && (
-          <section className="painel ini-bloco" aria-label="Menções">
-            <h2 className="com-grupo-titulo">Citaram você</h2>
-            <ul className="ini-lista">
-              {mencoes.map((m) => (
-                <li key={m.id}>
-                  <Link href={`/docs/${m.documento_id}`}>{m.documento_titulo}</Link>
-                  <span className="texto-secundario">
-                    {" "}
-                    · {nomeUsuario(m.autor)}: {m.texto.length > 90 ? `${m.texto.slice(0, 90)}…` : m.texto}
-                  </span>
-                </li>
-              ))}
-            </ul>
+        <div className="ini-lateral">
+          <section className="painel ini-cartao" aria-label="Para aprovar">
+            <header className="ini-cartao-topo">
+              <h2 className="com-grupo-titulo">Para aprovar</h2>
+              {aprovacoes.length > 0 && (
+                <Link href="/aprovacoes" className="ini-ver">
+                  Ver todas
+                </Link>
+              )}
+            </header>
+            {aprovacoes.length === 0 ? (
+              <p className="ini-vazio">Nada pendente. Os agentes aguardam novos pedidos.</p>
+            ) : (
+              <ul className="ini-itens">
+                {aprovacoes.slice(0, 4).map((a) => (
+                  <li key={a.id}>
+                    <Link href="/aprovacoes" className="ini-item">
+                      <span className="ini-item-titulo">{tituloAprovacao(a)}</span>
+                      {a.pedido_por && <span className="ini-item-meta">pedido por {nomeUsuario(a.pedido_por)}</span>}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
-        )}
 
-        <section className="painel ini-bloco" aria-label="Próximos 7 dias">
-          <h2 className="com-grupo-titulo">Próximos 7 dias</h2>
-          {!agenda || agenda.de_hoje.length + agenda.proximos.length === 0 ? (
-            <p className="texto-secundario" style={{ margin: 0 }}>
-              Nada marcado para esta semana.
-            </p>
-          ) : (
-            <ul className="ini-lista">
-              {[...agenda.de_hoje, ...agenda.proximos].slice(0, 6).map((i) => (
-                <li key={`${i.tipo}-${i.id}`}>
-                  <span className="texto-secundario mono">{i.data === agenda.hoje ? "hoje" : diaPorExtenso(i.data).split(",")[0] + " " + i.data.slice(8)} </span>
-                  {i.href ? <Link href={i.href}>{i.titulo}</Link> : <span>{i.titulo}</span>}
-                  {i.hora && <span className="texto-secundario"> · {i.hora.slice(0, 5)}</span>}
-                </li>
-              ))}
-            </ul>
+          {mencoes.length > 0 && (
+            <section className="painel ini-cartao" aria-label="Menções">
+              <header className="ini-cartao-topo">
+                <h2 className="com-grupo-titulo">Citaram você</h2>
+              </header>
+              <ul className="ini-itens">
+                {mencoes.slice(0, 4).map((m) => (
+                  <li key={m.id}>
+                    <Link href={m.tarefa_id ? `/tarefas?tarefa=${m.tarefa_id}` : `/docs/${m.documento_id}`} className="ini-item">
+                      <span className="ini-item-titulo">{m.tarefa_id ? `ORI-${m.tarefa_id} · ${m.tarefa_titulo}` : m.documento_titulo}</span>
+                      <span className="ini-item-meta">
+                        {nomeUsuario(m.autor)}: {(() => {
+                          const t = semImagens(m.texto);
+                          return t.length > 70 ? `${t.slice(0, 70)}…` : t;
+                        })()}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
-          <p style={{ margin: "10px 0 0" }}>
-            <Link href="/calendario">Abrir o calendário</Link>
-          </p>
-        </section>
 
-        <section className="painel ini-bloco" aria-label="Comercial hoje">
-          <h2 className="com-grupo-titulo">Comercial hoje</h2>
-          {passos.length === 0 ? (
-            <p className="texto-secundario">Nenhum próximo passo vencido ou marcado para hoje.</p>
-          ) : (
-            <ul className="ini-lista">
-              {passos.slice(0, 6).map((n) => (
-                <li key={n.id}>
-                  <Link href={`/comercial/negocios/${n.id}`}>{n.organizacao_nome}</Link>
-                  <span className="texto-secundario">
-                    {" "}
-                    · {n.proximo_passo ?? "sem descrição"} · {formatarDia(n.proximo_passo_em)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+          {passos.length > 0 && (
+            <section className="painel ini-cartao" aria-label="Comercial hoje">
+              <header className="ini-cartao-topo">
+                <h2 className="com-grupo-titulo">Comercial hoje</h2>
+                <Link href="/comercial" className="ini-ver">
+                  Comercial
+                </Link>
+              </header>
+              <ul className="ini-itens">
+                {passos.slice(0, 5).map((n) => (
+                  <li key={n.id}>
+                    <Link href={`/comercial/negocios/${n.id}`} className="ini-item">
+                      <span className="ini-item-titulo">{n.organizacao_nome}</span>
+                      <span className="ini-item-meta">
+                        {n.proximo_passo ?? "sem descrição"} · {formatarDia(n.proximo_passo_em)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
-        </section>
 
-        <section className="painel ini-bloco" aria-label="Atividade dos agentes">
-          <h2 className="com-grupo-titulo">Agentes agora</h2>
-          {atividades.length === 0 ? (
-            <p className="texto-secundario">Sem atividade recente.</p>
-          ) : (
-            <ul className="ini-lista">
-              {atividades.map((a) => (
-                <li key={a.id}>
-                  <strong style={{ color: agentePorId(a.agente)?.cor }}>{agentePorId(a.agente)?.papel ?? a.agente}</strong>
-                  <span className="texto-secundario"> · {a.detalhe || a.tipo}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Link href="/escritorio" className="ini-mais">
-            Ver o escritório
-          </Link>
-        </section>
+          <section className="painel ini-cartao" aria-label="Atividade dos agentes">
+            <header className="ini-cartao-topo">
+              <h2 className="com-grupo-titulo">Agentes agora</h2>
+              <Link href="/escritorio" className="ini-ver">
+                Escritório
+              </Link>
+            </header>
+            {atividades.length === 0 ? (
+              <p className="ini-vazio">Sem atividade recente.</p>
+            ) : (
+              <ul className="ini-feed">
+                {atividades.slice(0, 6).map((a) => {
+                  const ag = agentePorId(a.agente);
+                  return (
+                    <li key={a.id}>
+                      <span className="ini-feed-ponto" style={{ background: ag?.cor }} aria-hidden="true" />
+                      <span>
+                        <strong>{ag?.papel ?? a.agente}</strong> {a.detalhe || a.tipo}
+                        <span className="ini-item-meta"> · {tempoRelativo(a.criado_em)}</span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
 
-        <section className="painel ini-bloco" aria-label="Documentos recentes">
-          <h2 className="com-grupo-titulo">Docs recentes</h2>
-          {docs.length === 0 ? (
-            <p className="texto-secundario">Nenhum documento ainda.</p>
-          ) : (
-            <ul className="ini-lista">
-              {docs.map((d) => (
-                <li key={d.id}>
-                  <Link href={`/docs/${d.id}`}>{d.titulo}</Link>
-                  <span className="texto-secundario"> · {tempoRelativo(d.atualizado_em)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Link href="/docs" className="ini-mais">
-            Abrir Docs
-          </Link>
-        </section>
-
-        <section className="painel ini-bloco" aria-label="Backup">
-          <h2 className="com-grupo-titulo">Backup</h2>
-          <p className="texto-secundario" style={{ marginTop: 0 }}>
-            Baixe tudo o que vocês escreveram (Docs, Comercial, conversas e anexos) num arquivo só. Guarde uma cópia
-            fora deste computador de vez em quando.
-          </p>
-          <div className="com-acoes">
-            <a className="botao botao-destaque" href="/api/backup" download>
-              Baixar backup completo
-            </a>
-            <a className="botao" href="/api/backup?anexos_incluidos=false" download>
-              Sem anexos (menor)
-            </a>
-          </div>
-        </section>
+          <section className="painel ini-cartao" aria-label="Documentos recentes">
+            <header className="ini-cartao-topo">
+              <h2 className="com-grupo-titulo">Docs recentes</h2>
+              <Link href="/docs" className="ini-ver">
+                Docs
+              </Link>
+            </header>
+            {docs.length === 0 ? (
+              <p className="ini-vazio">Nenhum documento ainda.</p>
+            ) : (
+              <ul className="ini-itens">
+                {docs.map((d) => (
+                  <li key={d.id}>
+                    <Link href={`/docs/${d.id}`} className="ini-item">
+                      <span className="ini-item-titulo">{d.titulo}</span>
+                      <span className="ini-item-meta">{tempoRelativo(d.atualizado_em)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

@@ -248,40 +248,41 @@ export default function DocumentoPage() {
           </Link>
           <ArvoreDocs nos={arvore} onMover={moverNaArvore} atualId={doc.id} />
         </aside>
-        <div className="docs-conteudo">
+        <div className="docs-conteudo doc-folha">
           {migalhas(doc.titulo, doc.pasta, doc.ancestrais)}
 
           <div className="doc-cabecalho">
             <h1 className="doc-titulo">{doc.titulo}</h1>
             <div className="doc-acoes">
-              <button type="button" className="botao-destaque" onClick={() => setEditando(true)}>
-                Editar
-              </button>
-              <Link href={`/docs/novo?pai=${doc.id}`} className="botao" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
-                Nova subpágina
-              </Link>
-              <button type="button" onClick={alternarHistorico} aria-pressed={mostrarHistorico}>
+              <button type="button" className="botao doc-acao-leve" onClick={alternarHistorico} aria-pressed={mostrarHistorico}>
                 Histórico
               </button>
-              <button type="button" onClick={alternarArquivado} disabled={ocupado}>
+              <button type="button" className="botao doc-acao-leve" onClick={alternarArquivado} disabled={ocupado}>
                 {doc.arquivado ? "Desarquivar" : "Arquivar"}
+              </button>
+              <Link href={`/docs/novo?pai=${doc.id}`} className="botao">
+                + Subpágina
+              </Link>
+              <button type="button" className="botao botao-destaque" onClick={() => setEditando(true)}>
+                Editar
               </button>
             </div>
           </div>
 
           <div className="doc-meta">
             {doc.arquivado && <span className="doc-etiqueta">arquivado</span>}
+            <span className="doc-autor" title={`Criado em ${formatarData(doc.criado_em)}`}>
+              <span className="doc-autor-avatar" aria-hidden="true">
+                {nomeUsuario(doc.autor).slice(0, 1).toUpperCase()}
+              </span>
+              {nomeUsuario(doc.autor)}
+            </span>
+            <span title={formatarData(doc.atualizado_em)}>Atualizado {tempoRelativo(doc.atualizado_em)}</span>
             {doc.tags.map((t) => (
-              <span key={t} className="mono">
+              <span key={t} className="doc-tag">
                 #{t}
               </span>
             ))}
-            <span title={`Criado em ${formatarData(doc.criado_em)}`}>
-              {nomeUsuario(doc.autor)} · atualizado {tempoRelativo(doc.atualizado_em)}
-            </span>
-            <span className="mono" title="Data da última atualização">
-              {formatarData(doc.atualizado_em)}
-            </span>
           </div>
 
           {erro && (

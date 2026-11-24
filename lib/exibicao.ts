@@ -22,7 +22,21 @@ export function nomeEm(idAgente: string, criadoEm: string, atividades: readonly 
   return pessoaEm(idAgente, criadoEm, atividades)?.nome ?? idAgente;
 }
 
-// Nome de uma pessoa do HQ para exibir: o login é guardado em minúsculas ("edmilson"), a tela mostra "Edmilson".
-export function nomeUsuario(usuario: string | null | undefined): string {
-  return usuario ? usuario[0].toUpperCase() + usuario.slice(1) : "";
+// Nomes de exibição das pessoas do HQ (Configurações → "Seu nome"), carregados uma vez por página
+// (carregarNomes). Sem nome salvo, mostra o login com a primeira letra maiúscula.
+let NOMES: Record<string, string> = {};
+export type PessoaHQ = { usuario: string; nome: string };
+
+export function definirNomes(pessoas: PessoaHQ[]): void {
+  NOMES = Object.fromEntries(pessoas.map((p) => [p.usuario.toLowerCase(), p.nome]));
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("orion:nomes"));
 }
+
+// Nome de uma pessoa do HQ para exibir: o login é guardado em minúsculas ("edmilson"), a tela mostra o nome dela.
+export function nomeUsuario(usuario: string | null | undefined): string {
+  if (!usuario) return "";
+  return NOMES[usuario.toLowerCase()] ?? usuario[0].toUpperCase() + usuario.slice(1);
+}
+
+/** Primeiro nome (para espaços curtos). */
+export const primeiroNome = (usuario: string | null | undefined) => nomeUsuario(usuario).split(" ")[0];

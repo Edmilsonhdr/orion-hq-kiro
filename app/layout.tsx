@@ -12,8 +12,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" data-tema="claro" suppressHydrationWarning>
       <head>
+        {/* Aplica o tema salvo antes da primeira pintura (sem piscar). */}
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("hq:tema");if(t==="escuro"||t==="claro")document.documentElement.dataset.tema=t}catch(e){}` }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -21,7 +23,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400;500&family=Silkscreen:wght@400;700&display=swap"
           rel="stylesheet"
         />
       </head>

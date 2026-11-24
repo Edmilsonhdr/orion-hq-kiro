@@ -75,7 +75,7 @@ export default function ListaConversas({
 
   return (
     <nav className="chat-conversas" aria-label="Conversas">
-      <button type="button" className="botao-destaque chat-nova" onClick={nova}>
+      <button type="button" className="botao chat-nova" onClick={nova}>
         + Nova conversa
       </button>
       {erro && (

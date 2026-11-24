@@ -27,7 +27,7 @@ def _tarefas(de: date, ate: date, so_abertas: bool = False) -> list[dict]:
         """
         select t.id, t.titulo, t.prazo, t.responsavel, t.prioridade,
                coalesce(c.concluida, false) as feita
-        from tarefas t left join tarefa_colunas c on c.chave = t.status
+        from tarefas t left join tarefa_colunas c on c.chave = t.status and c.usuario = t.responsavel
         where t.prazo between %s and %s and (%s = false or coalesce(c.concluida, false) = false)
         order by t.prazo, t.id
         """,

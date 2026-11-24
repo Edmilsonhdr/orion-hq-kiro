@@ -195,26 +195,51 @@ export default function CalendarioPage() {
   return (
     <div className="docs-pagina docs-pagina-larga">
       <div className="com-topo">
-        <h1 className="titulo-pixel com-titulo">Calendário</h1>
-        <p className="texto-secundario" style={{ margin: "6px 0 0" }}>
-          Prazos de tarefas, próximos passos do Comercial e reuniões. Crie compromissos aqui ou abra um item para mudar a data.
-        </p>
+        <div>
+          <h1 className="titulo-pixel com-titulo">Calendário</h1>
+          <p className="texto-secundario" style={{ margin: "6px 0 0" }}>
+            Prazos de tarefas, passos do Comercial e reuniões num lugar só.
+          </p>
+        </div>
+        <div className="com-acoes">
+          <button type="button" className="botao" onClick={feed ? () => setFeed(null) : mostrarFeed} aria-expanded={feed !== null}>
+            Assinar no Google Agenda
+          </button>
+          <button type="button" className="botao botao-destaque" onClick={() => abrirNovo()}>
+            + Novo compromisso
+          </button>
+        </div>
       </div>
 
       <div className="cal-barra">
         <div className="cal-nav">
-          <button type="button" aria-label="Anterior" onClick={() => setRef(deslocar(ref, visao, -1))}>
-            ‹
-          </button>
-          <button type="button" onClick={() => setRef(hoje)}>
-            Hoje
-          </button>
-          <button type="button" aria-label="Próximo" onClick={() => setRef(deslocar(ref, visao, 1))}>
-            ›
-          </button>
           <h2 className="cal-titulo">{tituloPeriodo(ref, visao)}</h2>
+          <div className="cal-setas">
+            <button type="button" aria-label="Anterior" onClick={() => setRef(deslocar(ref, visao, -1))}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m15 6-6 6 6 6" />
+              </svg>
+            </button>
+            <button type="button" className="cal-hoje" onClick={() => setRef(hoje)}>
+              Hoje
+            </button>
+            <button type="button" aria-label="Próximo" onClick={() => setRef(deslocar(ref, visao, 1))}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+            </button>
+          </div>
         </div>
         <div className="cal-controles">
+          {TIPOS.map((t) => (
+            <button key={t} type="button" className={`cal-filtro cal-${t}`} aria-pressed={tipos.has(t)} onClick={() => alternarTipo(t)}>
+              <span className="cal-ponto" aria-hidden="true" />
+              {ROTULO_TIPO[t]}
+            </button>
+          ))}
+          <button type="button" className="cal-filtro" aria-pressed={somenteMeus} onClick={() => setSomenteMeus(!somenteMeus)}>
+            Só meus
+          </button>
           <div className="cal-visao" role="group" aria-label="Visão">
             {(["mes", "semana"] as Visao[]).map((v) => (
               <button key={v} type="button" aria-pressed={visao === v} onClick={() => setVisao(v)}>
@@ -222,22 +247,6 @@ export default function CalendarioPage() {
               </button>
             ))}
           </div>
-          {TIPOS.map((t) => (
-            <button key={t} type="button" className={`cal-filtro cal-${t}`} aria-pressed={tipos.has(t)} onClick={() => alternarTipo(t)}>
-              <span className="cal-ponto" aria-hidden="true" />
-              {ROTULO_TIPO[t]}
-            </button>
-          ))}
-          <button type="button" className="botao botao-destaque" onClick={() => abrirNovo()}>
-            + Novo compromisso
-          </button>
-          <button type="button" className="cal-filtro" onClick={feed ? () => setFeed(null) : mostrarFeed} aria-expanded={feed !== null}>
-            Assinar no Google Agenda
-          </button>
-          <label className="cal-meus">
-            <input type="checkbox" checked={somenteMeus} onChange={(e) => setSomenteMeus(e.target.checked)} />
-            Só meus
-          </label>
         </div>
       </div>
 

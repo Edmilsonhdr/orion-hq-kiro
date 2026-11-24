@@ -134,30 +134,11 @@ export default function ChatMessage({
   const corOrq = assinatura?.corChat ?? "var(--destaque)";
 
   const nome = doOrquestrador ? (assinatura?.nome ?? "Orquestrador") : nomeUsuario(mensagem.autor);
-  const corAcento = doOrquestrador ? corOrq : "var(--borda-forte)";
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: doOrquestrador ? "flex-start" : "flex-end",
-        gap: "10px",
-      }}
-    >
+    <div className={`chat-msg${doOrquestrador ? " de-agente" : " minha"}`}>
       {doOrquestrador && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "relative",
-            flexShrink: 0,
-            width: "36px",
-            height: "36px",
-            borderRadius: "8px",
-            background: "var(--painel)",
-            border: `1px solid ${corOrq}`,
-            overflow: "hidden",
-          }}
-        >
+        <div className="chat-msg-avatar" aria-hidden="true" style={{ borderColor: corOrq }}>
           {assinatura && (
             <div style={{ position: "absolute", left: 7, top: 8, width: 20, height: 34 }}>
               <FiguraMini visual={assinatura.visual} />
@@ -166,40 +147,14 @@ export default function ChatMessage({
         </div>
       )}
 
-      <div
-        className="painel"
-        style={{
-          maxWidth: "min(560px, 78%)",
-          padding: "10px 14px",
-          borderLeft: doOrquestrador ? `3px solid ${corAcento}` : undefined,
-          borderRight: doOrquestrador ? undefined : `3px solid var(--destaque)`,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            gap: "12px",
-            marginBottom: "4px",
-          }}
-        >
-          <span
-            className="titulo-pixel"
-            style={{
-              fontSize: "12px",
-              color: doOrquestrador ? corOrq : "var(--texto-secundario)",
-            }}
-          >
+      <div className="chat-msg-corpo">
+        <div className="chat-msg-cabeca">
+          <span className="chat-msg-nome" style={doOrquestrador ? { color: corOrq } : undefined}>
             {nome}
           </span>
-          <span
-            className="mono texto-secundario"
-            style={{ fontSize: "11px" }}
-          >
-            {horario(mensagem.criado_em)}
-          </span>
+          <span className="chat-msg-hora">{horario(mensagem.criado_em)}</span>
         </div>
+        <div className="chat-msg-balao">
         {doOrquestrador ? (
           <div className="chat-markdown">
             <Markdown texto={linkarDocs(mensagem.texto)} />
@@ -207,6 +162,7 @@ export default function ChatMessage({
         ) : (
           <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{comLinks(mensagem.texto)}</div>
         )}
+        </div>
         {doOrquestrador && (
           <div className="chat-rodape-msg">
             {fontes.length > 0 && (
