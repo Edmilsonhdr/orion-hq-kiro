@@ -76,6 +76,13 @@ const CAMPO_DO_AVISO: Record<string, string> = {
   "sistemas afetados": "sistemas",
   "pelo menos um aprovador": "aprovadores",
 };
+const COLUNAS = [
+  { chave: "rascunho", rotulo: "Rascunho", status: ["rascunho", "reprovada"], vazio: "Nenhum rascunho." },
+  { chave: "em_aprovacao", rotulo: "Em aprovação", status: ["em_aprovacao"], vazio: "Nada esperando aprovação." },
+  { chave: "aprovada", rotulo: "Aprovada", status: ["aprovada"], vazio: "Nada agendado." },
+  { chave: "em_execucao", rotulo: "Em execução", status: ["em_execucao"], vazio: "Nada em execução." },
+  { chave: "encerrada", rotulo: "Encerrada", status: ["concluida", "revertida", "cancelada"], vazio: "Nada encerrado ainda." },
+];
 const ROTULO_RISCO = { baixo: "Baixo", medio: "Médio", alto: "Alto" };
 
 // Datas: o back guarda timestamptz; a tela trabalha no horário de São Paulo.
@@ -113,6 +120,15 @@ export default function GmudPage() {
   const [resumo, setResumo] = useState<Resumo | null>(null);
   const [filtro, setFiltro] = useState("");
   const [busca, setBusca] = useState("");
+  const [visao, setVisao] = useState<"lista" | "quadro">("lista");
+  useEffect(() => {
+    const v = localStorage.getItem("orion-hq:gmud-visao");
+    if (v === "quadro" || v === "lista") setVisao(v);
+  }, []);
+  const trocarVisao = (v: "lista" | "quadro") => {
+    setVisao(v);
+    localStorage.setItem("orion-hq:gmud-visao", v);
+  };
   const [aberta, setAberta] = useState<number | null>(null);
   const [criando, setCriando] = useState(false);
   const [novoTitulo, setNovoTitulo] = useState("");
@@ -140,11 +156,13 @@ export default function GmudPage() {
   const visiveis = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return itens.filter((g) => {
-      if (filtro === "encerradas" ? !["concluida", "revertida", "cancelada", "reprovada"].includes(g.status) : filtro && g.status !== filtro) return false;
+      if (visao === "quadro") {
+        // No quadro as colunas já separam as etapas: só a busca filtra.
+      } else if (filtro === "encerradas" ? !["concluida", "revertida", "cancelada", "reprovada"].includes(g.status) : filtro && g.status !== filtro) return false;
       if (!q) return true;
       return [g.chave, g.titulo, ...g.sistemas].some((t) => t.toLowerCase().includes(q));
     });
-  }, [itens, filtro, busca]);
+  }, [itens, filtro, busca, visao]);
 
   const minhasAprovacoes = itens.filter((g) => g.status === "em_aprovacao" && g.aprovadores.some((a) => a.usuario === eu && !a.decisao)).length;
 
@@ -207,6 +225,16 @@ export default function GmudPage() {
       )}
 
       <div className="gm-barra">
+        <div className="gm-barra-esq">
+        <div className="gm-visoes" role="tablist" aria-label="Visão">
+          <button type="button" role="tab" aria-selected={visao === "lista"} className={`gm-filtro${visao === "lista" ? " ativo" : ""}`} onClick={() => trocarVisao("lista")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg> Lista
+          </button>
+          <button type="button" role="tab" aria-selected={visao === "quadro"} className={`gm-filtro${visao === "quadro" ? " ativo" : ""}`} onClick={() => trocarVisao("quadro")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="11" rx="1" /><rect x="17" y="4" width="4" height="7" rx="1" /></svg> Quadro
+          </button>
+        </div>
+        {visao === "lista" && (
         <div className="gm-filtros" role="tablist">
           {FILTROS.map((f) => (
             <button key={f.chave} type="button" role="tab" aria-selected={filtro === f.chave} className={`gm-filtro${filtro === f.chave ? " ativo" : ""}`} onClick={() => setFiltro(f.chave)}>
@@ -214,11 +242,64 @@ export default function GmudPage() {
             </button>
           ))}
         </div>
+        )}
+        </div>
         <input className="gm-busca" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por chave, título ou sistema" />
       </div>
 
       {erro && <p className="gm-erro" role="alert">{erro}</p>}
 
+      {visao === "quadro" ? (
+        <div className="gm-quadro">
+          {COLUNAS.map((col) => {
+            const cartoes = visiveis.filter((g) => col.status.includes(g.status));
+            return (
+              <section key={col.chave} className={`gm-coluna c-${col.chave}`} aria-label={col.rotulo}>
+                <header>
+                  <span className="gm-coluna-ponto" aria-hidden />
+                  <h2>{col.rotulo}</h2>
+                  <span className="gm-coluna-n">{cartoes.length}</span>
+                </header>
+                <div className="gm-coluna-corpo">
+                  {cartoes.length === 0 && <p className="gm-coluna-vazia">{col.vazio}</p>}
+                  {cartoes.map((g) => {
+                    const ok = g.aprovadores.filter((a) => a.decisao === "aprovada").length;
+                    const esperandoVoce = g.status === "em_aprovacao" && g.aprovadores.some((a) => a.usuario === eu && !a.decisao);
+                    return (
+                      <button key={g.id} type="button" className={`gm-cartao${esperandoVoce ? " sua-vez" : ""}`} onClick={() => setAberta(g.id)}>
+                        <span className="gm-cartao-topo">
+                          <span className="gm-chave">{g.chave}</span>
+                          {g.tipo !== "normal" && <em className={`gm-tipo t-${g.tipo}`}>{g.tipo === "padrao" ? "Padrão" : "Emergencial"}</em>}
+                          {g.status !== col.chave && <Selo status={g.status} />}
+                        </span>
+                        <b className="gm-cartao-titulo">{g.titulo}</b>
+                        {g.sistemas.length > 0 && (
+                          <span className="gm-cartao-sistemas">
+                            {g.sistemas.slice(0, 3).map((x) => <span key={x} className="gm-chip">{x}</span>)}
+                            {g.sistemas.length > 3 && <span className="gm-chip">+{g.sistemas.length - 3}</span>}
+                          </span>
+                        )}
+                        <span className="gm-cartao-janela">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>
+                          {janela(g)}
+                        </span>
+                        <span className="gm-cartao-rodape">
+                          <Risco risco={g.risco} />
+                          {g.tipo !== "padrao" && g.aprovadores.length > 0 && (
+                            <span className="gm-cartao-aprov" title="Aprovações">✓ {ok}/{g.aprovadores.length}</span>
+                          )}
+                          {esperandoVoce && <span className="gm-sua-vez">Sua aprovação</span>}
+                          <span className="gm-cartao-pessoa">{g.executor && <Avatar nome={g.executor} cor={corPessoa(g.executor)} tamanho={22} />}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
       <div className="gm-tabela" role="table">
         <div className="gm-linha gm-cab" role="row">
           <span>Chave</span><span>Mudança</span><span>Janela</span><span>Risco</span><span>Executor</span><span>Aprovação</span><span>Etapa</span>
@@ -246,6 +327,7 @@ export default function GmudPage() {
           );
         })}
       </div>
+      )}
 
       {aberta !== null && (
         <GmudJanela
