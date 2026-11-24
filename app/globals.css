@@ -10091,3 +10091,18 @@ button.gm-linha:hover:not(:disabled) { background: var(--superficie-2); }
 .gm-quando .esc-valor { overflow: visible; text-overflow: clip; }
 .gm-aprovador > span:not(.tar-avatar) { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .gm-aprovador > .tar-avatar { flex: none; }
+.gm-sistema-novo { display: inline-flex; align-items: center; gap: 4px; }
+.gm-chip-novo { width: 130px; }
+.gm-chip-novo:focus { outline: none; border-style: solid; border-color: var(--destaque); }
+button.gm-sistema-botao { min-height: 26px; height: 26px; padding: 0 8px; border: 1px solid var(--borda); border-radius: 6px; background: var(--painel); color: var(--texto); font: inherit; font-size: 12px; font-weight: 600; box-shadow: none; cursor: pointer; }
+button.gm-sistema-botao:disabled { opacity: .45; cursor: default; }
+.gm-faltando { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gm-faltando > span:first-child { font-weight: 600; }
+.gm-faltando-item { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid color-mix(in srgb, #dc2626 35%, transparent); background: var(--painel); color: #dc2626; font: inherit; font-size: 12.5px; font-weight: 600; box-shadow: none; }
+button.gm-faltando-item { cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+button.gm-faltando-item:hover:not(:disabled) { background: color-mix(in srgb, #dc2626 10%, var(--painel)); }
+@keyframes gm-piscar { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 30% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--destaque) 45%, transparent); } }
+.gm-destacar { border-radius: 10px; background: color-mix(in srgb, var(--destaque) 8%, transparent); animation: gm-piscar 1.6s ease; }
+.gm-sistema-novo { display: flex; width: 100%; min-width: 0; }
+.gm-sistema-novo .gm-chip-novo { flex: 1 1 auto; width: auto; min-width: 0; height: 28px; min-height: 0; }
+.gm-sistema-novo button.gm-sistema-botao { flex: none; height: 28px; min-height: 0; }
