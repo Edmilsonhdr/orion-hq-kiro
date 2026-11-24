@@ -30,7 +30,7 @@ TABELAS = (
     "tarefa_comentarios",
     "tarefa_historico",
     "tarefa_vinculos",
-    "tarefa_filtros", "notificacoes", "perfis",
+    "tarefa_filtros", "notificacoes", "perfis", "gmuds", "gmud_aprovadores", "gmud_eventos",
     "conversas",
     "mensagens",
     "aprovacoes",

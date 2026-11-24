@@ -44,7 +44,7 @@ if SCRIPTS not in sys.path:
 _TABELAS_DOMINIO = (
     "mensagens",
     "conversas", "piloto_itens", "anexos", "tarefas", "tarefa_colunas", "tarefa_sprints", "tarefa_comentarios",
-    "tarefa_historico", "tarefa_vinculos", "tarefa_filtros, notificacoes, perfis",
+    "tarefa_historico", "tarefa_vinculos", "tarefa_filtros, notificacoes, perfis, gmud_eventos, gmud_aprovadores, gmuds",
     "atividades",
     "changelog",
     "aprovacoes",

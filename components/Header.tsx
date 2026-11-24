@@ -38,6 +38,7 @@ const GRUPOS: { titulo: string; itens: Item[] }[] = [
   {
     titulo: "Operação",
     itens: [
+      { href: "/gmud", rotulo: "GMUD", icone: "gmud" },
       { href: "/agentes", rotulo: "Agentes", icone: "agentes", tambem: ["/escritorio", "/incidentes"], contador: "incidentes" },
     ],
   },
@@ -84,6 +85,12 @@ const CAMINHOS: Record<string, ReactNode> = {
     <>
       <path d="M4 21V5h10v16M14 9h6v12M2 21h20" />
       <path d="M8 9h2M8 13h2M8 17h2" />
+    </>
+  ),
+  gmud: (
+    <>
+      <path d="M4 7h11M4 7l3-3M4 7l3 3" />
+      <path d="M20 17H9M20 17l-3-3M20 17l-3 3" />
     </>
   ),
   agentes: (

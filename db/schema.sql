@@ -474,3 +474,47 @@ create table if not exists perfis (
   nome text not null,
   atualizado_em timestamptz not null default now()
 );
+
+-- GMUD (gestão de mudanças): pedido de mudança com janela, planos, aprovadores e resultado.
+create table if not exists gmuds (
+  id bigserial primary key,
+  titulo text not null,
+  descricao text,
+  justificativa text,
+  tipo text not null default 'normal' check (tipo in ('normal', 'padrao', 'emergencial')),
+  ambiente text not null default 'producao' check (ambiente in ('producao', 'homologacao', 'desenvolvimento')),
+  sistemas text[] not null default '{}',
+  impacto text not null default 'medio' check (impacto in ('baixo', 'medio', 'alto')),
+  probabilidade text not null default 'media' check (probabilidade in ('baixa', 'media', 'alta')),
+  inicio timestamptz,
+  fim timestamptz,
+  executor text,
+  criado_por text not null,
+  status text not null default 'rascunho' check (status in
+    ('rascunho', 'em_aprovacao', 'aprovada', 'reprovada', 'em_execucao', 'concluida', 'revertida', 'cancelada')),
+  plano_implantacao text,
+  plano_rollback text,
+  plano_testes text,
+  resultado text check (resultado in ('sucesso', 'com_problemas')),
+  resultado_obs text,
+  tarefa_id bigint references tarefas(id) on delete set null,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+create table if not exists gmud_aprovadores (
+  gmud_id bigint not null references gmuds(id) on delete cascade,
+  usuario text not null,
+  decisao text check (decisao in ('aprovada', 'reprovada')),
+  comentario text,
+  decidido_em timestamptz,
+  primary key (gmud_id, usuario)
+);
+create table if not exists gmud_eventos (
+  id bigserial primary key,
+  gmud_id bigint not null references gmuds(id) on delete cascade,
+  autor text not null,
+  tipo text not null,          -- comentario | status | edicao | decisao
+  texto text,
+  criado_em timestamptz not null default now()
+);
+create index if not exists gmud_eventos_idx on gmud_eventos (gmud_id, id);

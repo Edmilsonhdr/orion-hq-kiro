@@ -10,7 +10,7 @@ import os
 import secrets
 import sys
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Optional
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -28,7 +28,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from _orion import totp as segundo_fator
-from _orion import agentes, anexos, perfis, atividades, auditoria, auth, backup, busca, calendario, comercial, config, conversas, db, documentos, tarefas
+from _orion import agentes, anexos, gmud, perfis, atividades, auditoria, auth, backup, busca, calendario, comercial, config, conversas, db, documentos, tarefas
 
 app = FastAPI(title="Orion HQ")
 logger = logging.getLogger("orion.agentes")
@@ -1696,6 +1696,84 @@ class MoverColunaCorpo(BaseModel):
 class MoverTarefaCorpo(BaseModel):
     status: str
     posicao: int | None = None
+
+
+# --- GMUD (gestão de mudanças) ---
+
+
+class GmudCorpo(BaseModel):
+    model_config = {"extra": "allow"}
+
+
+class DecisaoGmudCorpo(BaseModel):
+    decisao: str
+    comentario: Optional[str] = None
+
+
+class EncerrarGmudCorpo(BaseModel):
+    resultado: str
+    obs: Optional[str] = None
+
+
+class TextoGmudCorpo(BaseModel):
+    texto: Optional[str] = None
+
+
+def _gmud_acao(fn):
+    try:
+        return _comercial_404(_comercial(fn), "GMUD")
+    except PermissionError as erro:
+        raise HTTPException(status_code=403, detail=str(erro)) from None
+
+
+@app.get("/api/gmud")
+def listar_gmuds(status: Optional[str] = None, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return {"itens": gmud.listar(status), "resumo": gmud.resumo()}
+
+
+@app.post("/api/gmud", status_code=status.HTTP_201_CREATED)
+def criar_gmud(corpo: GmudCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial(lambda: gmud.criar(corpo.model_dump(), usuario))
+
+
+@app.get("/api/gmud/{gmud_id}")
+def detalhe_gmud(gmud_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(gmud.detalhe(gmud_id), "GMUD")
+
+
+@app.put("/api/gmud/{gmud_id}")
+def editar_gmud(gmud_id: int, corpo: GmudCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _gmud_acao(lambda: gmud.editar(gmud_id, corpo.model_dump(), usuario))
+
+
+@app.post("/api/gmud/{gmud_id}/enviar")
+def enviar_gmud(gmud_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _gmud_acao(lambda: gmud.enviar(gmud_id, usuario))
+
+
+@app.post("/api/gmud/{gmud_id}/decidir")
+def decidir_gmud(gmud_id: int, corpo: DecisaoGmudCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _gmud_acao(lambda: gmud.decidir(gmud_id, usuario, corpo.decisao, corpo.comentario))
+
+
+@app.post("/api/gmud/{gmud_id}/iniciar")
+def iniciar_gmud(gmud_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _gmud_acao(lambda: gmud.iniciar(gmud_id, usuario))
+
+
+@app.post("/api/gmud/{gmud_id}/encerrar")
+def encerrar_gmud(gmud_id: int, corpo: EncerrarGmudCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _gmud_acao(lambda: gmud.encerrar(gmud_id, usuario, corpo.resultado, corpo.obs))
+
+
+@app.post("/api/gmud/{gmud_id}/cancelar")
+def cancelar_gmud(gmud_id: int, corpo: TextoGmudCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _gmud_acao(lambda: gmud.cancelar(gmud_id, usuario, corpo.texto))
+
+
+@app.post("/api/gmud/{gmud_id}/comentarios")
+def comentar_gmud(gmud_id: int, corpo: TextoGmudCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _gmud_acao(lambda: gmud.comentar(gmud_id, usuario, corpo.texto))
 
 
 @app.get("/api/pessoas")
