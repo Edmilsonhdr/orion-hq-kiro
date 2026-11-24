@@ -10,6 +10,7 @@
 //   "Propor correção · em breve" desabilitado ficam no IncidenteCard (6.4, 6.5).
 // - Polling leve com refetch completo (~3 s), no mesmo padrão das aprovações.
 
+import AbasEquipe from "../../../components/AbasEquipe";
 import GraficoIncidentes from "../../../components/GraficoIncidentes";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { obter, enviar } from "../../../lib/api";
@@ -145,6 +146,7 @@ export default function IncidentesPage() {
 
   return (
     <div className="docs-pagina pagina-estreita">
+      <AbasEquipe ativa="incidentes" />
       <div className="com-topo">
         <div>
           <h1 className="titulo-pixel com-titulo">Incidentes</h1>

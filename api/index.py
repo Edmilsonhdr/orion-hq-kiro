@@ -28,7 +28,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from _orion import totp as segundo_fator
-from _orion import agentes, anexos, atividades, auditoria, auth, backup, busca, calendario, comercial, config, conversas, db, documentos, tarefas
+from _orion import agentes, anexos, perfis, atividades, auditoria, auth, backup, busca, calendario, comercial, config, conversas, db, documentos, tarefas
 
 app = FastAPI(title="Orion HQ")
 logger = logging.getLogger("orion.agentes")
@@ -898,8 +898,11 @@ def excluir_comentario(comentario_id: int, usuario: str = Depends(auth.usuario_a
 
 @app.get("/api/mencoes")
 def minhas_mencoes(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
-    """Comentários recentes de outras pessoas que citam o usuário (@usuario)."""
-    return documentos.mencoes_para(usuario)
+    """Comentários recentes de outras pessoas que citam o usuário (@usuario), no Docs e nas Tarefas."""
+    todas = [{**m, "tarefa_id": None} for m in documentos.mencoes_para(usuario)]
+    todas += [{**m, "id": f"t{m['id']}", "documento_id": None, "documento_titulo": None} for m in tarefas.mencoes_para(usuario)]
+    todas.sort(key=lambda m: m["criado_em"], reverse=True)
+    return todas[:10]
 
 
 @app.get("/api/documentos/{documento_id}/versoes")
@@ -1639,6 +1642,46 @@ class TarefaCorpo(BaseModel):
     prazo: str | None = None
     documento_id: int | None = None
     negocio_id: int | None = None
+    tipo: str | None = None
+    etiquetas: list[str] | None = None
+    pontos: int | None = None
+    pai_id: int | None = None
+    epico_id: int | None = None
+    sprint_id: int | None = None
+
+
+class ConcluirTarefaCorpo(BaseModel):
+    feita: bool
+
+
+class ComentarioTarefaCorpo(BaseModel):
+    texto: str
+
+
+class VinculoTarefaCorpo(BaseModel):
+    destino_id: int
+    tipo: str
+
+
+class SprintCorpo(BaseModel):
+    nome: str | None = None
+    objetivo: str | None = None
+    inicio: str | None = None
+    fim: str | None = None
+
+
+class EncerrarSprintCorpo(BaseModel):
+    mover_para: int | None = None
+
+
+class BacklogMoverCorpo(BaseModel):
+    sprint_id: int | None = None
+    posicao: int | None = None
+
+
+class FiltroTarefaCorpo(BaseModel):
+    nome: str
+    filtros: dict
 
 
 class ColunaCorpo(BaseModel):
@@ -1653,6 +1696,21 @@ class MoverColunaCorpo(BaseModel):
 class MoverTarefaCorpo(BaseModel):
     status: str
     posicao: int | None = None
+
+
+@app.get("/api/pessoas")
+def listar_pessoas(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    """Pessoas do HQ com o nome de exibição: [{usuario, nome}]."""
+    return perfis.listar()
+
+
+class PerfilCorpo(BaseModel):
+    nome: str
+
+
+@app.put("/api/perfil")
+def salvar_perfil(corpo: PerfilCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial(lambda: perfis.definir_nome(usuario, corpo.nome))
 
 
 @app.get("/api/usuarios")
@@ -1714,6 +1772,135 @@ def resumo_tarefas(usuario: str = Depends(auth.usuario_atual)) -> dict:
     return tarefas.resumo_por_pessoa()
 
 
+@app.get("/api/tarefas/sprints")
+def listar_sprints(encerradas: bool = False, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return tarefas.listar_sprints(encerradas)
+
+
+@app.post("/api/tarefas/sprints", status_code=status.HTTP_201_CREATED)
+def criar_sprint(corpo: SprintCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial(lambda: tarefas.criar_sprint(corpo.model_dump(exclude_unset=True), usuario))
+
+
+@app.put("/api/tarefas/sprints/{sprint_id}")
+def editar_sprint(sprint_id: int, corpo: SprintCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(_comercial(lambda: tarefas.editar_sprint(sprint_id, corpo.model_dump(exclude_unset=True))), "Sprint")
+
+
+@app.post("/api/tarefas/sprints/{sprint_id}/iniciar")
+def iniciar_sprint(sprint_id: int, corpo: SprintCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(_comercial(lambda: tarefas.iniciar_sprint(sprint_id, corpo.model_dump(exclude_unset=True))), "Sprint")
+
+
+@app.post("/api/tarefas/sprints/{sprint_id}/encerrar")
+def encerrar_sprint(sprint_id: int, corpo: EncerrarSprintCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(_comercial(lambda: tarefas.encerrar_sprint(sprint_id, corpo.mover_para, usuario)), "Sprint")
+
+
+@app.delete("/api/tarefas/sprints/{sprint_id}")
+def excluir_sprint(sprint_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    achou = _comercial(lambda: tarefas.excluir_sprint(sprint_id))
+    _comercial_404(True if achou else None, "Sprint")
+    return {"ok": True}
+
+
+@app.get("/api/tarefas/backlog")
+def backlog_tarefas(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return tarefas.backlog()
+
+
+@app.get("/api/tarefas/epicos")
+def epicos_tarefas(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return tarefas.listar_epicos()
+
+
+@app.get("/api/tarefas/filtros")
+def filtros_tarefas(usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return tarefas.listar_filtros(usuario)
+
+
+@app.post("/api/tarefas/filtros", status_code=status.HTTP_201_CREATED)
+def salvar_filtro_tarefas(corpo: FiltroTarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial(lambda: tarefas.salvar_filtro(usuario, corpo.nome, corpo.filtros))
+
+
+@app.delete("/api/tarefas/filtros/{filtro_id}")
+def excluir_filtro_tarefas(filtro_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    _comercial_404(True if tarefas.excluir_filtro(usuario, filtro_id) else None, "Filtro")
+    return {"ok": True}
+
+
+@app.get("/api/notificacoes")
+def listar_notificacoes(nao_lidas: bool = False, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    """Notificações das tarefas para o sino: menções, atribuições, comentários e atualizações."""
+    return tarefas.listar_notificacoes(usuario, nao_lidas)
+
+
+@app.post("/api/notificacoes/lidas")
+def marcar_notificacoes_lidas(usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return {"marcadas": tarefas.marcar_todas_lidas(usuario)}
+
+
+class LidaCorpo(BaseModel):
+    lida: bool = True
+
+
+@app.post("/api/notificacoes/{notificacao_id}/lida")
+def marcar_notificacao_lida(notificacao_id: int, corpo: LidaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    _comercial_404(True if tarefas.marcar_lida(notificacao_id, usuario, corpo.lida) else None, "Notificação")
+    return {"ok": True}
+
+
+@app.put("/api/tarefas/comentarios/{comentario_id}")
+def editar_comentario_tarefa(comentario_id: int, corpo: ComentarioTarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    try:
+        editado = _comercial(lambda: tarefas.editar_comentario(comentario_id, corpo.texto, usuario))
+    except PermissionError as erro:
+        raise HTTPException(status_code=403, detail=str(erro)) from None
+    return _comercial_404(editado, "Comentário")
+
+
+@app.delete("/api/tarefas/comentarios/{comentario_id}")
+def excluir_comentario_tarefa(comentario_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    try:
+        achou = tarefas.excluir_comentario(comentario_id, usuario)
+    except PermissionError as erro:
+        raise HTTPException(status_code=403, detail=str(erro)) from None
+    _comercial_404(True if achou else None, "Comentário")
+    return {"ok": True}
+
+
+@app.delete("/api/tarefas/vinculos/{vinculo_id}")
+def excluir_vinculo_tarefa(vinculo_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    _comercial_404(True if tarefas.desvincular(vinculo_id) else None, "Vínculo")
+    return {"ok": True}
+
+
+@app.get("/api/tarefas/{tarefa_id}")
+def detalhe_tarefa(tarefa_id: int, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(tarefas.detalhe(tarefa_id), "Tarefa")
+
+
+@app.post("/api/tarefas/{tarefa_id}/concluir")
+def concluir_tarefa(tarefa_id: int, corpo: ConcluirTarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(_comercial(lambda: tarefas.concluir(tarefa_id, corpo.feita, usuario)), "Tarefa")
+
+
+@app.post("/api/tarefas/{tarefa_id}/comentarios", status_code=status.HTTP_201_CREATED)
+def comentar_tarefa(tarefa_id: int, corpo: ComentarioTarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(_comercial(lambda: tarefas.comentar(tarefa_id, corpo.texto, usuario)), "Tarefa")
+
+
+@app.post("/api/tarefas/{tarefa_id}/vinculos", status_code=status.HTTP_201_CREATED)
+def vincular_tarefa(tarefa_id: int, corpo: VinculoTarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> list[dict]:
+    return _comercial_404(_comercial(lambda: tarefas.vincular(tarefa_id, corpo.destino_id, corpo.tipo, usuario)), "Tarefa")
+
+
+@app.post("/api/tarefas/{tarefa_id}/backlog")
+def mover_no_backlog(tarefa_id: int, corpo: BacklogMoverCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
+    return _comercial_404(_comercial(lambda: tarefas.ordenar_backlog(tarefa_id, corpo.sprint_id, corpo.posicao, usuario)), "Tarefa")
+
+
 @app.post("/api/tarefas", status_code=status.HTTP_201_CREATED)
 def criar_tarefa(corpo: TarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
     return _comercial(lambda: tarefas.criar(corpo.model_dump(exclude_unset=True), usuario))
@@ -1722,13 +1909,13 @@ def criar_tarefa(corpo: TarefaCorpo, usuario: str = Depends(auth.usuario_atual))
 @app.put("/api/tarefas/{tarefa_id}")
 def editar_tarefa(tarefa_id: int, corpo: TarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
     return _comercial_404(
-        _comercial(lambda: tarefas.editar(tarefa_id, corpo.model_dump(exclude_unset=True))), "Tarefa"
+        _comercial(lambda: tarefas.editar(tarefa_id, corpo.model_dump(exclude_unset=True), usuario)), "Tarefa"
     )
 
 
 @app.post("/api/tarefas/{tarefa_id}/mover")
 def mover_tarefa(tarefa_id: int, corpo: MoverTarefaCorpo, usuario: str = Depends(auth.usuario_atual)) -> dict:
-    return _comercial_404(_comercial(lambda: tarefas.mover(tarefa_id, corpo.status, corpo.posicao)), "Tarefa")
+    return _comercial_404(_comercial(lambda: tarefas.mover(tarefa_id, corpo.status, corpo.posicao, usuario)), "Tarefa")
 
 
 @app.delete("/api/tarefas/{tarefa_id}")

@@ -206,3 +206,177 @@ def test_colunas_sao_de_cada_pessoa(cliente):
     t = tarefas.criar({"titulo": "Troca"}, "dimi")
     tarefas.mover(t["id"], "so_minha")
     assert tarefas.editar(t["id"], {"responsavel": "jullyana"})["status"] == "a_fazer"
+
+
+# --- Estilo Jira: tipo, etiquetas, pontos, subtarefas, épicos, sprints, comentários, histórico, vínculos, filtros ---
+
+
+def test_tipo_etiquetas_pontos_e_chave(banco):
+    t = tarefas.criar({"titulo": "Erro no login", "tipo": "bug", "etiquetas": ["#App", "app", "Login Web"], "pontos": 3}, "dimi")
+    assert (t["tipo"], t["etiquetas"], t["pontos"], t["chave"]) == ("bug", ["app", "login-web"], 3, f"ORI-{t['id']}")
+    for ruim in ({"tipo": "historinha"}, {"pontos": -1}, {"pontos": 101}, {"etiquetas": "app"}, {"etiquetas": ["x" * 31]}):
+        with pytest.raises(ValueError):
+            tarefas.criar({"titulo": "x", **ruim}, "dimi")
+
+
+def test_subtarefas_contam_no_pai_e_ficam_fora_do_quadro(banco):
+    pai = tarefas.criar({"titulo": "Lançar a v1"}, "dimi")
+    a = tarefas.criar({"titulo": "Build", "pai_id": pai["id"]}, "dimi")
+    tarefas.criar({"titulo": "Lojas", "pai_id": pai["id"], "responsavel": "jullyana"}, "dimi")
+    tarefas.concluir(a["id"], True, "dimi")
+    pai = tarefas.obter(pai["id"])
+    assert (pai["subtarefas_total"], pai["subtarefas_feitas"]) == (2, 1)
+    assert [t["id"] for t in tarefas.listar("dimi")] == [pai["id"]]
+    assert tarefas.resumo_por_pessoa()["jullyana"]["abertas"] == 0
+    with pytest.raises(ValueError):  # subtarefa de subtarefa
+        tarefas.criar({"titulo": "x", "pai_id": a["id"]}, "dimi")
+    assert tarefas.concluir(a["id"], False, "dimi")["coluna_concluida"] is False
+
+
+def test_epico_agrupa_tarefas_e_mostra_progresso(banco):
+    epico = tarefas.criar({"titulo": "Lojas", "tipo": "epico"}, "dimi")
+    t1 = tarefas.criar({"titulo": "Ícone", "epico_id": epico["id"], "pontos": 2}, "dimi")
+    tarefas.criar({"titulo": "Textos", "epico_id": epico["id"], "pontos": 3}, "dimi")
+    tarefas.concluir(t1["id"], True, "dimi")
+    (linha,) = tarefas.listar_epicos()
+    assert (linha["tarefas_total"], linha["tarefas_feitas"], linha["pontos_total"], linha["pontos_feitos"]) == (2, 1, 5, 2)
+    assert tarefas.obter(t1["id"])["epico_titulo"] == "Lojas"
+    comum = tarefas.criar({"titulo": "Comum"}, "dimi")
+    with pytest.raises(ValueError):
+        tarefas.criar({"titulo": "x", "epico_id": comum["id"]}, "dimi")
+    assert {f["id"] for f in tarefas.detalhe(epico["id"])["filhas"]} == {t1["id"], t1["id"] + 1}
+
+
+def test_sprint_inicia_uma_por_vez_e_encerra_devolvendo_abertas(banco):
+    s1 = tarefas.criar_sprint({"objetivo": "Beta"}, "dimi")
+    s2 = tarefas.criar_sprint({"nome": "Sprint B"}, "dimi")
+    assert s1["nome"] == "Sprint 1" and s1["estado"] == "planejada"
+    feita = tarefas.criar({"titulo": "Feita", "sprint_id": s1["id"], "pontos": 2}, "dimi")
+    aberta = tarefas.criar({"titulo": "Aberta", "sprint_id": s1["id"], "pontos": 5}, "dimi")
+    sub = tarefas.criar({"titulo": "Sub", "pai_id": aberta["id"]}, "dimi")
+    assert tarefas.obter(sub["id"])["sprint_id"] == s1["id"]
+    tarefas.iniciar_sprint(s1["id"], {})
+    with pytest.raises(ValueError):
+        tarefas.iniciar_sprint(s2["id"], {})
+    tarefas.concluir(feita["id"], True, "dimi")
+    sprint = next(s for s in tarefas.listar_sprints() if s["id"] == s1["id"])
+    assert (sprint["estado"], sprint["tarefas_total"], sprint["tarefas_feitas"], sprint["pontos_total"], sprint["pontos_feitos"]) == ("ativa", 2, 1, 7, 2)
+    fim = tarefas.encerrar_sprint(s1["id"], s2["id"], "dimi")
+    assert fim["estado"] == "encerrada" and fim["tarefas_movidas"] == 2  # a aberta e a subtarefa dela
+    assert tarefas.obter(aberta["id"])["sprint_id"] == s2["id"]
+    assert tarefas.obter(feita["id"])["sprint_id"] == s1["id"]
+    with pytest.raises(ValueError):
+        tarefas.editar(feita["id"], {"sprint_id": s1["id"]})  # sprint encerrada não recebe tarefa
+
+
+def test_backlog_ordena_e_move_entre_sprints(banco):
+    s = tarefas.criar_sprint({}, "dimi")
+    a = tarefas.criar({"titulo": "A"}, "dimi")
+    b = tarefas.criar({"titulo": "B"}, "dimi")
+    tarefas.criar({"titulo": "Épico", "tipo": "epico"}, "dimi")
+    assert [t["titulo"] for t in tarefas.backlog()] == ["A", "B"]
+    tarefas.ordenar_backlog(b["id"], None, 0, "dimi")
+    assert [t["titulo"] for t in tarefas.backlog()] == ["B", "A"]
+    assert tarefas.ordenar_backlog(a["id"], s["id"], 0, "dimi")["sprint_id"] == s["id"]
+    assert tarefas.detalhe(a["id"])["historico"][0]["campo"] == "sprint_id"
+
+
+def test_historico_registra_criacao_edicao_e_mudanca_de_coluna(banco):
+    t = tarefas.criar({"titulo": "Contrato"}, "dimi")
+    tarefas.editar(t["id"], {"prioridade": "alta", "titulo": "Contrato"}, "jullyana")
+    tarefas.mover(t["id"], "fazendo", None, "dimi")
+    h = [(x["campo"], x["de"], x["para"], x["autor"]) for x in reversed(tarefas.detalhe(t["id"])["historico"])]
+    assert h == [("criada", None, "Contrato", "dimi"), ("prioridade", "normal", "alta", "jullyana"), ("status", "A fazer", "Fazendo", "dimi")]
+
+
+def test_comentarios_e_so_o_autor_apaga(banco):
+    t = tarefas.criar({"titulo": "x"}, "dimi")
+    c = tarefas.comentar(t["id"], "  Falei com o contador  ", "dimi")
+    assert c["texto"] == "Falei com o contador" and tarefas.obter(t["id"])["comentarios_total"] == 1
+    with pytest.raises(ValueError):
+        tarefas.comentar(t["id"], " ", "dimi")
+    with pytest.raises(PermissionError):
+        tarefas.excluir_comentario(c["id"], "jullyana")
+    with pytest.raises(PermissionError):
+        tarefas.editar_comentario(c["id"], "outro", "jullyana")
+    assert tarefas.editar_comentario(c["id"], " ![print|320](/api/anexos/1) ", "dimi")["texto"] == "![print|320](/api/anexos/1)"
+    assert tarefas.editar_comentario(999999, "x", "dimi") is None
+    assert tarefas.excluir_comentario(c["id"], "dimi") is True
+
+
+def test_mencoes_em_comentarios_de_tarefa(banco):
+    t = tarefas.criar({"titulo": "Build preview"}, "dimi")
+    tarefas.comentar(t["id"], "@jullyana consegue testar no seu aparelho?", "dimi")
+    tarefas.comentar(t["id"], "Falei com a @rayssa", "jullyana")
+    tarefas.comentar(t["id"], "@dimi anotado", "dimi")  # citar a si mesmo não conta
+    assert [m["tarefa_titulo"] for m in tarefas.mencoes_para("jullyana")] == ["Build preview"]
+    assert len(tarefas.mencoes_para("rayssa")) == 1
+    assert tarefas.mencoes_para("dimi") == []
+
+
+def test_vinculos_nos_dois_sentidos_e_bloqueio_aberto(banco):
+    a = tarefas.criar({"titulo": "Conta Apple"}, "dimi")
+    b = tarefas.criar({"titulo": "TestFlight"}, "dimi")
+    tarefas.vincular(b["id"], a["id"], "bloqueada_por", "dimi")
+    assert [v["rotulo"] for v in tarefas.listar_vinculos(a["id"])] == ["bloqueia"]
+    assert [v["rotulo"] for v in tarefas.listar_vinculos(b["id"])] == ["é bloqueada por"]
+    assert tarefas.obter(b["id"])["bloqueios_abertos"] == 1
+    tarefas.concluir(a["id"], True, "dimi")
+    assert tarefas.obter(b["id"])["bloqueios_abertos"] == 0
+    with pytest.raises(ValueError):
+        tarefas.vincular(a["id"], a["id"], "relacionada", "dimi")
+    vid = tarefas.listar_vinculos(a["id"])[0]["id"]
+    assert tarefas.desvincular(vid) is True and tarefas.listar_vinculos(a["id"]) == []
+
+
+def test_filtros_salvos_por_pessoa(banco):
+    f = tarefas.salvar_filtro("dimi", "Bugs altos", {"tipo": "bug", "prioridade": "alta"})
+    assert f["filtros"] == {"tipo": "bug", "prioridade": "alta"}
+    assert tarefas.listar_filtros("jullyana") == []
+    assert tarefas.excluir_filtro("jullyana", f["id"]) is False
+    assert tarefas.excluir_filtro("dimi", f["id"]) is True
+
+
+def test_rotas_novas_das_tarefas(cliente):
+    c = cliente()
+    t = c.post("/api/tarefas", json={"titulo": "Rota", "tipo": "melhoria", "etiquetas": ["web"]}).json()
+    assert c.post(f"/api/tarefas/{t['id']}/comentarios", json={"texto": "oi"}).status_code == 201
+    s = c.post("/api/tarefas/sprints", json={"nome": "S1"}).json()
+    assert c.post(f"/api/tarefas/{t['id']}/backlog", json={"sprint_id": s["id"], "posicao": 0}).json()["sprint_id"] == s["id"]
+    assert c.post(f"/api/tarefas/sprints/{s['id']}/iniciar", json={}).json()["estado"] == "ativa"
+    d = c.get(f"/api/tarefas/{t['id']}").json()
+    assert d["chave"] == f"ORI-{t['id']}" and len(d["comentarios"]) == 1 and d["historico"]
+    assert c.post(f"/api/tarefas/{t['id']}/concluir", json={"feita": True}).json()["coluna_concluida"] is True
+    assert c.post(f"/api/tarefas/sprints/{s['id']}/encerrar", json={}).json()["estado"] == "encerrada"
+    assert c.get("/api/tarefas/epicos").status_code == 200 and c.get("/api/tarefas/backlog").status_code == 200
+    assert c.post("/api/tarefas/filtros", json={"nome": "Meus", "filtros": {"pessoa": "dimi"}}).status_code == 201
+    assert c.get("/api/tarefas/9999").status_code == 404
+
+
+def test_notificacoes_de_mencao_atribuicao_comentario_e_atualizacao(banco, monkeypatch):
+    monkeypatch.setenv("ORION_USERS", "dimi:a,jullyana:b,rayssa:c")
+    t = tarefas.criar({"titulo": "Build preview", "responsavel": "jullyana"}, "dimi")
+    j = tarefas.listar_notificacoes("jullyana")
+    assert [n["tipo"] for n in j["itens"]] == ["atribuicao"] and j["nao_lidas"] == 1
+    assert j["itens"][0]["tarefa_chave"] == f"ORI-{t['id']}"
+
+    tarefas.comentar(t["id"], "@rayssa olha isso ![print](/api/anexos/1)", "dimi")
+    r = tarefas.listar_notificacoes("rayssa")["itens"]
+    assert r[0]["tipo"] == "mencao" and r[0]["detalhe"] == "@rayssa olha isso"
+    assert tarefas.listar_notificacoes("jullyana")["itens"][0]["tipo"] == "comentario"
+    assert tarefas.listar_notificacoes("dimi")["itens"] == []  # quem age não é avisado
+
+    tarefas.editar(t["id"], {"prioridade": "alta"}, "jullyana")
+    d = tarefas.listar_notificacoes("dimi")["itens"]
+    assert d[0]["tipo"] == "atualizacao" and d[0]["detalhe"] == "prioridade"
+
+    c = tarefas.comentar(t["id"], "sem menção", "jullyana")
+    tarefas.editar_comentario(c["id"], "agora sim @rayssa", "jullyana")
+    assert [n["tipo"] for n in tarefas.listar_notificacoes("rayssa")["itens"]][:1] == ["mencao"]
+
+    n = tarefas.listar_notificacoes("jullyana", so_nao_lidas=True)
+    assert n["nao_lidas"] == 2
+    assert tarefas.marcar_lida(n["itens"][0]["id"], "rayssa") is False  # só a dona marca
+    assert tarefas.marcar_lida(n["itens"][0]["id"], "jullyana") is True
+    assert tarefas.marcar_todas_lidas("jullyana") == 1
+    assert tarefas.listar_notificacoes("jullyana", so_nao_lidas=True)["itens"] == []

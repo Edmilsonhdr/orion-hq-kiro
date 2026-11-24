@@ -7,7 +7,6 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ETAPAS,
-  ETAPAS_ABERTAS,
   ROTULO_ETAPA,
   formatarDia,
   formatarReais,
@@ -49,12 +48,13 @@ export default function Funil({ negocios, onMover }: Props) {
             }}
           >
             <header className="funil-topo">
+              <span className="funil-ponto" aria-hidden="true" />
               <span className="funil-nome">{ROTULO_ETAPA[etapa]}</span>
-              <span className="mono texto-secundario">{cartoes.length}</span>
+              <span className="funil-contagem">{cartoes.length}</span>
+              {total > 0 && <span className="funil-total">{formatarReais(total)}</span>}
             </header>
-            <div className="funil-total mono texto-secundario">{total ? formatarReais(total) : " "}</div>
             <div className="funil-cartoes">
-              {cartoes.length === 0 && <p className="funil-vazio texto-secundario">Nenhum negócio</p>}
+              {cartoes.length === 0 && <p className="funil-vazio">Arraste um negócio para cá</p>}
               {cartoes.map((n) => {
                 const situacao = situacaoPasso(n.proximo_passo_em, hoje);
                 return (
@@ -99,12 +99,10 @@ export default function Funil({ negocios, onMover }: Props) {
         );
   };
 
-  // As etapas abertas dividem a largura (sem rolagem lateral); ganho e perdido ficam numa linha abaixo.
-  const fechadas = ETAPAS.filter((e) => !(ETAPAS_ABERTAS as readonly string[]).includes(e));
+  // Uma coluna por etapa, lado a lado; ganho e perdido no fim, com a cor do resultado.
   return (
     <div className="funil-quadro" role="group" aria-label="Funil de vendas">
-      <div className="funil">{ETAPAS_ABERTAS.map((e) => coluna(e))}</div>
-      <div className="funil funil-fechados">{fechadas.map((e) => coluna(e))}</div>
+      <div className="funil">{ETAPAS.map((e) => coluna(e))}</div>
     </div>
   );
 }

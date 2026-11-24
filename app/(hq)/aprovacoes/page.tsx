@@ -133,7 +133,7 @@ export default function AprovacoesPage() {
   }
 
   return (
-    <div className="docs-pagina pagina-estreita">
+    <div className="docs-pagina apv-pagina">
       <div className="com-topo">
         <div>
           <h1 className="titulo-pixel com-titulo">Aprovações</h1>
@@ -184,10 +184,10 @@ export default function AprovacoesPage() {
 
       <section
         aria-label="Aprovações pendentes"
-        style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+        className="apv-lista"
       >
-        <h2 className="com-grupo-titulo" style={{ margin: 0 }}>
-          Pendentes <span className="mono texto-secundario">{pendentes.length}</span>
+        <h2 className="apv-secao">
+          Esperando decisão <span className="apv-contagem">{pendentes.length}</span>
         </h2>
         {pendentes.length === 0 ? (
           <div className="docs-vazio">
@@ -208,10 +208,10 @@ export default function AprovacoesPage() {
 
       <section
         aria-label="Histórico de aprovações"
-        style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+        className="apv-lista"
       >
-        <h2 className="com-grupo-titulo" style={{ margin: 0 }}>
-          Histórico <span className="mono texto-secundario">{historico.length}</span>
+        <h2 className="apv-secao">
+          Histórico <span className="apv-contagem">{historico.length}</span>
         </h2>
         {historico.length === 0 ? (
           <div className="docs-vazio">

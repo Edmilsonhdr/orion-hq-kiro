@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { moverLocal, porColuna, posicaoAntesDe, situacaoPrazo, type ColunaTarefa, type Tarefa } from "./tarefas.ts";
+import { corPessoa, etiquetasDe, filtrarTarefas, fraseHistorico, progresso, raias, filtrosAtivos, FILTROS_VAZIOS, moverLocal, porColuna, posicaoAntesDe, resumoQuadro, rotuloPrazo, situacaoPrazo, type ColunaTarefa, type Filtros, type Tarefa } from "./tarefas.ts";
 
 const COLUNAS: ColunaTarefa[] = [
   { chave: "a_fazer", nome: "A fazer", ordem: 0, concluida: false },
@@ -52,4 +52,90 @@ test("posicaoAntesDe só vale entre tarefas da mesma pessoa", () => {
   assert.equal(posicaoAntesDe(l, 1, 2), 0);
   assert.equal(posicaoAntesDe(l, 1, 4), undefined);
   assert.equal(posicaoAntesDe(l, 3, 2), 0);
+});
+
+test("filtros: busca sem acento, prioridade e prazo", () => {
+  const hoje = "2026-11-23";
+  const lista = [
+    { ...t(1, "a_fazer", 0, "dimi", "2026-11-20"), titulo: "Revisão do contrato", prioridade: "alta" as const },
+    { ...t(2, "a_fazer", 1, "dimi", "2026-11-23"), titulo: "Build do app" },
+    { ...t(3, "fazendo", 0, "rayssa", "2026-11-27"), titulo: "Landing", descricao: "textos para clínicas" },
+    { ...t(4, "a_fazer", 2, "dimi", null), titulo: "Sem data" },
+    { ...t(5, "feito", 0, "dimi", "2026-11-01"), titulo: "Já feita" },
+  ];
+  const ids = (f: Partial<Filtros>) => filtrarTarefas(lista, { ...FILTROS_VAZIOS, ...f }, hoje).map((x) => x.id);
+  assert.deepEqual(ids({}), [1, 2, 3, 4, 5]);
+  assert.deepEqual(ids({ busca: "revisao" }), [1]);
+  assert.deepEqual(ids({ busca: "CLINICAS" }), [3]);
+  assert.deepEqual(ids({ busca: "rayssa" }), [3]);
+  assert.deepEqual(ids({ prioridade: "alta" }), [1]);
+  assert.deepEqual(ids({ prazo: "vencidas" }), [1]);
+  assert.deepEqual(ids({ prazo: "hoje" }), [2]);
+  assert.deepEqual(ids({ prazo: "semana" }), [2, 3]);
+  assert.deepEqual(ids({ prazo: "sem_prazo" }), [4]);
+  assert.equal(filtrosAtivos({ busca: " ", prazo: "hoje", prioridade: "alta" }), 2);
+});
+
+test("resumo do quadro: abertas, vencidas, para hoje e feitas na semana", () => {
+  const hoje = "2026-11-23";
+  const lista = [
+    t(1, "a_fazer", 0, "dimi", "2026-11-20"),
+    t(2, "a_fazer", 1, "dimi", "2026-11-23"),
+    t(3, "fazendo", 0, "dimi", null),
+    { ...t(4, "feito", 0), concluida_em: "2026-11-22T10:00:00Z" },
+    { ...t(5, "feito", 1), concluida_em: "2026-11-10T10:00:00Z" },
+  ];
+  assert.deepEqual(resumoQuadro(lista, hoje), { abertas: 3, vencidas: 1, paraHoje: 1, feitas7: 1 });
+});
+
+test("prazo em palavras", () => {
+  const hoje = "2026-11-23";
+  assert.equal(rotuloPrazo("2026-11-23", hoje), "Hoje");
+  assert.equal(rotuloPrazo("2026-11-24", hoje), "Amanhã");
+  assert.equal(rotuloPrazo("2026-11-22", hoje), "Ontem");
+  assert.equal(rotuloPrazo("2026-11-20", hoje), "Há 3 dias");
+  assert.equal(rotuloPrazo("2026-11-27", hoje), "Em 4 dias");
+  assert.equal(rotuloPrazo("2026-12-15", hoje), "15 dez");
+  assert.equal(rotuloPrazo("2027-01-05", hoje), "5 jan 2027");
+  assert.equal(corPessoa("dimi"), corPessoa("dimi"));
+});
+
+test("cada sócia tem uma cor própria", () => {
+  const cores = ["dimi", "jullyana", "rayssa"].map(corPessoa);
+  assert.equal(new Set(cores).size, 3);
+  assert.equal(corPessoa("dimi"), "#4c8dff");
+});
+
+test("filtros do estilo Jira: tipo, etiqueta, épico e filtros rápidos", () => {
+  const bug = { ...t(1, "a_fazer", 0), tipo: "bug" as const, etiquetas: ["app"], epico_id: 9, epico_titulo: "Lojas", prioridade: "alta" as const };
+  const comum = { ...t(2, "a_fazer", 1), tipo: "tarefa" as const, etiquetas: ["web"], bloqueios_abertos: 1, atualizado_em: new Date().toISOString() };
+  const lista = [bug, comum];
+  const so = (f: Partial<Filtros>) => filtrarTarefas(lista, { ...FILTROS_VAZIOS, ...f }, "2026-11-23").map((x) => x.id);
+  assert.deepEqual(so({ tipo: "bug" }), [1]);
+  assert.deepEqual(so({ etiqueta: "web" }), [2]);
+  assert.deepEqual(so({ epico: 9 }), [1]);
+  assert.deepEqual(so({ epico: "sem" }), [2]);
+  assert.deepEqual(so({ rapidos: ["alta"] }), [1]);
+  assert.deepEqual(so({ rapidos: ["bloqueadas"] }), [2]);
+  assert.deepEqual(so({ rapidos: ["recentes"] }), [2]);
+  assert.deepEqual(so({ busca: "ori-2" }), [2]);
+  assert.equal(filtrosAtivos({ ...FILTROS_VAZIOS, tipo: "bug", rapidos: ["alta", "bugs"] }), 3);
+  assert.deepEqual(etiquetasDe(lista), ["app", "web"]);
+});
+
+test("raias por pessoa e por épico (sem épico por último)", () => {
+  const a = { ...t(1, "a_fazer", 0, "rayssa"), epico_id: 5, epico_titulo: "Beta" };
+  const b = { ...t(2, "a_fazer", 0, "dimi") };
+  assert.deepEqual(raias([a, b], "pessoa").map((r) => r.titulo), ["dimi", "rayssa"]);
+  assert.deepEqual(raias([b, a], "epico").map((r) => r.titulo), ["Beta", "Sem épico"]);
+  assert.equal(raias([a, b], "nenhum").length, 1);
+});
+
+test("frases do histórico e progresso", () => {
+  assert.equal(fraseHistorico({ campo: "criada", de: null, para: "X" }), "criou a tarefa");
+  assert.equal(fraseHistorico({ campo: "status", de: "A fazer", para: "Fazendo" }), "mudou o status de A fazer para Fazendo");
+  assert.equal(fraseHistorico({ campo: "pontos", de: null, para: "3" }), "definiu os pontos como 3");
+  assert.equal(fraseHistorico({ campo: "sprint_id", de: "Sprint 1", para: null }), "tirou a sprint (Sprint 1)");
+  assert.equal(progresso(1, 3), 33);
+  assert.equal(progresso(0, 0), 0);
 });

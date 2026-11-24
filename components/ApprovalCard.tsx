@@ -214,38 +214,50 @@ function DetalhesReuniao({ proposta }: { proposta: PropostaReuniao }) {
   const participantes = proposta.participantes ?? [];
   const pauta = proposta.pauta ?? [];
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-      {proposta.inicio && (
-        <div>
-          <span className="texto-secundario">Início: </span>
-          <span className="mono">{dataHora(proposta.inicio)}</span>
-          {typeof proposta.duracao_min === "number" && (
-            <span className="texto-secundario">
-              {" "}
-              · {proposta.duracao_min} min
-            </span>
-          )}
-        </div>
-      )}
-      {participantes.length > 0 && (
-        <div>
-          <span className="texto-secundario">Participantes: </span>
-          <span>{participantes.join(", ")}</span>
-        </div>
-      )}
+    <div className="apv-detalhes">
+      <dl className="apv-campos">
+        {proposta.inicio && (
+          <div>
+            <dt>Quando</dt>
+            <dd>
+              {dataHora(proposta.inicio)}
+              {typeof proposta.duracao_min === "number" && <span className="apv-suave"> · {proposta.duracao_min} min</span>}
+            </dd>
+          </div>
+        )}
+        {participantes.length > 0 && (
+          <div>
+            <dt>Participantes</dt>
+            <dd className="apv-pessoas">
+              {participantes.map((p) => (
+                <span key={p} className="apv-pessoa">
+                  {nomeUsuario(p)}
+                </span>
+              ))}
+            </dd>
+          </div>
+        )}
+      </dl>
       {pauta.length > 0 && (
-        <div>
-          <span className="texto-secundario">Pauta:</span>
-          <ul style={{ margin: "4px 0 0", paddingLeft: "18px" }}>
+        <div className="apv-pauta">
+          <span className="apv-rotulo">Pauta</span>
+          <ol>
             {pauta.map((item, i) => (
               <li key={i}>{item}</li>
             ))}
-          </ul>
+          </ol>
         </div>
       )}
     </div>
   );
 }
+
+const ROTULO_TIPO_CARTAO = { reuniao: "Reunião", documento: "Documento", comercial: "Comercial" } as const;
+const ICONE_TIPO: Record<keyof typeof ROTULO_TIPO_CARTAO, string> = {
+  reuniao: "M3.5 5h17v15h-17zM3.5 10h17M8 3v4M16 3v4",
+  documento: "M14 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8zM14 3.5V8h4.5M9 13h6M9 16.5h4",
+  comercial: "M3.5 7.5h17v12h-17zM9 7.5V5h6v2.5M3.5 13h17",
+};
 
 export default function ApprovalCard({
   aprovacao,
@@ -272,100 +284,77 @@ export default function ApprovalCard({
   const comErro = aprovacao.status === "erro";
   const destaque = pendente || comErro;
 
+  const tipo: keyof typeof ROTULO_TIPO_CARTAO = ehComercial ? "comercial" : ehDocumento ? "documento" : "reuniao";
+  const situacao = pendente
+    ? { classe: "pendente", texto: "Esperando você" }
+    : comErro
+      ? { classe: "erro", texto: "Não concluída" }
+      : aprovacao.status === "aprovada"
+        ? { classe: "aprovada", texto: "Aprovada" }
+        : aprovacao.status === "obsoleta"
+          ? { classe: "obsoleta", texto: "Não aplicada" }
+          : { classe: "recusada", texto: "Recusada" };
+
   return (
-    <div
-      className="painel"
-      style={{
-        padding: "14px 16px",
-        borderColor: destaque ? "var(--espera)" : "var(--borda)",
-        borderLeft: `3px solid ${
-          destaque ? "var(--espera)" : "var(--borda-forte)"
-        }`,
-        display: "flex",
-        flexDirection: "column",
-        gap: "10px",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          gap: "12px",
-        }}
-      >
-        <span className="titulo-pixel" style={{ fontSize: "13px" }}>
-          {titulo}
+    <article className={`apv-cartao${destaque ? " destaque" : ""}`}>
+      <header className="apv-topo">
+        <span className={`apv-icone tipo-${tipo}`} aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d={ICONE_TIPO[tipo]} />
+          </svg>
         </span>
-        <span className="mono texto-secundario" style={{ fontSize: "11px" }}>
-          {dataHora(aprovacao.criado_em)}
-        </span>
-      </div>
+        <div className="apv-cabeca">
+          <h3 className="apv-titulo">{titulo}</h3>
+          <p className="apv-meta">
+            {ROTULO_TIPO_CARTAO[tipo]}
+            {aprovacao.pedido_por && <> · pedido por {quemPediu(aprovacao.pedido_por, aprovacao.criado_em)}</>} · {dataHora(aprovacao.criado_em)}
+          </p>
+        </div>
+        <span className={`apv-status ${situacao.classe}`}>{situacao.texto}</span>
+      </header>
 
       {ehComercial ? (
-        <DetalhesComercial tipo={aprovacao.tipo} proposta={propostaCom} />
+        <div className="apv-detalhes">
+          <DetalhesComercial tipo={aprovacao.tipo} proposta={propostaCom} />
+        </div>
       ) : ehDocumento ? (
-        <DetalhesDocumento proposta={propostaDoc} />
+        <div className="apv-detalhes">
+          <DetalhesDocumento proposta={propostaDoc} />
+        </div>
       ) : (
         <DetalhesReuniao proposta={proposta} />
       )}
 
-      {aprovacao.pedido_por && (
-        <div className="texto-secundario" style={{ fontSize: "13px" }}>
-          Pedido por {quemPediu(aprovacao.pedido_por, aprovacao.criado_em)}
-        </div>
-      )}
-
       {pendente && onDecidir ? (
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button
-            type="button"
-            className="botao-destaque"
-            disabled={ocupado}
-            onClick={() => onDecidir(aprovacao.id, true)}
-          >
-            Aprovar
-          </button>
-          <button
-            type="button"
-            className="botao"
-            disabled={ocupado}
-            onClick={() => onDecidir(aprovacao.id, false)}
-          >
+        <footer className="apv-acoes">
+          <button type="button" className="botao" disabled={ocupado} onClick={() => onDecidir(aprovacao.id, false)}>
             Recusar
           </button>
-        </div>
+          <button type="button" className="botao botao-destaque" disabled={ocupado} onClick={() => onDecidir(aprovacao.id, true)}>
+            Aprovar
+          </button>
+        </footer>
       ) : comErro ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <div style={{ fontSize: "13px", color: "var(--espera)" }}>
+        <footer className="apv-acoes entre">
+          <span className="apv-nota erro">
             {aprovacao.aprovado ? "Aprovada" : "Recusada"}
-            {aprovacao.decidido_por ? ` por ${nomeUsuario(aprovacao.decidido_por)}` : ""}, mas
-            a ação não foi concluída.
-          </div>
+            {aprovacao.decidido_por ? ` por ${nomeUsuario(aprovacao.decidido_por)}` : ""}, mas a ação não foi concluída.
+          </span>
           {onRetomar && (
-            <div>
-              <button
-                type="button"
-                className="botao-destaque"
-                disabled={ocupado}
-                onClick={() => onRetomar(aprovacao.id)}
-              >
-                Tentar de novo
-              </button>
-            </div>
+            <button type="button" className="botao botao-destaque" disabled={ocupado} onClick={() => onRetomar(aprovacao.id)}>
+              Tentar de novo
+            </button>
           )}
-        </div>
+        </footer>
       ) : !pendente ? (
-        <div className="texto-secundario" style={{ fontSize: "13px" }}>
-          {aprovacao.status === "aprovada"
-            ? "Aprovada"
-            : aprovacao.status === "obsoleta"
-              ? "Aprovada, mas não aplicada: o item mudou desde a proposta"
-              : "Recusada"}
-          {aprovacao.decidido_por ? ` por ${nomeUsuario(aprovacao.decidido_por)}` : ""}
-          {aprovacao.decidido_em ? ` · ${dataHora(aprovacao.decidido_em)}` : ""}
-        </div>
+        <footer className="apv-acoes entre">
+          <span className="apv-nota">
+            {aprovacao.status === "obsoleta" ? "Aprovada, mas o item mudou desde a proposta" : situacao.texto}
+            {aprovacao.decidido_por ? ` por ${nomeUsuario(aprovacao.decidido_por)}` : ""}
+            {aprovacao.decidido_em ? ` · ${dataHora(aprovacao.decidido_em)}` : ""}
+          </span>
+        </footer>
       ) : null}
-    </div>
+    </article>
   );
 }

@@ -12,7 +12,7 @@ from typing import Optional
 from . import db
 
 TAMANHO_MAX = 8 * 1024 * 1024  # 8 MB por arquivo
-ENTIDADES = {"documento": "documentos", "negocio": "negocios"}
+ENTIDADES = {"documento": "documentos", "negocio": "negocios", "tarefa": "tarefas"}
 
 # extensão -> tipo MIME
 TIPOS = {

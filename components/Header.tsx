@@ -2,22 +2,26 @@
 
 // Menu lateral do grupo autenticado (Requirements 1.4, 9.2).
 // - Checa a sessão via GET /api/me (401 é tratado em lib/api.ts, que redireciona para /login).
-// - Navegação agrupada (Trabalho e Operação) com contadores: aprovações pendentes (polling leve),
-//   incidentes abertos do Vigia e próximos passos vencidos do Comercial.
-// - Busca global (Ctrl+K), nome do usuário e "Sair".
+// - Navegação agrupada (Trabalho e Operação) com contadores: incidentes abertos do Vigia (em Agentes) e
+//   próximos passos vencidos do Comercial. Configurações (segurança e backup) fica no pé.
+// - Aprovações viram uma caixa de entrada: o sino no topo mostra as pendentes (polling leve).
+// - Busca global (Ctrl+K), cartão do usuário, tema claro/escuro e "Sair".
 // - Recolhível (só ícones; a escolha fica no navegador) e, no celular, vira barra no topo com gaveta.
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { obter, enviar } from "../lib/api";
 import Paleta from "./Paleta";
+import { usePessoas } from "../lib/pessoas";
+import PainelNotificacoes, { useNotificacoes } from "./SinoNotificacoes";
 import { nomeUsuario } from "../lib/exibicao";
+import { lerTema, trocarTema, type Tema } from "../lib/tema";
 
 type Me = { usuario: string; aprovador: boolean };
-type Aprovacao = { id: number };
+type Aprovacao = { id: number; tipo: string; pedido_por: string | null; criado_em: string; proposta: { titulo?: string } | null };
 
-type Item = { href: string; rotulo: string; icone: string; tambem?: string[]; contador?: "aprovacoes" | "incidentes" | "comercial" };
+type Item = { href: string; rotulo: string; icone: string; tambem?: string[]; contador?: "incidentes" | "comercial" };
 
 const GRUPOS: { titulo: string; itens: Item[] }[] = [
   {
@@ -34,13 +38,20 @@ const GRUPOS: { titulo: string; itens: Item[] }[] = [
   {
     titulo: "Operação",
     itens: [
-      { href: "/agentes", rotulo: "Agentes", icone: "agentes", tambem: ["/escritorio"] },
-      { href: "/incidentes", rotulo: "Incidentes", icone: "incidentes", contador: "incidentes" },
-      { href: "/aprovacoes", rotulo: "Aprovações", icone: "aprovacoes", contador: "aprovacoes" },
-      { href: "/seguranca", rotulo: "Segurança", icone: "seguranca" },
+      { href: "/agentes", rotulo: "Agentes", icone: "agentes", tambem: ["/escritorio", "/incidentes"], contador: "incidentes" },
     ],
   },
 ];
+
+const CONFIGURACOES: Item = { href: "/configuracoes", rotulo: "Configurações", icone: "configuracoes", tambem: ["/seguranca"] };
+
+const ROTULO_TIPO: Record<string, string> = {
+  reuniao: "Reunião",
+  criar_documento: "Novo documento",
+  editar_documento: "Edição de documento",
+};
+const tituloAprovacao = (a: Aprovacao) =>
+  a.proposta?.titulo || ROTULO_TIPO[a.tipo] || (a.tipo.startsWith("comercial_") ? "Comercial" : a.tipo.replace(/_/g, " "));
 
 // Intervalo do polling do contador de pendentes (~3 s: leve, não é tempo real).
 const INTERVALO_PENDENTES_MS = 3000;
@@ -114,7 +125,36 @@ const CAMINHOS: Record<string, ReactNode> = {
     </>
   ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
-  recolher: <path d="M15 5l-7 7 7 7" />,
+  recolher: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+      <path d="M9.5 4.5v15" />
+    </>
+  ),
+  sino: (
+    <>
+      <path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z" />
+      <path d="M10 20.5a2 2 0 0 0 4 0" />
+    </>
+  ),
+  configuracoes: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+    </>
+  ),
+  sol: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" />
+    </>
+  ),
+  lua: <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />,
+  marca: (
+    <>
+      <path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z" fill="currentColor" stroke="none" />
+    </>
+  ),
   sair: <path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9" />,
 };
 
@@ -140,7 +180,12 @@ function Icone({ nome }: { nome: string }) {
 export default function Header() {
   const caminho = usePathname();
   const [usuario, setUsuario] = useState<string | null>(null);
-  const [pendentes, setPendentes] = useState(0);
+  const [pendentes, setPendentes] = useState<Aprovacao[]>([]);
+  const [caixa, setCaixa] = useState(false);
+  const notif = useNotificacoes();
+  usePessoas(); // carrega os nomes de exibição para todo o HQ
+  const [tema, setTema] = useState<Tema>("claro");
+  const caixaRef = useRef<HTMLDivElement>(null);
   const [incidentesAbertos, setIncidentesAbertos] = useState(0);
   const [vencidos, setVencidos] = useState(0);
   const [saindo, setSaindo] = useState(false);
@@ -157,8 +202,27 @@ export default function Header() {
     }
   }, []);
 
-  // A gaveta do celular fecha ao navegar.
-  useEffect(() => setGaveta(false), [caminho]);
+  useEffect(() => setTema(lerTema()), []);
+
+  // A gaveta do celular e a caixa de entrada fecham ao navegar.
+  useEffect(() => {
+    setGaveta(false);
+    setCaixa(false);
+  }, [caminho]);
+
+  // A caixa de entrada fecha com clique fora ou Esc.
+  useEffect(() => {
+    if (!caixa) return;
+    const fechar = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !caixaRef.current?.contains(e.target as Node)) setCaixa(false);
+    };
+    document.addEventListener("mousedown", fechar);
+    document.addEventListener("keydown", fechar);
+    return () => {
+      document.removeEventListener("mousedown", fechar);
+      document.removeEventListener("keydown", fechar);
+    };
+  }, [caixa]);
 
   const recolhido = escolha ?? caminho.startsWith("/escritorio");
 
@@ -195,7 +259,7 @@ export default function Header() {
       if (typeof document !== "undefined" && document.hidden) return;
       try {
         const lista = await obter<Aprovacao[]>("/aprovacoes?status=pendente");
-        if (ativo && Array.isArray(lista)) setPendentes(lista.length);
+        if (ativo && Array.isArray(lista)) setPendentes(lista);
       } catch {
         // erros de rede/401 não devem quebrar o loop
       }
@@ -264,29 +328,80 @@ export default function Header() {
     }
   }
 
-  const contagem = { aprovacoes: pendentes, incidentes: incidentesAbertos, comercial: vencidos };
+  const contagem = { incidentes: incidentesAbertos, comercial: vencidos };
   const rotuloContador = {
-    aprovacoes: "aprovações pendentes",
     incidentes: "incidentes abertos",
     comercial: "próximos passos vencidos",
   };
 
+  function item(it: Item) {
+    const ativo = [it.href, ...(it.tambem ?? [])].some((h) => caminho === h || caminho.startsWith(`${h}/`));
+    const n = it.contador ? contagem[it.contador] : 0;
+    return (
+      <Link key={it.href} href={it.href} className={`hq-item${ativo ? " ativo" : ""}`} aria-current={ativo ? "page" : undefined} title={it.rotulo}>
+        <Icone nome={it.icone} />
+        <span className="hq-rotulo">{it.rotulo}</span>
+        {n > 0 && it.contador && (
+          <span className={`hq-contador mono${it.contador === "incidentes" ? " perigo" : ""}`} aria-label={`${n} ${rotuloContador[it.contador]}`}>
+            {n}
+          </span>
+        )}
+      </Link>
+    );
+  }
+
+  function alternarTema() {
+    setTema(trocarTema());
+  }
+
   return (
     <aside className={`hq-menu${recolhido ? " recolhido" : ""}${gaveta ? " gaveta-aberta" : ""}`}>
       <div className="hq-menu-topo">
-        <Link href="/inicio" className="hq-marca titulo-pixel" aria-label="Orion HQ">
-          <span className="hq-marca-ponto" aria-hidden="true" />
-          <span className="hq-rotulo">Orion HQ</span>
+        <Link href="/inicio" className="hq-marca" aria-label="Orion HQ, início">
+          <span className="hq-marca-logo" aria-hidden="true">
+            <Icone nome="marca" />
+          </span>
+          <span className="hq-rotulo hq-marca-textos">
+            <strong>Orion HQ</strong>
+            <span>Central da equipe</span>
+          </span>
         </Link>
-        <button
-          type="button"
-          className="hq-gaveta-botao"
-          aria-label="Abrir menu"
-          aria-expanded={gaveta}
-          onClick={() => setGaveta((g) => !g)}
-        >
-          <Icone nome="menu" />
-        </button>
+        <div className="hq-topo-acoes">
+          <div className="hq-caixa" ref={caixaRef}>
+            <button
+              type="button"
+              className={`hq-icone-botao${pendentes.length + notif.dados.nao_lidas > 0 ? " com-aviso" : ""}`}
+              aria-label={`Notificações: ${notif.dados.nao_lidas} não lidas, ${pendentes.length} aprovações pendentes`}
+              aria-expanded={caixa}
+              aria-haspopup="dialog"
+              title="Notificações"
+              onClick={() => setCaixa((c) => !c)}
+            >
+              <Icone nome="sino" />
+              {pendentes.length + notif.dados.nao_lidas > 0 && <span className="hq-sino-contador mono">{Math.min(99, pendentes.length + notif.dados.nao_lidas)}</span>}
+            </button>
+            {caixa && (
+              <PainelNotificacoes
+                dados={notif.dados}
+                setDados={notif.setDados}
+                aprovacoes={pendentes.map((a) => ({ id: a.id, titulo: tituloAprovacao(a), tipo_rotulo: ROTULO_TIPO[a.tipo] ?? "Proposta", pedido_por: a.pedido_por ?? null }))}
+                onFechar={() => setCaixa(false)}
+              />
+            )}
+          </div>
+          <button
+            type="button"
+            className="hq-icone-botao hq-recolher"
+            onClick={alternarRecolhido}
+            aria-label={recolhido ? "Expandir menu" : "Recolher menu"}
+            title={recolhido ? "Expandir menu" : "Recolher menu"}
+          >
+            <Icone nome="recolher" />
+          </button>
+          <button type="button" className="hq-gaveta-botao hq-icone-botao" aria-label="Abrir menu" aria-expanded={gaveta} onClick={() => setGaveta((g) => !g)}>
+            <Icone nome="menu" />
+          </button>
+        </div>
       </div>
 
       <div className="hq-menu-corpo">
@@ -307,61 +422,39 @@ export default function Header() {
           {GRUPOS.map((grupo) => (
             <div key={grupo.titulo} className="hq-grupo">
               <div className="hq-grupo-titulo hq-rotulo">{grupo.titulo}</div>
-              {grupo.itens.map((item) => {
-                const ativo = [item.href, ...(item.tambem ?? [])].some((h) => caminho === h || caminho.startsWith(`${h}/`));
-                const n = item.contador ? contagem[item.contador] : 0;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`hq-item${ativo ? " ativo" : ""}`}
-                    aria-current={ativo ? "page" : undefined}
-                    title={item.rotulo}
-                  >
-                    <Icone nome={item.icone} />
-                    <span className="hq-rotulo">{item.rotulo}</span>
-                    {n > 0 && item.contador && (
-                      <span
-                        className={`hq-contador mono${item.contador === "incidentes" ? " perigo" : ""}`}
-                        aria-label={`${n} ${rotuloContador[item.contador]}`}
-                      >
-                        {n}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
+              {grupo.itens.map(item)}
             </div>
           ))}
         </nav>
 
         <div className="hq-rodape">
-          {usuario && (
-            <div className="hq-usuario" title={nomeUsuario(usuario)}>
-              <span className="hq-avatar" aria-hidden="true">
-                {usuario.slice(0, 1).toUpperCase()}
+          {item(CONFIGURACOES)}
+          <div className="hq-usuario-cartao">
+            {usuario && (
+              <span className="hq-usuario" title={nomeUsuario(usuario)}>
+                <span className="hq-avatar" aria-hidden="true">
+                  {usuario.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="hq-rotulo hq-usuario-textos">
+                  <strong>{nomeUsuario(usuario)}</strong>
+                  <span>Sócio</span>
+                </span>
               </span>
-              <span className="hq-rotulo">{nomeUsuario(usuario)}</span>
-            </div>
-          )}
-          <div className="hq-rodape-acoes">
-            <button type="button" className="hq-sair" onClick={sair} disabled={saindo}>
-              <span className="hq-rotulo">{saindo ? "Saindo…" : "Sair"}</span>
-              <span className="hq-so-recolhido">
+            )}
+            <span className="hq-usuario-acoes">
+              <button
+                type="button"
+                className="hq-icone-botao"
+                onClick={alternarTema}
+                aria-label={tema === "escuro" ? "Usar tema claro" : "Usar tema escuro"}
+                title={tema === "escuro" ? "Tema claro" : "Tema escuro"}
+              >
+                <Icone nome={tema === "escuro" ? "sol" : "lua"} />
+              </button>
+              <button type="button" className="hq-icone-botao" onClick={sair} disabled={saindo} aria-label="Sair" title={saindo ? "Saindo…" : "Sair"}>
                 <Icone nome="sair" />
-              </span>
-            </button>
-            <button
-              type="button"
-              className="hq-recolher"
-              onClick={alternarRecolhido}
-              aria-label={recolhido ? "Expandir menu" : "Recolher menu"}
-              title={recolhido ? "Expandir menu" : "Recolher menu"}
-            >
-              <span className={recolhido ? "girado" : undefined}>
-                <Icone nome="recolher" />
-              </span>
-            </button>
+              </button>
+            </span>
           </div>
         </div>
       </div>

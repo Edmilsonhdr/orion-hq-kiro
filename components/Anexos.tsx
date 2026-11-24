@@ -11,7 +11,7 @@ import { nomeUsuario } from "../lib/exibicao";
 
 const MAX = 8 * 1024 * 1024;
 
-async function enviarArquivo(entidade: string, id: number, arquivo: File): Promise<void> {
+export async function enviarArquivo(entidade: string, id: number, arquivo: File): Promise<Anexo> {
   const resposta = await fetch(`/api/anexos?entidade=${entidade}&id=${id}&nome=${encodeURIComponent(arquivo.name)}`, {
     method: "POST",
     headers: { "Content-Type": "application/octet-stream" },
@@ -31,9 +31,31 @@ async function enviarArquivo(entidade: string, id: number, arquivo: File): Promi
     }
     throw new Error(mensagem);
   }
+  return (await resposta.json()) as Anexo;
 }
 
-export default function Anexos({ entidade, id }: { entidade: "documento" | "negocio"; id: number }) {
+// `colarNaPagina`: aceita Ctrl+V de imagem em qualquer lugar da tela (fora de campos de texto com texto colado),
+// usado na tarefa aberta. `onMudou` avisa quem está em volta (ex.: a capa do cartão).
+export default function Anexos({
+  entidade,
+  id,
+  colarNaPagina = false,
+  onMudou,
+  grade = false,
+  versao = 0,
+  onAbrirImagem,
+}: {
+  entidade: "documento" | "negocio" | "tarefa";
+  id: number;
+  colarNaPagina?: boolean;
+  onMudou?: () => void;
+  /** Miniaturas em grade (tarefa aberta), em vez da lista com nome. */
+  grade?: boolean;
+  /** Muda quando outra parte da tela envia um anexo (imagem colada no texto), para recarregar a lista. */
+  versao?: number;
+  /** Abre a imagem num visualizador (em vez de nova aba). */
+  onAbrirImagem?: (id: number) => void;
+}) {
   const [lista, setLista] = useState<Anexo[]>([]);
   const [enviando, setEnviando] = useState(false);
   const [sobre, setSobre] = useState(false);
@@ -50,7 +72,7 @@ export default function Anexos({ entidade, id }: { entidade: "documento" | "nego
 
   useEffect(() => {
     carregar();
-  }, [carregar]);
+  }, [carregar, versao]);
 
   async function enviar(arquivos: File[]) {
     if (arquivos.length === 0 || enviando) return;
@@ -62,6 +84,7 @@ export default function Anexos({ entidade, id }: { entidade: "documento" | "nego
         await enviarArquivo(entidade, id, a);
       }
       await carregar();
+      onMudou?.();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível enviar.");
     } finally {
@@ -75,12 +98,31 @@ export default function Anexos({ entidade, id }: { entidade: "documento" | "nego
     try {
       await excluir(`/anexos/${a.id}`);
       await carregar();
+      onMudou?.();
     } catch {
       setErro("Não foi possível excluir.");
     }
   }
 
+  const enviarRef = useRef(enviar);
+  enviarRef.current = enviar;
+  useEffect(() => {
+    if (!colarNaPagina) return;
+    function colar(e: ClipboardEvent) {
+      // Colado num campo de texto: o próprio campo põe a imagem no texto.
+      if (e.defaultPrevented || (e.target as HTMLElement | null)?.closest?.("textarea, input, [contenteditable]")) return;
+      const imagens = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith("image/"));
+      if (imagens.length === 0) return;
+      e.preventDefault();
+      const carimbo = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
+      enviarRef.current(imagens.map((f, i) => new File([f], `print-${carimbo}${i ? `-${i + 1}` : ""}.${f.type.split("/")[1] || "png"}`, { type: f.type })));
+    }
+    document.addEventListener("paste", colar);
+    return () => document.removeEventListener("paste", colar);
+  }, [colarNaPagina]);
+
   function aoColar(e: React.ClipboardEvent) {
+    if (colarNaPagina) return; // o ouvinte da página já cuida
     const imagens = [...e.clipboardData.files].filter((f) => f.type.startsWith("image/"));
     if (imagens.length === 0) return;
     e.preventDefault();
@@ -104,7 +146,62 @@ export default function Anexos({ entidade, id }: { entidade: "documento" | "nego
         enviar([...e.dataTransfer.files]);
       }}
     >
-      <h2 className="com-grupo-titulo">Anexos</h2>
+      <h2 className="com-grupo-titulo">
+        Anexos {grade && lista.length > 0 && <span className="td-contagem">{lista.length}</span>}
+        {grade && (
+          <label className="td-icone pequeno anexos-mais" title="Adicionar arquivo">
+            +
+            <input type="file" multiple hidden disabled={enviando} onChange={(e) => enviar([...(e.target.files ?? [])])} />
+          </label>
+        )}
+      </h2>
+      {grade && (
+        <>
+          {lista.length === 0 && <p className="anexos-dica-grade">{enviando ? "Enviando…" : "Cole um print (Ctrl+V) em qualquer lugar da tarefa ou arraste arquivos para cá."}</p>}
+          <ul className="anexos-grade">
+            {lista.map((a) => (
+              <li key={a.id}>
+                <a
+                  href={`/api/anexos/${a.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="anexos-grade-capa"
+                  title={a.nome}
+                  onClick={(e) => {
+                    if (onAbrirImagem && a.tipo.startsWith("image/")) {
+                      e.preventDefault();
+                      onAbrirImagem(a.id);
+                    }
+                  }}
+                >
+                  {a.tipo.startsWith("image/") ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={`/api/anexos/${a.id}`} alt={a.nome} loading="lazy" />
+                  ) : (
+                    <span className="anexos-grade-ext">{a.nome.split(".").pop()?.toUpperCase()}</span>
+                  )}
+                </a>
+                <span className="anexos-grade-nome" title={a.nome}>
+                  {a.nome}
+                </span>
+                <span className="anexos-grade-meta">
+                  {formatarTamanho(a.tamanho)} · {formatarData(a.criado_em)}
+                </span>
+                <button type="button" className="anexos-grade-x" aria-label={`Excluir ${a.nome}`} title="Excluir" onClick={() => remover(a)}>
+                  ×
+                </button>
+              </li>
+            ))}
+            {enviando && lista.length > 0 && <li className="anexos-grade-enviando">Enviando…</li>}
+          </ul>
+          {erro && (
+            <p role="alert" className="com-erro">
+              {erro}
+            </p>
+          )}
+        </>
+      )}
+      {!grade && (<>
       {lista.length === 0 && <p className="texto-secundario" style={{ margin: "0 0 8px" }}>Nenhum anexo. Arraste um arquivo para cá, cole um print (Ctrl+V) ou escolha abaixo.</p>}
       <ul className="anexos-lista">
         {lista.map((a) => (
@@ -147,6 +244,7 @@ export default function Anexos({ entidade, id }: { entidade: "documento" | "nego
         />
       </label>
       <span className="texto-secundario anexos-dica"> PDF, imagem, texto, CSV, Word, Excel ou PowerPoint · até 8 MB</span>
+      </>)}
     </section>
   );
 }

@@ -228,122 +228,105 @@ function ChatConversa({ conversaId }: { conversaId: number | null }) {
     }
   }
 
+  const [abertas, setAbertas] = useState(false);
+
   return (
-    <div
-      style={{
-        maxWidth: "1000px",
-        margin: "0 auto",
-        flex: 1,
-        minWidth: 0,
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        padding: "16px",
-        gap: "12px",
-      }}
-    >
+    <div className="chat-principal">
       <h1 className="so-leitor">Chat</h1>
-      {/* Cartões de aprovação pendente no topo (Requirement 9.3) */}
+      <header className="chat-topo">
+        <div className="chat-topo-quem">
+          <span className="chat-topo-avatar" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z" fill="currentColor" />
+            </svg>
+          </span>
+          <div>
+            <strong>Orquestrador</strong>
+            <span className={`chat-topo-status${trabalho ? " ativo" : ""}`}>{trabalho ? "trabalhando…" : "pronto para ajudar"}</span>
+          </div>
+        </div>
+        <label className="chat-busca-caixa">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar na conversa" aria-label="Buscar no histórico do chat" />
+        </label>
+      </header>
+
+      {/* Aprovações pendentes: uma faixa compacta; os detalhes abrem sob demanda (Requirement 9.3) */}
       {pendentes.length > 0 && (
-        <section
-          aria-label="Aprovações pendentes"
-          style={{ display: "flex", flexDirection: "column", gap: "8px" }}
-        >
-          {pendentes.map((a) => (
-            <ApprovalCard
-              key={a.id}
-              aprovacao={a}
-              onDecidir={decidir}
-              ocupado={decidindo === a.id}
-            />
-          ))}
+        <section className={`chat-aprov${abertas ? " aberta" : ""}`} aria-label="Aprovações pendentes">
+          <button type="button" className="chat-aprov-faixa" aria-expanded={abertas} onClick={() => setAbertas((v) => !v)}>
+            <span className="chat-aprov-ponto" aria-hidden="true" />
+            <span className="chat-aprov-texto">
+              <strong>
+                {pendentes.length === 1 ? "1 proposta esperando sua decisão" : `${pendentes.length} propostas esperando sua decisão`}
+              </strong>
+              <span> · {pendentes.map((a) => (a.proposta as { titulo?: string })?.titulo).filter(Boolean).slice(0, 2).join(", ")}</span>
+            </span>
+            <span className="chat-aprov-ver">{abertas ? "Fechar" : "Revisar"}</span>
+          </button>
+          {abertas && (
+            <div className="chat-aprov-lista">
+              {pendentes.map((a) => (
+                <ApprovalCard key={a.id} aprovacao={a} onDecidir={decidir} ocupado={decidindo === a.id} />
+              ))}
+            </div>
+          )}
         </section>
       )}
 
-      <input
-        type="search"
-        className="chat-busca"
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        placeholder="Buscar no histórico do chat"
-        aria-label="Buscar no histórico do chat"
-      />
-
-      {/* Lista de mensagens */}
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: "auto",
-          overflowX: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          gap: "10px",
-          paddingRight: "4px",
-        }}
-      >
+      <div className="chat-mensagens">
         {mensagens.length === 0 && (
-          <div className="docs-vazio">
-            <strong>Nenhuma mensagem ainda</strong>
-            Comece a conversa com o Orquestrador. Algumas ideias:
+          <div className="chat-vazio">
+            <span className="chat-vazio-icone" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z" fill="currentColor" />
+              </svg>
+            </span>
+            <h2>Como posso ajudar?</h2>
+            <p>O Orquestrador consulta Docs, Comercial e o código do Orion, e chama o especialista certo.</p>
             <div className="chat-sugestoes">
               {SUGESTOES.map((s) => (
-                <button key={s} type="button" className="botao" onClick={() => setTexto(s)}>
+                <button key={s} type="button" className="chat-sugestao" onClick={() => setTexto(s)}>
                   {s}
+                  <span aria-hidden="true">→</span>
                 </button>
               ))}
             </div>
           </div>
         )}
-        {termo && visiveis.length === 0 && (
-          <p className="texto-secundario" style={{ textAlign: "center" }}>
-            Nenhuma mensagem com “{busca.trim()}”.
-          </p>
-        )}
+        {termo && visiveis.length === 0 && <p className="chat-nada">Nenhuma mensagem com “{busca.trim()}”.</p>}
         {visiveis.map((m) => (
-          <ChatMessage
-            key={m.id}
-            mensagem={m}
-            assinatura={assinaturas.get(m.id)}
-            fontes={m.run_id ? fontesDe(fontesPorRun.get(m.run_id) ?? []) : []}
-          />
+          <ChatMessage key={m.id} mensagem={m} assinatura={assinaturas.get(m.id)} fontes={m.run_id ? fontesDe(fontesPorRun.get(m.run_id) ?? []) : []} />
         ))}
         <div ref={fimRef} />
       </div>
 
       {/* Indicador "trabalhando…" com a última atividade do run (Requirement 2.4) */}
       {trabalho && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="texto-secundario mono"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontSize: "13px",
-            padding: "0 4px",
-          }}
-        >
-          <span aria-hidden="true">⌁</span>
+        <div role="status" aria-live="polite" className="chat-trabalhando">
+          <span className="chat-trabalhando-pontos" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
           <span>
-            <strong style={{ color: "var(--texto)", fontWeight: 600 }}>{trabalho.split(" · ")[0]}</strong> está trabalhando…
+            <strong>{trabalho.split(" · ")[0]}</strong> está trabalhando…
             {trabalho.includes(" · ") && <> {trabalho.split(" · ").slice(1).join(" · ")}</>}
           </span>
         </div>
       )}
 
       {erroEnvio && (
-        <p role="alert" style={{ margin: 0, color: "var(--espera)" }}>
+        <p role="alert" className="chat-erro">
           {erroEnvio}
         </p>
       )}
 
       {/* Caixa de envio */}
-      <form
-        onSubmit={aoEnviar}
-        style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}
-      >
+      <form onSubmit={aoEnviar} className="chat-compor">
         <textarea
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
@@ -353,18 +336,24 @@ function ChatConversa({ conversaId }: { conversaId: number | null }) {
               (e.currentTarget.form as HTMLFormElement)?.requestSubmit();
             }
           }}
-          placeholder="Mensagem para o Orquestrador (Enter envia)"
+          placeholder="Escreva para o Orquestrador…"
           rows={2}
-          style={{ flex: 1, resize: "none" }}
           aria-label="Mensagem"
         />
-        <button
-          type="submit"
-          className="botao-destaque"
-          disabled={enviando || texto.trim().length === 0}
-        >
-          {enviando ? "Enviando…" : "Enviar"}
-        </button>
+        <div className="chat-compor-rodape">
+          <span className="chat-compor-dica">
+            <kbd>Enter</kbd> envia · <kbd>Shift</kbd> + <kbd>Enter</kbd> quebra a linha
+          </span>
+          <button type="submit" className="chat-enviar" disabled={enviando || texto.trim().length === 0} aria-label={enviando ? "Enviando" : "Enviar"}>
+            {enviando ? (
+              "…"
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 19V5M5 12l7-7 7 7" />
+              </svg>
+            )}
+          </button>
+        </div>
       </form>
     </div>
   );
