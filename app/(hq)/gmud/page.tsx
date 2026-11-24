@@ -68,6 +68,14 @@ const FILTROS = [
   { chave: "rascunho", rotulo: "Rascunhos" },
   { chave: "encerradas", rotulo: "Encerradas" },
 ];
+const CAMPO_DO_AVISO: Record<string, string> = {
+  "início da janela": "inicio",
+  "fim da janela": "fim",
+  "plano de implantação": "plano_implantacao",
+  "plano de volta (rollback)": "plano_rollback",
+  "sistemas afetados": "sistemas",
+  "pelo menos um aprovador": "aprovadores",
+};
 const ROTULO_RISCO = { baixo: "Baixo", medio: "Médio", alto: "Alto" };
 
 // Datas: o back guarda timestamptz; a tela trabalha no horário de São Paulo.
@@ -257,12 +265,12 @@ export default function GmudPage() {
   );
 }
 
-function CampoTexto({ rotulo, valor, editavel, onSalvar, dica }: { rotulo: string; valor: string | null; editavel: boolean; onSalvar: (v: string) => void; dica: string }) {
+function CampoTexto({ rotulo, valor, editavel, onSalvar, dica, campo }: { rotulo: string; valor: string | null; editavel: boolean; onSalvar: (v: string) => void; dica: string; campo?: string }) {
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(valor ?? "");
   useEffect(() => setTexto(valor ?? ""), [valor]);
   return (
-    <section className="gm-secao">
+    <section className="gm-secao" data-campo={campo}>
       <h3>{rotulo}</h3>
       {editando ? (
         <div className="gm-edicao">
@@ -331,6 +339,27 @@ function GmudJanela({ id, eu, pessoas, onMudou, onFechar }: { id: number; eu: st
     }
   }
   const salvar = (campos: Record<string, unknown>) => rodar(() => atualizar(`/gmud/${id}`, campos));
+
+  function adicionarSistema() {
+    const nome = sistema.trim().replace(/,$/, "").trim();
+    if (!nome || !g) return;
+    setSistema("");
+    if (g.sistemas.some((x) => x.toLowerCase() === nome.toLowerCase())) return;
+    salvar({ sistemas: [...g.sistemas, nome] });
+  }
+
+  // Leva até o campo que falta: rola, pisca e põe o foco nele.
+  function irPara(campo: string) {
+    const alvo = ref.current?.querySelector<HTMLElement>(`[data-campo="${campo}"]`);
+    if (!alvo) return;
+    alvo.scrollIntoView({ behavior: "smooth", block: "center" });
+    alvo.classList.remove("gm-destacar");
+    void alvo.offsetWidth;
+    alvo.classList.add("gm-destacar");
+    window.setTimeout(() => alvo.classList.remove("gm-destacar"), 1800);
+    const foco = alvo.querySelector<HTMLElement>("input, .gm-texto.editavel, button.esc-botao, button.cd-botao");
+    window.setTimeout(() => foco?.focus(), 250);
+  }
   const postar = (rota: string, corpo?: unknown) => rodar(() => enviar(`/gmud/${id}/${rota}`, corpo ?? {}));
 
   if (!g) {
@@ -413,7 +442,18 @@ function GmudJanela({ id, eu, pessoas, onMudou, onFechar }: { id: number; eu: st
             <h2 className="gm-titulo-fixo">{g.titulo}</h2>
           )}
 
-          {erro && <p className="gm-erro" role="alert">{erro}</p>}
+          {erro && (erro.startsWith("Falta preencher:") ? (
+            <div className="gm-erro gm-faltando" role="alert">
+              <span>Falta preencher:</span>
+              {erro.replace("Falta preencher:", "").replace(/\.$/, "").split(",").map((item) => {
+                const nome = item.trim();
+                const campo = CAMPO_DO_AVISO[nome];
+                return campo ? (
+                  <button key={nome} type="button" className="gm-faltando-item" onClick={() => irPara(campo)}>{nome}</button>
+                ) : <span key={nome} className="gm-faltando-item">{nome}</span>;
+              })}
+            </div>
+          ) : <p className="gm-erro" role="alert">{erro}</p>)}
 
           {g.conflitos && g.conflitos.length > 0 && (
             <div className="gm-alerta" role="status">
@@ -441,8 +481,8 @@ function GmudJanela({ id, eu, pessoas, onMudou, onFechar }: { id: number; eu: st
 
           <CampoTexto rotulo="Descrição" valor={g.descricao} editavel={editavel} onSalvar={(v) => salvar({ descricao: v })} dica="O que vai mudar, em poucas linhas." />
           <CampoTexto rotulo="Justificativa" valor={g.justificativa} editavel={editavel} onSalvar={(v) => salvar({ justificativa: v })} dica="Por que a mudança é necessária e o que acontece se não for feita." />
-          <CampoTexto rotulo="Plano de implantação" valor={g.plano_implantacao} editavel={editavel} onSalvar={(v) => salvar({ plano_implantacao: v })} dica="Passo a passo da execução, com comandos e responsáveis." />
-          <CampoTexto rotulo="Plano de volta (rollback)" valor={g.plano_rollback} editavel={editavel} onSalvar={(v) => salvar({ plano_rollback: v })} dica="Como desfazer se der errado, e em quanto tempo." />
+          <CampoTexto rotulo="Plano de implantação" valor={g.plano_implantacao} editavel={editavel} campo="plano_implantacao" onSalvar={(v) => salvar({ plano_implantacao: v })} dica="Passo a passo da execução, com comandos e responsáveis." />
+          <CampoTexto rotulo="Plano de volta (rollback)" valor={g.plano_rollback} editavel={editavel} campo="plano_rollback" onSalvar={(v) => salvar({ plano_rollback: v })} dica="Como desfazer se der errado, e em quanto tempo." />
           <CampoTexto rotulo="Testes e validação" valor={g.plano_testes} editavel={editavel} onSalvar={(v) => salvar({ plano_testes: v })} dica="Como confirmar que deu certo depois da mudança." />
 
           <section className="gm-secao">
@@ -505,19 +545,23 @@ function GmudJanela({ id, eu, pessoas, onMudou, onFechar }: { id: number; eu: st
               <div className="td-info-linha"><dt>Ambiente</dt><dd><Escolha valor={g.ambiente} opcoes={AMBIENTES} rotulo="Ambiente" disabled={!editavel} onEscolher={(v) => salvar({ ambiente: v })} /></dd></div>
               <div className="td-info-linha"><dt>Impacto</dt><dd><Escolha valor={g.impacto} opcoes={IMPACTOS} rotulo="Impacto" disabled={!editavel} onEscolher={(v) => salvar({ impacto: v })} /></dd></div>
               <div className="td-info-linha"><dt>Probabilidade de falha</dt><dd><Escolha valor={g.probabilidade} opcoes={PROBS} rotulo="Probabilidade" disabled={!editavel} onEscolher={(v) => salvar({ probabilidade: v })} /></dd></div>
-              <div className="td-info-linha">
+              <div className="td-info-linha" data-campo="sistemas">
                 <dt>Sistemas</dt>
                 <dd className="gm-sistemas">
                   {g.sistemas.map((s) => (
                     <span key={s} className="gm-chip">{s}{editavel && <button type="button" aria-label={`Tirar ${s}`} onClick={() => salvar({ sistemas: g.sistemas.filter((x) => x !== s) })}>×</button>}</span>
                   ))}
                   {editavel && (
-                    <input value={sistema} onChange={(e) => setSistema(e.target.value)} placeholder="+ Sistema" className="gm-chip-novo"
-                      onKeyDown={(e) => { if (e.key === "Enter" && sistema.trim()) { e.preventDefault(); salvar({ sistemas: [...g.sistemas, sistema.trim()] }); setSistema(""); } }} />
+                    <span className="gm-sistema-novo">
+                      <input value={sistema} onChange={(e) => setSistema(e.target.value)} placeholder="Ex.: API" className="gm-chip-novo" aria-label="Novo sistema afetado"
+                        onBlur={adicionarSistema}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); adicionarSistema(); } }} />
+                      <button type="button" className="gm-sistema-botao" disabled={!sistema.trim()} onMouseDown={(e) => e.preventDefault()} onClick={adicionarSistema}>Adicionar</button>
+                    </span>
                   )}
                 </dd>
               </div>
-              <div className="td-info-linha">
+              <div className="td-info-linha" data-campo="inicio">
                 <dt>Início</dt>
                 <dd className="gm-quando">
                   {editavel ? <>
@@ -526,7 +570,7 @@ function GmudJanela({ id, eu, pessoas, onMudou, onFechar }: { id: number; eu: st
                   </> : quando(g.inicio)}
                 </dd>
               </div>
-              <div className="td-info-linha">
+              <div className="td-info-linha" data-campo="fim">
                 <dt>Fim</dt>
                 <dd className="gm-quando">
                   {editavel ? <>
@@ -541,7 +585,7 @@ function GmudJanela({ id, eu, pessoas, onMudou, onFechar }: { id: number; eu: st
                   opcoes={pessoas.map((p) => ({ valor: p, rotulo: nomeUsuario(p), icone: <Avatar nome={p} cor={corPessoa(p)} tamanho={20} /> }))}
                   onEscolher={(v) => salvar({ executor: v || null })} /></dd>
               </div>
-              <div className="td-info-linha">
+              <div className="td-info-linha" data-campo="aprovadores">
                 <dt>Aprovadores</dt>
                 <dd className="gm-aprovadores">
                   {g.tipo === "padrao" && <span className="texto-secundario">Mudança padrão: já é pré-aprovada.</span>}
